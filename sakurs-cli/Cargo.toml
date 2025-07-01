@@ -1,0 +1,16 @@
+[package]
+name = "sakurs-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Command-line interface for Sakurs sentence boundary detection"
+
+[[bin]]
+name = "sakurs"
+path = "src/main.rs"
+
+[dependencies]
+sakurs-core = { path = "../sakurs-core" }
