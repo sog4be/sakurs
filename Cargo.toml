@@ -12,7 +12,7 @@ authors = ["Ryo Sogabe <sog4be.ryo@gmail.com>"]
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/sog4be/sakurs"
-rust-version = "1.79"
+rust-version = "1.81"
 
 [workspace.dependencies]
 # Common dependencies
