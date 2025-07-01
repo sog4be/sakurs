@@ -1,0 +1,36 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "sakurs"
+description = "Fast, parallel sentence boundary detection using Delta-Stack Monoid algorithm"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Ryo Sogabe", email = "sog4be.ryo@gmail.com" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Linguistic",
+]
+keywords = ["nlp", "sentence", "boundary", "detection", "tokenization", "parallel"]
+requires-python = ">=3.8"
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/sog4be/sakurs"
+Documentation = "https://github.com/sog4be/sakurs#readme"
+Issues = "https://github.com/sog4be/sakurs/issues"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
