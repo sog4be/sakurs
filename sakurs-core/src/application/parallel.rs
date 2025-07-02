@@ -69,11 +69,8 @@ impl ParallelProcessor {
             chunks
                 .into_par_iter()
                 .map(|chunk| {
-                    parser.parse_chunk(
-                        &chunk.content,
-                        language_rules.as_ref(),
-                        None, // No carry state in parallel mode
-                    )
+                    // TODO: Temporary - will be updated with prefix-sum
+                    parser.scan_chunk(&chunk.content, language_rules.as_ref())
                 })
                 .collect::<Vec<_>>()
         });
@@ -92,7 +89,7 @@ impl ParallelProcessor {
         for chunk in chunks {
             let state = self
                 .parser
-                .parse_chunk(&chunk.content, language_rules.as_ref(), None);
+                .scan_chunk(&chunk.content, language_rules.as_ref());
             states.push(state);
         }
 

@@ -32,6 +32,7 @@
 pub mod chunking;
 pub mod config;
 pub mod processor;
+pub mod unified_processor;
 
 #[cfg(feature = "parallel")]
 pub mod parallel;
@@ -39,6 +40,7 @@ pub mod parallel;
 pub use chunking::{ChunkManager, TextChunk};
 pub use config::{ProcessingError, ProcessingMetrics, ProcessorConfig};
 pub use processor::{ProcessingOutput, TextProcessor};
+pub use unified_processor::{UnifiedProcessingOutput, UnifiedProcessor};
 
 #[cfg(feature = "parallel")]
 pub use parallel::ParallelProcessor;
