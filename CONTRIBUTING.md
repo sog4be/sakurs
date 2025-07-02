@@ -17,6 +17,10 @@ By participating in this project, you agree to abide by our Code of Conduct. Ple
 3. **Understand the architecture**: Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand the project structure and design decisions
 4. **Set up the development environment**:
    ```bash
+   # Install pre-commit hooks
+   make install-hooks
+   
+   # Build the project
    cargo build
    ```
 
@@ -43,9 +47,13 @@ By participating in this project, you agree to abide by our Code of Conduct. Ple
 
 3. **Run tests and checks**:
    ```bash
-   cargo test
-   cargo fmt
-   cargo clippy
+   # Run all CI checks (recommended)
+   make ci-check
+   
+   # Or run individual checks
+   cargo test --all-features --workspace
+   cargo fmt --all -- --check
+   cargo clippy --all-features --workspace -- -D warnings
    ```
 
 4. **Commit your changes**:
@@ -205,10 +213,22 @@ Link branches to issues for better tracking:
 
 ## Development Guidelines
 
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality. The hooks run automatically before each commit and check:
+- Code formatting (`cargo fmt`)
+- Linting (`cargo clippy --all-features`)
+- Tests (can be skipped with `SKIP_TESTS=1 git commit`)
+
+To install the hooks:
+```bash
+make install-hooks
+```
+
 ### Code Style
 
 - Use `cargo fmt` for consistent formatting
-- Run `cargo clippy` and address warnings
+- Run `cargo clippy --all-features --workspace -- -D warnings` and address all warnings
 - Write meaningful variable and function names
 - Add comments for complex logic
 
