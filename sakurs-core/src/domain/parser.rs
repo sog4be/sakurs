@@ -177,7 +177,11 @@ fn build_boundary_context(
     _consecutive_dots: usize,
 ) -> BoundaryContext {
     // Extract text before the boundary (up to 10 chars)
-    let start = position.saturating_sub(10);
+    // Need to find valid UTF-8 boundary
+    let mut start = position.saturating_sub(10);
+    while start > 0 && !text.is_char_boundary(start) {
+        start -= 1;
+    }
     let preceding_context = text[start..position].to_string();
 
     // Peek at upcoming characters (up to 10 chars)

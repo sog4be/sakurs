@@ -11,7 +11,30 @@
 //! - **Domain layer**: Pure mathematical algorithms and monoid operations
 //! - **Application layer**: Orchestration and parallel processing logic
 //! - **Adapter layer**: Interfaces for different use cases (CLI, Python, etc.)
+//!
+//! # Example
+//!
+//! ```rust
+//! use sakurs_core::application::{TextProcessor, ProcessorConfig};
+//! use sakurs_core::domain::language::EnglishLanguageRules;
+//! use std::sync::Arc;
+//!
+//! // Create language rules
+//! let rules = Arc::new(EnglishLanguageRules::new());
+//!
+//! // Create processor with default configuration
+//! let processor = TextProcessor::new(rules);
+//!
+//! // Process text
+//! let text = "Hello world. This is a test.";
+//! let result = processor.process_text(text).unwrap();
+//!
+//! // Extract sentences
+//! let sentences = result.extract_sentences(text);
+//! assert_eq!(sentences.len(), 2);
+//! ```
 
+pub mod application;
 pub mod domain;
 
 pub use domain::*;
