@@ -9,11 +9,11 @@ pub fn resolve_patterns(patterns: &[String]) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     for pattern in patterns {
-        let paths = glob(pattern).with_context(|| format!("Invalid glob pattern: {}", pattern))?;
+        let paths = glob(pattern).with_context(|| format!("Invalid glob pattern: {pattern}"))?;
 
         for path_result in paths {
             let path =
-                path_result.with_context(|| format!("Error resolving pattern: {}", pattern))?;
+                path_result.with_context(|| format!("Error resolving pattern: {pattern}"))?;
 
             if path.is_file() {
                 files.push(path);
