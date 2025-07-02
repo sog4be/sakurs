@@ -181,17 +181,18 @@ For temporary analysis reports, documentation, and other working files:
 
 ### File Organization
 - **Location**: `temp/` directory in project root
-- **Naming Convention**: `yyyy-mm-dd_${report-name}.md`
+- **Naming Convention**: `yyyy-mm-dd-HH:MM:SS_${report-name}.md`
 - **Examples**:
   ```
-  temp/2025-07-02_test-coverage-analysis.md
-  temp/2025-07-02_performance-benchmarks.md
-  temp/2025-07-02_architecture-review.md
+  temp/2025-07-02-10:30:00_test-coverage-analysis.md
+  temp/2025-07-02-14:15:30_performance-benchmarks.md
+  temp/2025-07-02-16:45:00_architecture-review.md
   ```
 
 ### Usage Guidelines
 - Use for analysis reports, investigation findings, temporary documentation
-- Include date for chronological tracking and cleanup
+- Include date and time for precise chronological tracking
+- Use 24-hour format (HH:MM:SS) for consistency
 - Use descriptive names with hyphens for readability
 - Clean up periodically - these files are not meant for long-term storage
 - Add `temp/` to `.gitignore` if temporary files should not be committed
@@ -202,3 +203,4 @@ For temporary analysis reports, documentation, and other working files:
 - Architecture decision documentation drafts
 - Debug session logs and findings
 - Temporary research and analysis documents
+- Progress tracking and status reports
