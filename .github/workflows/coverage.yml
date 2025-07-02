@@ -77,8 +77,14 @@ jobs:
           cargo llvm-cov report --summary-only > coverage-summary.txt
           
           # Generate per-package coverage for PR comment
-          cargo llvm-cov report --summary-only --package sakurs-core > coverage-core.txt || echo "N/A" > coverage-core.txt
-          cargo llvm-cov report --summary-only --package sakurs-cli > coverage-cli.txt || echo "N/A" > coverage-cli.txt
+          # Note: Use the overall summary and extract package-specific data from it
+          cargo llvm-cov report --summary-only > coverage-full.txt
+          
+          # Extract sakurs-core coverage
+          grep "sakurs-core" coverage-full.txt > coverage-core.txt || echo "N/A" > coverage-core.txt
+          
+          # Extract sakurs-cli coverage  
+          grep "sakurs-cli" coverage-full.txt > coverage-cli.txt || echo "N/A" > coverage-cli.txt
           
           # Display coverage per crate
           echo ""
@@ -189,8 +195,9 @@ jobs:
                   const content = fs.readFileSync(filename, 'utf8').trim();
                   if (content === 'N/A' || content === '') return 'N/A';
                   
-                  // Extract percentage from summary (format: "lines......: XX.X% (N of N lines)")
-                  const match = content.match(/lines\.*:\s*(\d+\.\d+)%/);
+                  // Extract percentage from line-based coverage report
+                  // Format: "sakurs-core/src/...    XX.XX%    ..."
+                  const match = content.match(/(\d+\.\d+)%/);
                   return match ? `${match[1]}%` : 'N/A';
                 } catch (error) {
                   return 'N/A';
