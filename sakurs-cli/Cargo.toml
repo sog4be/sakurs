@@ -24,3 +24,8 @@ env_logger = "0.11"
 log = "0.4"
 rayon = "1.10"
 toml = "0.8"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.10"
