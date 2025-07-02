@@ -126,14 +126,15 @@ fn test_english_abbreviations_in_japanese() {
 }
 
 #[test]
-fn test_japanese_company_abbreviations() {
+fn test_japanese_text_with_company_names() {
     let rules = JapaneseLanguageRules::new();
 
-    // Japanese company abbreviations
+    // Japanese text with company name abbreviations (株、有限会社 → 有)
+    // These are NOT treated as period-based abbreviations
     let text = "トヨタ株が上がりました。ソニー有の業績も良好です。";
     let state = scan_chunk(text, &rules);
 
-    // Should detect 2 boundaries (period positions)
+    // Should detect 2 boundaries at the periods
     assert_eq!(state.boundary_candidates.len(), 2);
 }
 

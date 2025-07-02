@@ -109,10 +109,10 @@ impl LanguageRules for JapaneseLanguageRules {
     }
 
     fn process_abbreviation(&self, text: &str, position: usize) -> AbbreviationResult {
-        // Japanese has fewer traditional abbreviations than English
-        // Most abbreviations are handled by the punctuation rule
+        // Japanese primarily needs to handle English abbreviations in mixed text
+        // Native Japanese doesn't use period-based abbreviations
 
-        if position >= text.len() {
+        if position >= text.len() || position == 0 {
             return AbbreviationResult {
                 is_abbreviation: false,
                 length: 0,
@@ -120,55 +120,27 @@ impl LanguageRules for JapaneseLanguageRules {
             };
         }
 
-        // Check for basic Japanese abbreviation patterns
+        // For English abbreviations in Japanese text
         let chars: Vec<char> = text.chars().collect();
+        let preceding_chars: String = chars
+            .iter()
+            .take(position)
+            .rev()
+            .take(4)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
 
-        // Check if current position is a Japanese abbreviation
-        if let Some(&current_char) = chars.get(position) {
-            if matches!(current_char, '株' | '有' | '会' | '社') {
+        let common_english_abbrevs = ["Dr", "Mr", "Ms", "Prof", "Inc", "Ltd", "Corp"];
+
+        for abbrev in &common_english_abbrevs {
+            if preceding_chars.ends_with(abbrev) {
                 return AbbreviationResult {
                     is_abbreviation: true,
-                    length: 1,
-                    confidence: 0.8,
+                    length: abbrev.len(),
+                    confidence: 0.9,
                 };
-            }
-        }
-
-        // Check if the character before the position is a Japanese abbreviation
-        if position > 0 {
-            if let Some(&prev_char) = chars.get(position - 1) {
-                if matches!(prev_char, '株' | '有' | '会' | '社') {
-                    return AbbreviationResult {
-                        is_abbreviation: true,
-                        length: 1,
-                        confidence: 0.8,
-                    };
-                }
-            }
-        }
-
-        // For English abbreviations in Japanese text, use basic detection
-        if position > 0 {
-            let preceding_chars: String = chars
-                .iter()
-                .take(position)
-                .rev()
-                .take(4)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect();
-
-            let common_english_abbrevs = ["Dr", "Mr", "Ms", "Prof", "Inc", "Ltd", "Corp"];
-
-            for abbrev in &common_english_abbrevs {
-                if preceding_chars.ends_with(abbrev) {
-                    return AbbreviationResult {
-                        is_abbreviation: true,
-                        length: abbrev.len(),
-                        confidence: 0.9,
-                    };
-                }
             }
         }
 
@@ -374,20 +346,24 @@ mod tests {
     fn test_abbreviation_processing() {
         let rules = JapaneseLanguageRules::new();
 
-        // Japanese company abbreviation
-        let result = rules.process_abbreviation("トヨタ株", 4);
-        assert!(result.is_abbreviation);
-        assert_eq!(result.length, 1);
-        assert!(result.confidence > 0.7);
-
         // English abbreviation in Japanese text
         let result = rules.process_abbreviation("Dr. Smith", 2);
         assert!(result.is_abbreviation);
         assert_eq!(result.length, 2);
         assert!(result.confidence > 0.8);
 
-        // Not an abbreviation
+        // Another English abbreviation
+        let result = rules.process_abbreviation("Apple Inc.", 9);
+        assert!(result.is_abbreviation);
+        assert_eq!(result.length, 3);
+        assert!(result.confidence > 0.8);
+
+        // Not an abbreviation - Japanese text
         let result = rules.process_abbreviation("普通の文", 3);
+        assert!(!result.is_abbreviation);
+
+        // Not an abbreviation - position 0
+        let result = rules.process_abbreviation("文章", 0);
         assert!(!result.is_abbreviation);
     }
 
