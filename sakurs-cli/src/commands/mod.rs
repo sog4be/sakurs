@@ -10,21 +10,6 @@ pub enum Commands {
     /// Process text files for sentence boundary detection
     Process(process::ProcessArgs),
 
-    /// Analyze text without processing (statistics, benchmarks)
-    #[command(visible_alias = "analyse")]
-    Analyze {
-        /// Show statistics about the text
-        #[arg(long)]
-        stats: bool,
-
-        /// Run performance benchmark
-        #[arg(long)]
-        benchmark: bool,
-
-        /// Input file to analyze
-        input: String,
-    },
-
     /// Configuration management
     Config {
         #[command(subcommand)]

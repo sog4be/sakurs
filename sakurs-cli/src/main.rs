@@ -34,33 +34,9 @@ fn main() -> CliResult<()> {
     // Execute the appropriate command
     match cli.command {
         Commands::Process(args) => args.execute(),
-        Commands::Analyze {
-            stats,
-            benchmark,
-            input,
-        } => execute_analyze(stats, benchmark, &input),
         Commands::Config { subcommand } => execute_config(subcommand),
         Commands::List { subcommand } => execute_list(subcommand),
     }
-}
-
-/// Execute the analyze command
-fn execute_analyze(stats: bool, benchmark: bool, input: &str) -> Result<()> {
-    if !stats && !benchmark {
-        anyhow::bail!("Please specify --stats or --benchmark");
-    }
-
-    println!("Analyzing file: {}", input);
-
-    if stats {
-        println!("Statistics analysis not yet implemented");
-    }
-
-    if benchmark {
-        println!("Benchmark analysis not yet implemented");
-    }
-
-    Ok(())
 }
 
 /// Execute config subcommands
