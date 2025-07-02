@@ -46,7 +46,7 @@ fn execute_config(subcommand: ConfigCommands) -> Result<()> {
             let config = sakurs_cli::config::CliConfig::default();
             let toml =
                 toml::to_string_pretty(&config).context("Failed to serialize default config")?;
-            println!("{}", toml);
+            println!("{toml}");
             Ok(())
         }
         ConfigCommands::Validate { file } => {
@@ -54,7 +54,7 @@ fn execute_config(subcommand: ConfigCommands) -> Result<()> {
 
             // Read the config file
             let content = fs::read_to_string(&file)
-                .with_context(|| format!("Failed to read config file: {}", file))?;
+                .with_context(|| format!("Failed to read config file: {file}"))?;
 
             // Try to parse it
             match toml::from_str::<sakurs_cli::config::CliConfig>(&content) {
@@ -127,7 +127,7 @@ fn execute_config(subcommand: ConfigCommands) -> Result<()> {
                 Err(e) => {
                     eprintln!("❌ Config file is invalid!");
                     eprintln!();
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
 
                     // Try to provide helpful hints based on common errors
                     if e.to_string().contains("missing field") {
