@@ -41,12 +41,35 @@ When asked to create PRs or commits, always reference these documents to ensure 
 - Designed for true parallelism via rayon
 
 ## Development Workflow
+- **MANDATORY**: Run CI verification commands before every commit:
+  ```bash
+  cargo fmt --all -- --check
+  cargo clippy --workspace -- -D warnings  
+  cargo test --workspace
+  cargo check --workspace
+  ```
 - ALWAYS run `cargo fmt` and `cargo clippy` before commits
 - Read `docs/ARCHITECTURE.md` before modifying core algorithm
 - Add tests for new functionality - both unit and property tests
 - Benchmark performance-critical changes
 - Follow branch naming conventions from CONTRIBUTING.md
 - Use conventional commit format as described in CONTRIBUTING.md
+
+## CI Verification Commands
+**Run these exact commands before committing to avoid CI failures:**
+```bash
+# Format check (matches CI exactly)
+cargo fmt --all -- --check
+
+# Lint with warnings as errors (matches CI)
+cargo clippy --workspace -- -D warnings
+
+# Test all packages
+cargo test --workspace
+
+# Compilation check
+cargo check --workspace
+```
 
 ## Pull Request Guidelines
 When creating or helping with PRs:
