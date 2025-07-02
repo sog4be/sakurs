@@ -41,6 +41,31 @@ impl BoundaryFlags {
     };
 }
 
+impl Boundary {
+    /// Creates a new boundary at the specified offset
+    pub fn new(offset: usize) -> Self {
+        Self {
+            offset,
+            flags: BoundaryFlags::WEAK,
+        }
+    }
+
+    /// Creates a new boundary with specific flags
+    pub fn with_flags(offset: usize, flags: BoundaryFlags) -> Self {
+        Self { offset, flags }
+    }
+
+    /// Sets the may_be_abbrev flag (compatibility method)
+    pub fn set_may_be_abbrev(&mut self) {
+        self.flags.from_abbreviation = true;
+    }
+
+    /// Gets the may_be_abbrev flag (compatibility method)
+    pub fn may_be_abbrev(&self) -> bool {
+        self.flags.from_abbreviation
+    }
+}
+
 /// Delta entry for tracking enclosure state across chunks
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeltaEntry {
@@ -234,6 +259,12 @@ impl Monoid for PartialState {
 }
 
 impl MonoidReduce for PartialState {}
+
+impl Default for PartialState {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
 
 // Language rule integration methods
 impl PartialState {
