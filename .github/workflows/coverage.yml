@@ -116,6 +116,69 @@ jobs:
             
             echo "✅ Coverage comparison data prepared"
           fi
+          
+          # For PRs, analyze coverage of changed files only
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo ""
+            echo "🔍 Analyzing coverage of changed files..."
+            
+            # Get list of changed files
+            git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+            changed_files=$(git diff --name-only ${{ github.base_ref }}...HEAD | grep -E '\.(rs)$' || echo "")
+            
+            if [ -n "$changed_files" ]; then
+              echo "Changed Rust files:"
+              echo "$changed_files"
+              
+              # Generate coverage report for changed files
+              echo "# Changed Files Coverage Analysis" > coverage-diff.txt
+              echo "" >> coverage-diff.txt
+              
+              total_changed_files=0
+              covered_changed_files=0
+              
+              for file in $changed_files; do
+                if [ -f "$file" ]; then
+                  total_changed_files=$((total_changed_files + 1))
+                  
+                  # Check if file appears in coverage report
+                  file_coverage=$(cargo llvm-cov report --summary-only | grep "$file" | head -1 || echo "")
+                  
+                  if [ -n "$file_coverage" ]; then
+                    covered_changed_files=$((covered_changed_files + 1))
+                    coverage_percent=$(echo "$file_coverage" | grep -o '[0-9]\+\.[0-9]\+%' | head -1 || echo "N/A")
+                    echo "✅ $file: $coverage_percent" >> coverage-diff.txt
+                  else
+                    echo "❌ $file: No coverage data" >> coverage-diff.txt
+                  fi
+                fi
+              done
+              
+              echo "" >> coverage-diff.txt
+              echo "Summary: $covered_changed_files/$total_changed_files files have coverage data" >> coverage-diff.txt
+              
+              # Determine if this is a new file or modified file
+              new_files=$(git diff --name-status ${{ github.base_ref }}...HEAD | grep '^A' | cut -f2 | grep -E '\.(rs)$' || echo "")
+              modified_files=$(git diff --name-status ${{ github.base_ref }}...HEAD | grep '^M' | cut -f2 | grep -E '\.(rs)$' || echo "")
+              
+              if [ -n "$new_files" ]; then
+                echo "" >> coverage-diff.txt
+                echo "📄 New files:" >> coverage-diff.txt
+                echo "$new_files" | sed 's/^/  - /' >> coverage-diff.txt
+              fi
+              
+              if [ -n "$modified_files" ]; then
+                echo "" >> coverage-diff.txt
+                echo "📝 Modified files:" >> coverage-diff.txt
+                echo "$modified_files" | sed 's/^/  - /' >> coverage-diff.txt
+              fi
+              
+            else
+              echo "No changed Rust files found" > coverage-diff.txt
+            fi
+            
+            echo "✅ Changed files analysis complete"
+          fi
 
       - name: Check coverage threshold
         run: |
@@ -441,7 +504,32 @@ jobs:
               \`\`\`
               
               ### Coverage by Package
-              ${packageTable}
+              ${packageTable}`;
+              
+              // Add changed files coverage for PRs
+              let changedFilesSection = '';
+              try {
+                const diffCoverage = fs.readFileSync('coverage-diff.txt', 'utf8');
+                if (diffCoverage && diffCoverage.trim() !== 'No changed Rust files found') {
+                  changedFilesSection = `
+              
+              ### 🔍 Changed Files Coverage
+              \`\`\`
+              ${diffCoverage.trim()}
+              \`\`\``;
+                }
+              } catch (error) {
+                // coverage-diff.txt not available (not a PR or no changed files)
+              }
+              
+              const body = `${commentIdentifier}
+              ## 📊 Test Coverage Report
+              
+              ### Overall Coverage
+              \`\`\`
+              ${summary.trim()}
+              \`\`\`
+              ${packageTable}${changedFilesSection}
               
               📎 [View detailed HTML report](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }})
               📋 [Download raw coverage data](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
