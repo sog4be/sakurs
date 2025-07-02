@@ -76,6 +76,10 @@ jobs:
           # Generate summary for PR comment
           cargo llvm-cov report --summary-only > coverage-summary.txt
           
+          # Generate per-package coverage for PR comment
+          cargo llvm-cov report --summary-only --package sakurs-core > coverage-core.txt || echo "N/A" > coverage-core.txt
+          cargo llvm-cov report --summary-only --package sakurs-cli > coverage-cli.txt || echo "N/A" > coverage-cli.txt
+          
           # Display coverage per crate
           echo ""
           echo "📦 Coverage by Crate:"
@@ -115,14 +119,42 @@ jobs:
               // Read coverage summary
               const summary = fs.readFileSync('coverage-summary.txt', 'utf8');
               
+              // Read per-package coverage
+              const readPackageCoverage = (filename) => {
+                try {
+                  const content = fs.readFileSync(filename, 'utf8').trim();
+                  if (content === 'N/A' || content === '') return 'N/A';
+                  
+                  // Extract percentage from summary (format: "lines......: XX.X% (N of N lines)")
+                  const match = content.match(/lines\.*:\s*(\d+\.\d+)%/);
+                  return match ? `${match[1]}%` : 'N/A';
+                } catch (error) {
+                  return 'N/A';
+                }
+              };
+              
+              const corePercentage = readPackageCoverage('coverage-core.txt');
+              const cliPercentage = readPackageCoverage('coverage-cli.txt');
+              
+              // Create package table
+              const packageTable = `
+              | Package | Coverage |
+              |---------|----------|
+              | sakurs-core | ${corePercentage} |
+              | sakurs-cli | ${cliPercentage} |`;
+              
               // Create coverage comment with unique identifier
               const commentIdentifier = '<!-- SAKURS_COVERAGE_COMMENT -->';
               const body = `${commentIdentifier}
               ## 📊 Test Coverage Report
               
+              ### Overall Coverage
               \`\`\`
               ${summary.trim()}
               \`\`\`
+              
+              ### Coverage by Package
+              ${packageTable}
               
               📎 [View detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
               
