@@ -495,16 +495,6 @@ jobs:
               
               // Create coverage comment with unique identifier
               const commentIdentifier = '<!-- SAKURS_COVERAGE_COMMENT -->';
-              const body = `${commentIdentifier}
-              ## 📊 Test Coverage Report
-              
-              ### Overall Coverage
-              \`\`\`
-              ${summary.trim()}
-              \`\`\`
-              
-              ### Coverage by Package
-              ${packageTable}`;
               
               // Add changed files coverage for PRs
               let changedFilesSection = '';
