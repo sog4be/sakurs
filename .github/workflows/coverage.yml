@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
@@ -16,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -24,7 +28,7 @@ jobs:
           components: llvm-tools-preview
 
       - name: Cache cargo dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4.2.3
         with:
           path: |
             ~/.cargo/bin/
@@ -37,13 +41,18 @@ jobs:
             ${{ runner.os }}-cargo-coverage-
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@v2.56.1
+        with:
+          tool: cargo-llvm-cov
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
+        uses: taiki-e/install-action@v2.56.1
+        with:
+          tool: nextest
 
       - name: Run tests with coverage
         run: |
+          set -euo pipefail
           echo "🧪 Running tests with coverage instrumentation..."
           # Use nextest if available, otherwise fall back to regular test
           if command -v cargo-nextest >/dev/null 2>&1; then
@@ -59,6 +68,7 @@ jobs:
 
       - name: Generate detailed reports
         run: |
+          set -euo pipefail
           # Generate HTML report for visual inspection
           cargo llvm-cov report --html
           
@@ -69,11 +79,22 @@ jobs:
           echo ""
           echo "📦 Coverage by Crate:"
           echo "===================="
-          cargo llvm-cov report --summary-only --package sakurs-core
-          cargo llvm-cov report --summary-only --package sakurs-cli
+          cargo llvm-cov report --summary-only --package sakurs-core || echo "⚠️ sakurs-core coverage failed"
+          cargo llvm-cov report --summary-only --package sakurs-cli || echo "⚠️ sakurs-cli coverage failed"
+
+      - name: Check coverage threshold
+        run: |
+          set -euo pipefail
+          echo "🎯 Checking coverage threshold..."
+          # Fail if coverage drops below 80%
+          cargo llvm-cov report --fail-under-lines 80 || {
+            echo "❌ Coverage below 80% threshold"
+            exit 1
+          }
 
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
+        if: always()
         with:
           name: coverage-report
           path: |
@@ -83,12 +104,13 @@ jobs:
           retention-days: 30
 
       - name: Display coverage in job summary
+        if: always()
         run: |
           echo "## Test Coverage Report 📊" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Overall Coverage" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY
+          cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY || echo "Coverage summary not available" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📎 [Download detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
