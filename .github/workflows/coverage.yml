@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -102,6 +103,44 @@ jobs:
             lcov.info
             coverage-summary.txt
           retention-days: 30
+
+      - name: Comment PR with basic coverage
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            
+            try {
+              // Read coverage summary
+              const summary = fs.readFileSync('coverage-summary.txt', 'utf8');
+              
+              // Create simple coverage comment
+              const body = `## 📊 Test Coverage Report
+              
+              \`\`\`
+              ${summary.trim()}
+              \`\`\`
+              
+              📎 [View detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              
+              ---
+              _Automated coverage report • Updated: ${new Date().toISOString()}_`;
+              
+              // Post comment to PR
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+              
+              console.log('✅ Coverage comment posted to PR successfully');
+              
+            } catch (error) {
+              console.error('❌ Failed to post coverage comment:', error);
+              // Don't fail the workflow if comment posting fails
+            }
 
       - name: Display coverage in job summary
         if: always()
