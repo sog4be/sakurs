@@ -11,7 +11,30 @@
 //! - **Domain layer**: Pure mathematical algorithms and monoid operations
 //! - **Application layer**: Orchestration and parallel processing logic
 //! - **Adapter layer**: Interfaces for different use cases (CLI, Python, etc.)
+//!
+//! # Example
+//!
+//! ```rust
+//! use sakurs_core::application::{TextProcessor, ProcessorConfig};
+//! use sakurs_core::domain::language::EnglishLanguageRules;
+//! use std::sync::Arc;
+//!
+//! // Create language rules
+//! let rules = Arc::new(EnglishLanguageRules::new());
+//!
+//! // Create processor with default configuration
+//! let processor = TextProcessor::new(rules);
+//!
+//! // Process text
+//! let text = "Hello world. This is a test.";
+//! let result = processor.process_text(text).unwrap();
+//!
+//! // Extract sentences
+//! let sentences = result.extract_sentences(text);
+//! assert_eq!(sentences.len(), 2);
+//! ```
 
+pub mod application;
 pub mod domain;
 
 pub use domain::*;
@@ -29,14 +52,17 @@ mod tests {
 
         // Identity property
         assert_eq!(
-            state1.combine(&identity).boundaries.len(),
-            state1.boundaries.len()
+            state1.combine(&identity).boundary_candidates.len(),
+            state1.boundary_candidates.len()
         );
 
         // Associativity holds for basic operations
         let combined1 = state1.combine(&state2);
         let combined2 = identity.combine(&combined1);
-        assert_eq!(combined2.boundaries.len(), combined1.boundaries.len());
+        assert_eq!(
+            combined2.boundary_candidates.len(),
+            combined1.boundary_candidates.len()
+        );
     }
 
     #[test]

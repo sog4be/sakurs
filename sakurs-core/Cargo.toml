@@ -8,13 +8,23 @@ license.workspace = true
 [dependencies]
 thiserror.workspace = true
 serde.workspace = true
+# Parallel processing support
+rayon = { version = "1.10", optional = true }
+num_cpus = { version = "1.16", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
 
+[[bench]]
+name = "application_benchmarks"
+harness = false
+
 [features]
-default = ["std"]
+default = ["std", "parallel"]
 std = []
+parallel = ["rayon", "num_cpus"]
 # no_std support preparation
 no_std = []
+# WASM support
+wasm = []

@@ -1,0 +1,382 @@
+//! Configuration and error handling for the application layer
+//!
+//! This module provides configuration options for performance tuning
+//! and comprehensive error types for robust error handling.
+
+use thiserror::Error;
+
+/// Configuration options for text processing
+#[derive(Debug, Clone)]
+pub struct ProcessorConfig {
+    /// Target size for each chunk in bytes
+    pub chunk_size: usize,
+
+    /// Minimum text size to trigger parallel processing
+    pub parallel_threshold: usize,
+
+    /// Maximum number of threads to use (None = use all available)
+    pub max_threads: Option<usize>,
+
+    /// Size of overlap between chunks for cross-boundary detection
+    pub overlap_size: usize,
+
+    /// Enable SIMD optimizations when available
+    pub enable_simd: bool,
+
+    /// Maximum text size to process (prevents OOM)
+    pub max_text_size: usize,
+
+    /// Whether to use memory mapping for large files
+    pub use_mmap: bool,
+}
+
+impl Default for ProcessorConfig {
+    fn default() -> Self {
+        Self {
+            chunk_size: 64 * 1024,             // 64KB chunks
+            parallel_threshold: 1024 * 1024,   // 1MB threshold for parallel
+            max_threads: None,                 // Use all available cores
+            overlap_size: 256,                 // 256 char overlap
+            enable_simd: true,                 // Enable SIMD by default
+            max_text_size: 1024 * 1024 * 1024, // 1GB max
+            use_mmap: false,                   // Memory mapping disabled by default
+        }
+    }
+}
+
+impl ProcessorConfig {
+    /// Creates a new builder for ProcessorConfig
+    pub fn builder() -> ProcessorConfigBuilder {
+        ProcessorConfigBuilder::new()
+    }
+
+    /// Creates a configuration optimized for small texts
+    pub fn small_text() -> Self {
+        Self {
+            chunk_size: 8 * 1024,           // 8KB chunks
+            parallel_threshold: usize::MAX, // Never use parallel
+            overlap_size: 64,               // Smaller overlap
+            ..Default::default()
+        }
+    }
+
+    /// Creates a configuration optimized for large texts
+    pub fn large_text() -> Self {
+        Self {
+            chunk_size: 256 * 1024,         // 256KB chunks
+            parallel_threshold: 512 * 1024, // 512KB threshold
+            overlap_size: 512,              // Larger overlap
+            use_mmap: true,                 // Enable memory mapping
+            ..Default::default()
+        }
+    }
+
+    /// Creates a configuration optimized for streaming
+    pub fn streaming() -> Self {
+        Self {
+            chunk_size: 32 * 1024,          // 32KB chunks
+            parallel_threshold: 256 * 1024, // 256KB threshold
+            overlap_size: 128,              // Moderate overlap
+            max_threads: Some(2),           // Limited parallelism
+            ..Default::default()
+        }
+    }
+
+    /// Validates the configuration
+    pub fn validate(&self) -> Result<(), ProcessingError> {
+        if self.chunk_size == 0 {
+            return Err(ProcessingError::InvalidConfig {
+                reason: "Chunk size must be greater than 0".to_string(),
+            });
+        }
+
+        if self.overlap_size >= self.chunk_size {
+            return Err(ProcessingError::InvalidConfig {
+                reason: "Overlap size must be less than chunk size".to_string(),
+            });
+        }
+
+        if let Some(threads) = self.max_threads {
+            if threads == 0 {
+                return Err(ProcessingError::InvalidConfig {
+                    reason: "Max threads must be greater than 0".to_string(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Errors that can occur during text processing
+#[derive(Debug, Error)]
+pub enum ProcessingError {
+    /// Text exceeds maximum size limit
+    #[error("Text too large for processing: {size} bytes (max: {max} bytes)")]
+    TextTooLarge { size: usize, max: usize },
+
+    /// Invalid configuration parameters
+    #[error("Invalid configuration: {reason}")]
+    InvalidConfig { reason: String },
+
+    /// Error during parallel processing
+    #[error("Parallel processing failed")]
+    ParallelError {
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
+    /// UTF-8 encoding error
+    #[error("Invalid UTF-8 in text at position {position}")]
+    Utf8Error { position: usize },
+
+    /// Chunk boundary calculation error
+    #[error("Failed to calculate chunk boundaries: {reason}")]
+    ChunkingError { reason: String },
+
+    /// UTF-8 boundary detection failed
+    #[error("Failed to find UTF-8 boundary at position {position}")]
+    Utf8BoundaryError { position: usize },
+
+    /// Word boundary detection failed
+    #[error("Failed to find word boundary near position {position}")]
+    WordBoundaryError { position: usize },
+
+    /// Invalid chunk configuration
+    #[error("Invalid chunk boundaries: start={start}, end={end}, next={next}")]
+    InvalidChunkBoundaries {
+        start: usize,
+        end: usize,
+        next: usize,
+    },
+
+    /// Memory allocation failure
+    #[error("Memory allocation failed: {reason}")]
+    AllocationError { reason: String },
+
+    /// I/O error (for future file operations)
+    #[error("I/O operation failed")]
+    IoError {
+        #[from]
+        source: std::io::Error,
+    },
+
+    /// Language rules error
+    #[error("Language rules processing failed: {reason}")]
+    LanguageRulesError { reason: String },
+}
+
+/// Result type for processing operations
+pub type ProcessingResult<T> = Result<T, ProcessingError>;
+
+/// Builder for ProcessorConfig with fluent API
+#[derive(Debug, Clone)]
+pub struct ProcessorConfigBuilder {
+    config: ProcessorConfig,
+}
+
+impl ProcessorConfigBuilder {
+    /// Creates a new builder with default values
+    pub fn new() -> Self {
+        Self {
+            config: ProcessorConfig::default(),
+        }
+    }
+
+    /// Sets the chunk size in bytes
+    pub fn chunk_size(mut self, size: usize) -> Self {
+        self.config.chunk_size = size;
+        self
+    }
+
+    /// Sets the parallel processing threshold
+    pub fn parallel_threshold(mut self, threshold: usize) -> Self {
+        self.config.parallel_threshold = threshold;
+        self
+    }
+
+    /// Sets the maximum number of threads
+    pub fn max_threads(mut self, threads: Option<usize>) -> Self {
+        self.config.max_threads = threads;
+        self
+    }
+
+    /// Sets the overlap size between chunks
+    pub fn overlap_size(mut self, size: usize) -> Self {
+        self.config.overlap_size = size;
+        self
+    }
+
+    /// Enables or disables SIMD optimizations
+    pub fn enable_simd(mut self, enable: bool) -> Self {
+        self.config.enable_simd = enable;
+        self
+    }
+
+    /// Sets the maximum text size limit
+    pub fn max_text_size(mut self, size: usize) -> Self {
+        self.config.max_text_size = size;
+        self
+    }
+
+    /// Enables or disables memory mapping
+    pub fn use_mmap(mut self, use_mmap: bool) -> Self {
+        self.config.use_mmap = use_mmap;
+        self
+    }
+
+    /// Builds the configuration, validating parameters
+    pub fn build(self) -> ProcessingResult<ProcessorConfig> {
+        self.config.validate()?;
+        Ok(self.config)
+    }
+
+    /// Builds the configuration without validation (for testing)
+    pub fn build_unchecked(self) -> ProcessorConfig {
+        self.config
+    }
+}
+
+impl Default for ProcessorConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Performance metrics collected during processing
+#[derive(Debug, Clone, Default)]
+pub struct ProcessingMetrics {
+    /// Total processing time in microseconds
+    pub total_time_us: u64,
+
+    /// Time spent in chunking
+    pub chunking_time_us: u64,
+
+    /// Time spent in parallel processing
+    pub parallel_time_us: u64,
+
+    /// Time spent in result merging
+    pub merge_time_us: u64,
+
+    /// Number of chunks processed
+    pub chunk_count: usize,
+
+    /// Number of threads used
+    pub thread_count: usize,
+
+    /// Total bytes processed
+    pub bytes_processed: usize,
+
+    /// Number of boundaries detected
+    pub boundaries_found: usize,
+}
+
+impl ProcessingMetrics {
+    /// Calculates throughput in MB/s
+    pub fn throughput_mbps(&self) -> f64 {
+        if self.total_time_us == 0 {
+            return 0.0;
+        }
+
+        let mb = self.bytes_processed as f64 / (1024.0 * 1024.0);
+        let seconds = self.total_time_us as f64 / 1_000_000.0;
+        mb / seconds
+    }
+
+    /// Calculates parallel efficiency (0.0 to 1.0)
+    pub fn parallel_efficiency(&self) -> f64 {
+        if self.thread_count <= 1 || self.parallel_time_us == 0 {
+            return 1.0;
+        }
+
+        // Ideal parallel time would be total_time / thread_count
+        let ideal_time = self.total_time_us as f64 / self.thread_count as f64;
+        let actual_time = self.parallel_time_us as f64;
+
+        (ideal_time / actual_time).min(1.0)
+    }
+}
+
+/// Thread pool configuration
+#[cfg(feature = "parallel")]
+#[derive(Debug, Clone)]
+pub struct ThreadPoolConfig {
+    /// Number of worker threads
+    pub num_threads: usize,
+
+    /// Stack size for worker threads (in bytes)
+    pub stack_size: Option<usize>,
+
+    /// Thread name prefix
+    pub thread_name_prefix: String,
+}
+
+#[cfg(feature = "parallel")]
+impl Default for ThreadPoolConfig {
+    fn default() -> Self {
+        Self {
+            num_threads: num_cpus::get(),
+            stack_size: None,
+            thread_name_prefix: "sakurs-worker".to_string(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config() {
+        let config = ProcessorConfig::default();
+        assert_eq!(config.chunk_size, 64 * 1024);
+        assert_eq!(config.parallel_threshold, 1024 * 1024);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_config_validation() {
+        let mut config = ProcessorConfig::default();
+
+        // Invalid chunk size
+        config.chunk_size = 0;
+        assert!(config.validate().is_err());
+
+        // Invalid overlap size
+        config.chunk_size = 1024;
+        config.overlap_size = 2048;
+        assert!(config.validate().is_err());
+
+        // Invalid thread count
+        config = ProcessorConfig::default();
+        config.max_threads = Some(0);
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_preset_configs() {
+        let small = ProcessorConfig::small_text();
+        assert_eq!(small.chunk_size, 8 * 1024);
+        assert_eq!(small.parallel_threshold, usize::MAX);
+
+        let large = ProcessorConfig::large_text();
+        assert_eq!(large.chunk_size, 256 * 1024);
+        assert!(large.use_mmap);
+
+        let streaming = ProcessorConfig::streaming();
+        assert_eq!(streaming.max_threads, Some(2));
+    }
+
+    #[test]
+    fn test_processing_metrics() {
+        let mut metrics = ProcessingMetrics::default();
+        metrics.bytes_processed = 10 * 1024 * 1024; // 10MB
+        metrics.total_time_us = 1_000_000; // 1 second
+
+        assert_eq!(metrics.throughput_mbps(), 10.0);
+
+        metrics.thread_count = 4;
+        metrics.parallel_time_us = 300_000; // 0.3 seconds
+        assert!(metrics.parallel_efficiency() > 0.8);
+    }
+}

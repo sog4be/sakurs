@@ -4,9 +4,9 @@
 //! the partial state representation for text segmentation.
 
 use crate::domain::{
-    enclosure::{EnclosureRules, EnclosureStack, StandardEnclosureRules},
+    enclosure::{EnclosureRules, StandardEnclosureRules},
     language::{BoundaryContext, BoundaryDecision, LanguageRules},
-    state::{AbbreviationState, Boundary, BoundaryFlags, DeltaEntry, PartialState},
+    state::{AbbreviationState, BoundaryFlags, DeltaEntry, PartialState},
 };
 
 /// Parser configuration options.
@@ -15,6 +15,7 @@ pub struct ParserConfig {
     pub enclosure_rules: Box<dyn EnclosureRules>,
 }
 
+#[allow(dead_code)]
 impl Default for ParserConfig {
     fn default() -> Self {
         Self {
@@ -25,6 +26,7 @@ impl Default for ParserConfig {
 
 /// Core parser for converting text into partial states.
 pub struct Parser {
+    #[allow(dead_code)]
     config: ParserConfig,
 }
 
@@ -41,22 +43,20 @@ impl Parser {
         Self { config }
     }
 
-    /// Parses a chunk of text and produces a partial state.
+    /// Scans a chunk of text and produces a partial state with boundary candidates.
     ///
-    /// This is the core parsing function that implements the Δ-Stack Monoid algorithm.
-    /// It scans the text character by character, tracks enclosure depth, detects
-    /// sentence boundaries, and builds the delta representation.
-    pub fn parse_chunk(
-        &self,
-        text: &str,
-        language_rules: &dyn LanguageRules,
-        initial_state: Option<&PartialState>,
-    ) -> PartialState {
-        let mut state = match initial_state {
-            Some(s) => s.clone(),
-            None => PartialState::new(1), // Start with one enclosure type
-        };
-        let mut enclosure_stack = EnclosureStack::new();
+    /// This implements the scan phase of the Δ-Stack Monoid algorithm.
+    /// It tracks local enclosure depth and records boundary candidates without
+    /// determining if they are valid (that happens in the reduce phase).
+    pub fn scan_chunk(&self, text: &str, language_rules: &dyn LanguageRules) -> PartialState {
+        // Initialize state with the number of enclosure types from language rules
+        let enclosure_count = language_rules.enclosure_type_count();
+        let mut state = PartialState::new(enclosure_count);
+
+        // Local depth tracking (relative to chunk start)
+        let mut local_depths = vec![0i32; enclosure_count];
+        let mut min_depths = vec![0i32; enclosure_count];
+
         let mut position = 0;
         let mut chars = text.chars().peekable();
 
@@ -67,18 +67,16 @@ impl Parser {
         while let Some(ch) = chars.next() {
             let char_len = ch.len_utf8();
 
-            // Check for enclosure characters
-            if let Some(enc_char) = self.config.enclosure_rules.get_enclosure_char(ch) {
-                if enc_char.is_opening {
-                    enclosure_stack.push(enc_char.enclosure_type, ch);
-                    // Update delta for this enclosure type (simplified to first delta)
-                    if !state.deltas.is_empty() {
-                        state.deltas[0] = state.deltas[0].combine(&DeltaEntry::new(1, 0));
-                    }
-                } else {
-                    // Try to close the enclosure
-                    if enclosure_stack.close(enc_char.enclosure_type) && !state.deltas.is_empty() {
-                        state.deltas[0] = state.deltas[0].combine(&DeltaEntry::new(-1, -1));
+            // Check for enclosure characters using language rules
+            if let Some(enc_char) = language_rules.get_enclosure_char(ch) {
+                if let Some(type_id) = language_rules.get_enclosure_type_id(ch) {
+                    if type_id < enclosure_count {
+                        if enc_char.is_opening {
+                            local_depths[type_id] += 1;
+                        } else {
+                            local_depths[type_id] -= 1;
+                            min_depths[type_id] = min_depths[type_id].min(local_depths[type_id]);
+                        }
                     }
                 }
             }
@@ -90,8 +88,8 @@ impl Parser {
                 consecutive_dots = 0;
             }
 
-            // Check for potential sentence terminators only at depth 0
-            if enclosure_stack.depth() == 0 && is_potential_terminator(ch) {
+            // Check for potential sentence terminators (record as candidate regardless of depth)
+            if is_potential_terminator(ch) {
                 // Build context for language rules
                 let context =
                     build_boundary_context(text, position, ch, &chars, last_char, consecutive_dots);
@@ -101,13 +99,14 @@ impl Parser {
 
                 match decision {
                     BoundaryDecision::Boundary(flags) => {
-                        // Create a sentence boundary
-                        let boundary = Boundary {
-                            offset: position + char_len,
+                        // Record as boundary candidate with current local depths
+                        state.add_boundary_candidate(
+                            position + char_len,
+                            local_depths.clone(),
                             flags,
-                        };
+                        );
 
-                        // Check if this might be an abbreviation boundary
+                        // Track abbreviation state
                         if ch == '.' {
                             let abbr_result = language_rules.process_abbreviation(text, position);
                             if abbr_result.is_abbreviation {
@@ -121,20 +120,17 @@ impl Parser {
                                 };
                             }
                         }
-
-                        state.boundaries.insert(boundary);
                     }
                     BoundaryDecision::NotBoundary => {
-                        // Not a boundary
+                        // Not a boundary candidate
                     }
                     BoundaryDecision::NeedsMoreContext => {
-                        // For ambiguous cases, we might want to mark the boundary
-                        // but with a weak flag
-                        let boundary = Boundary {
-                            offset: position + char_len,
-                            flags: BoundaryFlags::WEAK,
-                        };
-                        state.boundaries.insert(boundary);
+                        // Record as weak boundary candidate
+                        state.add_boundary_candidate(
+                            position + char_len,
+                            local_depths.clone(),
+                            BoundaryFlags::WEAK,
+                        );
                     }
                 }
             }
@@ -146,11 +142,15 @@ impl Parser {
         // Update final chunk length
         state.chunk_length = position;
 
-        // Handle any unclosed enclosures
-        if enclosure_stack.depth() > 0 {
-            // The delta stack should reflect the unclosed enclosures
-            // This will be handled by the combine operation in the next chunk
+        // Calculate final deltas
+        for i in 0..enclosure_count {
+            state.deltas[i] = DeltaEntry {
+                net: local_depths[i],
+                min: min_depths[i],
+            };
         }
+
+        // Note: unclosed enclosures are handled through the delta representation
 
         state
     }
@@ -177,7 +177,11 @@ fn build_boundary_context(
     _consecutive_dots: usize,
 ) -> BoundaryContext {
     // Extract text before the boundary (up to 10 chars)
-    let start = position.saturating_sub(10);
+    // Need to find valid UTF-8 boundary
+    let mut start = position.saturating_sub(10);
+    while start > 0 && !text.is_char_boundary(start) {
+        start -= 1;
+    }
     let preceding_context = text[start..position].to_string();
 
     // Peek at upcoming characters (up to 10 chars)
@@ -192,10 +196,10 @@ fn build_boundary_context(
     }
 }
 
-/// Convenient function for parsing a chunk of text with default settings.
-pub fn parse_chunk(text: &str, language_rules: &dyn LanguageRules) -> PartialState {
+/// Convenient function for scanning a chunk of text with default settings.
+pub fn scan_chunk(text: &str, language_rules: &dyn LanguageRules) -> PartialState {
     let parser = Parser::new();
-    parser.parse_chunk(text, language_rules, None)
+    parser.scan_chunk(text, language_rules)
 }
 
 #[cfg(test)]
@@ -209,10 +213,10 @@ mod tests {
         let rules = MockLanguageRules::english();
 
         let text = "Hello world. This is a test.";
-        let state = parser.parse_chunk(text, &rules, None);
+        let state = parser.scan_chunk(text, &rules);
 
-        // Should have detected two boundaries
-        assert_eq!(state.boundaries.len(), 2);
+        // Should have detected two boundary candidates
+        assert_eq!(state.boundary_candidates.len(), 2);
         assert_eq!(state.chunk_length, text.len());
     }
 
@@ -222,12 +226,18 @@ mod tests {
         let rules = MockLanguageRules::english();
 
         let text = "He said (Hello. World). Done.";
-        let state = parser.parse_chunk(text, &rules, None);
+        let state = parser.scan_chunk(text, &rules);
 
-        // Should skip the period inside parentheses
-        // Only detect boundaries for ). and the final .
-        assert!(state.boundaries.iter().any(|b| b.offset == 23)); // After ).
-        assert!(state.boundaries.iter().any(|b| b.offset == 29)); // After Done.
+        // Should record all boundary candidates (even inside parentheses)
+        // The reduce phase will determine which are valid
+        assert!(state
+            .boundary_candidates
+            .iter()
+            .any(|b| b.local_offset == 23)); // After ).
+        assert!(state
+            .boundary_candidates
+            .iter()
+            .any(|b| b.local_offset == 29)); // After Done.
     }
 
     #[test]
@@ -236,7 +246,7 @@ mod tests {
         let rules = MockLanguageRules::english();
 
         let text = "Test (nested) text.";
-        let state = parser.parse_chunk(text, &rules, None);
+        let state = parser.scan_chunk(text, &rules);
 
         // Should have delta entries for the parentheses
         assert!(!state.deltas.is_empty());
@@ -252,12 +262,15 @@ mod tests {
         let rules = MockLanguageRules::english();
 
         let text = "Dr. Smith arrived.";
-        let state = parser.parse_chunk(text, &rules, None);
+        let state = parser.scan_chunk(text, &rules);
 
-        // With proper abbreviation rules, Dr. should not create a boundary
-        // Only the final period should create a boundary
-        assert_eq!(state.boundaries.len(), 1);
-        assert!(state.boundaries.iter().any(|b| b.offset == 18)); // After "arrived."
+        // With proper abbreviation rules, Dr. should not create a boundary candidate
+        // Only the final period should create a boundary candidate
+        assert_eq!(state.boundary_candidates.len(), 1);
+        assert!(state
+            .boundary_candidates
+            .iter()
+            .any(|b| b.local_offset == 18)); // After "arrived."
     }
 
     #[test]
@@ -266,7 +279,7 @@ mod tests {
         let rules = MockLanguageRules::english();
 
         let text = r#"She said "Hello." Then left."#;
-        let state = parser.parse_chunk(text, &rules, None);
+        let state = parser.scan_chunk(text, &rules);
 
         // Should have delta tracking for quotes
         assert!(!state.deltas.is_empty());
@@ -285,10 +298,14 @@ mod tests {
 
         // Complex text with abbreviations, numbers, and nested punctuation
         let text = "Dr. Smith (born 1965) earned his Ph.D. He works at Tech Corp. The company is valued at $2.5 billion! Amazing.";
-        let state = parser.parse_chunk(text, &rules, None);
+        let state = parser.scan_chunk(text, &rules);
 
-        // Should handle abbreviations properly - no boundaries after "Dr." or "Ph.D."
-        let boundary_positions: Vec<usize> = state.boundaries.iter().map(|b| b.offset).collect();
+        // Should handle abbreviations properly - no boundary candidates after "Dr." or "Ph.D."
+        let boundary_positions: Vec<usize> = state
+            .boundary_candidates
+            .iter()
+            .map(|b| b.local_offset)
+            .collect();
 
         // Should not create boundaries after abbreviations
         assert!(!boundary_positions.contains(&3)); // After "Dr."
@@ -296,8 +313,8 @@ mod tests {
         assert!(!boundary_positions.contains(&72)); // After "Corp."
         assert!(!boundary_positions.contains(&95)); // After "$2.5" decimal
 
-        // Should create boundaries after real sentence endings
-        assert!(boundary_positions.len() >= 2); // At least two real boundaries
+        // Should create boundary candidates after real sentence endings
+        assert!(boundary_positions.len() >= 2); // At least two real boundary candidates
     }
 
     #[test]
@@ -307,7 +324,7 @@ mod tests {
 
         // Text with nested enclosures and a sentence boundary outside them
         let text = r#"He said (and I quote: "Hello world.") to everyone. That was nice."#;
-        let state = parser.parse_chunk(text, &rules, None);
+        let state = parser.scan_chunk(text, &rules);
 
         // Should track enclosures
         assert!(!state.deltas.is_empty());
@@ -330,13 +347,13 @@ mod tests {
         let text = "First sentence. Second sentence! Third sentence?";
 
         // Parse the same text multiple times
-        let state1 = parser.parse_chunk(text, &rules, None);
-        let state2 = parser.parse_chunk(text, &rules, None);
-        let state3 = parser.parse_chunk(text, &rules, None);
+        let state1 = parser.scan_chunk(text, &rules);
+        let state2 = parser.scan_chunk(text, &rules);
+        let state3 = parser.scan_chunk(text, &rules);
 
         // Results should be identical
-        assert_eq!(state1.boundaries, state2.boundaries);
-        assert_eq!(state2.boundaries, state3.boundaries);
+        assert_eq!(state1.boundary_candidates, state2.boundary_candidates);
+        assert_eq!(state2.boundary_candidates, state3.boundary_candidates);
         assert_eq!(state1.deltas, state2.deltas);
         assert_eq!(state1.chunk_length, state2.chunk_length);
     }
@@ -347,22 +364,22 @@ mod tests {
         let rules = MockLanguageRules::english();
 
         // Empty text
-        let state = parser.parse_chunk("", &rules, None);
-        assert!(state.boundaries.is_empty());
+        let state = parser.scan_chunk("", &rules);
+        assert!(state.boundary_candidates.is_empty());
         assert_eq!(state.chunk_length, 0);
 
         // Single character
-        let state = parser.parse_chunk(".", &rules, None);
+        let state = parser.scan_chunk(".", &rules);
         assert_eq!(state.chunk_length, 1);
 
         // Only spaces
-        let state = parser.parse_chunk("   ", &rules, None);
-        assert!(state.boundaries.is_empty());
+        let state = parser.scan_chunk("   ", &rules);
+        assert!(state.boundary_candidates.is_empty());
         assert_eq!(state.chunk_length, 3);
 
         // Unclosed quote
         let text = r#"He said "Hello world."#;
-        let state = parser.parse_chunk(text, &rules, None);
+        let state = parser.scan_chunk(text, &rules);
         // Should handle gracefully without panicking
         assert_eq!(state.chunk_length, text.len());
     }

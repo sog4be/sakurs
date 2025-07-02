@@ -45,3 +45,21 @@ jobs:
         with:
           components: clippy
       - run: cargo clippy --all-features --workspace -- -D warnings
+
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run benchmarks
+        run: CRITERION_FAST=1 cargo bench --bench application_benchmarks --profile=bench
+        timeout-minutes: 6
+      - name: Store benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: target/criterion/
