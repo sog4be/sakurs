@@ -224,7 +224,7 @@ impl TextProcessor {
         // Configure thread pool
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(self.config.max_threads.unwrap_or_else(num_cpus::get))
-            .thread_name(|i| format!("sakurs-worker-{}", i))
+            .thread_name(|i| format!("sakurs-worker-{i}"))
             .build()
             .map_err(|e| ProcessingError::ParallelError {
                 source: Box::new(e),
