@@ -69,7 +69,26 @@ cargo test --workspace
 
 # Compilation check
 cargo check --workspace
+
+# Test coverage (optional but recommended)
+make coverage
 ```
+
+## Test Coverage
+The project uses `cargo-llvm-cov` for accurate test coverage reporting:
+
+```bash
+# Generate coverage report with summary
+make coverage
+
+# Generate and open HTML coverage report
+make coverage-html
+
+# Clean coverage data
+make coverage-clean
+```
+
+Coverage reports are automatically generated in CI and displayed in GitHub Actions job summaries.
 
 ## Pull Request Guidelines
 When creating or helping with PRs:

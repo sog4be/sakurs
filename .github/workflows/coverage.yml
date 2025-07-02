@@ -1,0 +1,94 @@
+name: Test Coverage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  coverage:
+    name: Generate test coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-coverage-
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Run tests with coverage
+        run: |
+          echo "🧪 Running tests with coverage instrumentation..."
+          # Use nextest if available, otherwise fall back to regular test
+          if command -v cargo-nextest >/dev/null 2>&1; then
+            cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
+          else
+            cargo llvm-cov test --all-features --workspace --lcov --output-path lcov.info
+          fi
+          
+          echo ""
+          echo "📊 Coverage Summary:"
+          echo "==================="
+          cargo llvm-cov report --summary-only
+
+      - name: Generate detailed reports
+        run: |
+          # Generate HTML report for visual inspection
+          cargo llvm-cov report --html
+          
+          # Generate summary for PR comment
+          cargo llvm-cov report --summary-only > coverage-summary.txt
+          
+          # Display coverage per crate
+          echo ""
+          echo "📦 Coverage by Crate:"
+          echo "===================="
+          cargo llvm-cov report --summary-only --package sakurs-core
+          cargo llvm-cov report --summary-only --package sakurs-cli
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            target/llvm-cov/html/
+            lcov.info
+            coverage-summary.txt
+          retention-days: 30
+
+      - name: Display coverage in job summary
+        run: |
+          echo "## Test Coverage Report 📊" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Overall Coverage" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📎 [Download detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
