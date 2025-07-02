@@ -408,14 +408,6 @@ mod tests {
         println!("Japanese text bytes: {}", text.len());
         println!("Target: {}, Split: {}", target, split);
 
-        // Count where the periods are
-        let bytes: Vec<u8> = text.bytes().collect();
-        for (i, &b) in bytes.iter().enumerate() {
-            if b == '。' as u8 {
-                println!("Found 。 starting at byte {}", i);
-            }
-        }
-
         // The text "短い文。次の文。" has two 。characters
         // Each Japanese character is 3 bytes, 。is also 3 bytes
         // "短い文。" = 4 chars * 3 bytes = 12 bytes
