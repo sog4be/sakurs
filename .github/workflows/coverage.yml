@@ -10,8 +10,6 @@ permissions:
   contents: write
   actions: read
   pull-requests: write
-  pages: write
-  id-token: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -101,9 +99,9 @@ jobs:
             echo "🔄 Fetching main branch coverage for comparison..."
             
             # Save current coverage percentages
-            current_overall=$(cargo llvm-cov report --summary-only | grep -E 'lines\.*:' | grep -o '[0-9]\+\.[0-9]\+%' | head -1 || echo "0.0%")
-            current_core=$(cargo llvm-cov report --summary-only --package sakurs-core | grep -E 'lines\.*:' | grep -o '[0-9]\+\.[0-9]\+%' | head -1 || echo "0.0%")
-            current_cli=$(cargo llvm-cov report --summary-only --package sakurs-cli | grep -E 'lines\.*:' | grep -o '[0-9]\+\.[0-9]\+%' | head -1 || echo "0.0%")
+            current_overall=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
+            current_core=$(cargo llvm-cov report --summary-only --package sakurs-core | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
+            current_cli=$(cargo llvm-cov report --summary-only --package sakurs-cli | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
             
             echo "current_overall=$current_overall" > coverage-current.txt
             echo "current_core=$current_core" >> coverage-current.txt
@@ -196,8 +194,8 @@ jobs:
           set -euo pipefail
           echo "🏷️ Updating README coverage badge..."
           
-          # Extract overall coverage percentage
-          overall_percentage=$(cargo llvm-cov report --summary-only | grep -E 'lines\.*:' | grep -o '[0-9]\+\.[0-9]\+' | head -1 || echo "0.0")
+          # Extract overall coverage percentage from TOTAL line (Lines Cover column)
+          overall_percentage=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 | sed 's/%//' || echo "0.0")
           
           # Determine badge color based on coverage
           if (( $(echo "$overall_percentage >= 90" | bc -l) )); then
@@ -231,174 +229,6 @@ jobs:
           else
             echo "ℹ️ README coverage badge already up to date"
           fi
-
-      - name: Deploy coverage report to GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        uses: actions/configure-pages@v5.0.0
-
-      - name: Prepare Pages deployment
-        if: github.ref == 'refs/heads/main'
-        run: |
-          set -euo pipefail
-          echo "📄 Preparing coverage report for GitHub Pages..."
-          
-          # Create pages directory structure
-          mkdir -p pages-deploy
-          
-          # Copy HTML coverage report
-          cp -r target/llvm-cov/html/* pages-deploy/
-          
-          # Enhance HTML report with custom styling and metadata
-          echo "🎨 Enhancing HTML report..."
-          
-          # Add custom CSS for branding
-          cat >> pages-deploy/style.css << 'EOF'
-          
-          /* Sakurs custom styling */
-          .custom-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            text-align: center;
-          }
-          .custom-header h1 {
-            margin: 0;
-            font-size: 2em;
-          }
-          .custom-header .subtitle {
-            font-size: 1.1em;
-            opacity: 0.9;
-            margin-top: 5px;
-          }
-          .metadata-box {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-            font-family: monospace;
-            font-size: 0.9em;
-          }
-          .coverage-summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-          }
-          .coverage-card {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          }
-          .coverage-card h3 {
-            margin: 0 0 10px 0;
-            color: #333;
-          }
-          .coverage-percentage {
-            font-size: 2em;
-            font-weight: bold;
-            margin: 10px 0;
-          }
-          .coverage-high { color: #28a745; }
-          .coverage-medium { color: #ffc107; }
-          .coverage-low { color: #dc3545; }
-          EOF
-          
-          # Extract coverage data for enhancement
-          overall_percentage=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | head -1 || echo "0.0%")
-          
-          # Enhance the main index.html if it exists
-          if [ -f pages-deploy/index.html ]; then
-            echo "Enhancing existing index.html..."
-            
-            # Create enhanced header content
-            cat > header_content.html << EOF
-            <div class="custom-header">
-              <h1>🌸 Sakurs Test Coverage Report</h1>
-              <div class="subtitle">Delta-Stack Monoid Algorithm • Coverage: ${overall_percentage}</div>
-            </div>
-            
-            <div class="metadata-box">
-              <strong>Build Information:</strong><br>
-              Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")<br>
-              Commit: ${{ github.sha }}<br>
-              Branch: ${{ github.ref_name }}<br>
-              Run ID: ${{ github.run_id }}
-            </div>
-          EOF
-            
-            # Insert custom header after opening body tag
-            sed -i.bak '/<body>/r header_content.html' pages-deploy/index.html
-            
-            # Clean up
-            rm header_content.html pages-deploy/index.html.bak
-            
-          else
-            echo "Creating custom index.html..."
-            cat > pages-deploy/index.html << EOF
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <title>Sakurs Test Coverage Report</title>
-            <link rel="stylesheet" href="style.css">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body>
-            <div class="custom-header">
-              <h1>🌸 Sakurs Test Coverage Report</h1>
-              <div class="subtitle">Delta-Stack Monoid Algorithm • Coverage: ${overall_percentage}</div>
-            </div>
-            
-            <div class="metadata-box">
-              <strong>Build Information:</strong><br>
-              Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")<br>
-              Commit: ${{ github.sha }}<br>
-              Branch: ${{ github.ref_name }}<br>
-              Run ID: ${{ github.run_id }}
-            </div>
-            
-            <div class="coverage-summary">
-              <div class="coverage-card">
-                <h3>Overall Coverage</h3>
-                <div class="coverage-percentage coverage-medium">${overall_percentage}</div>
-              </div>
-            </div>
-            
-            <p><a href="./index.html">View detailed coverage report →</a></p>
-          </body>
-          </html>
-          EOF
-          fi
-          
-          # Add metadata file
-          cat > pages-deploy/metadata.json << EOF
-          {
-            "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "commit_sha": "${{ github.sha }}",
-            "commit_message": "$(git log -1 --pretty=%B | head -1)",
-            "branch": "${{ github.ref_name }}",
-            "run_id": "${{ github.run_id }}"
-          }
-          EOF
-          
-          echo "✅ Pages deployment prepared"
-
-      - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3.0.1
-        with:
-          path: pages-deploy
-
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        id: deployment
-        uses: actions/deploy-pages@v4.0.5
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4.6.2
@@ -521,8 +351,7 @@ jobs:
               \`\`\`
               ${packageTable}${changedFilesSection}
               
-              📎 [View detailed HTML report](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }})
-              📋 [Download raw coverage data](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              📎 [View detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
               
               ---
               _Automated coverage report • Updated: ${new Date().toISOString()}_`;
