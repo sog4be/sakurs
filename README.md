@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-    <img src="https://img.shields.io/badge/coverage-85.17%25-green" alt="Coverage" id="coverage-badge">
+    <img src="https://img.shields.io/badge/coverage-87.06%25-green" alt="Coverage" id="coverage-badge">
 </p>
 
 ## Features
