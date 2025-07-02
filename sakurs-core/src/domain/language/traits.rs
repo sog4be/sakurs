@@ -115,6 +115,35 @@ pub trait LanguageRules: Send + Sync {
     /// # Returns
     /// Human-readable language name (e.g., "English", "Japanese", "Spanish")
     fn language_name(&self) -> &str;
+
+    /// Get the enclosure character information for a character
+    ///
+    /// # Arguments
+    /// * `ch` - Character to check
+    ///
+    /// # Returns
+    /// Enclosure character info if this is an enclosure, None otherwise
+    fn get_enclosure_char(&self, ch: char) -> Option<crate::domain::enclosure::EnclosureChar>;
+
+    /// Get the enclosure type ID for a character
+    ///
+    /// Maps enclosure characters to their type IDs for delta stack tracking.
+    /// The ID should be consistent for matching open/close pairs.
+    ///
+    /// # Arguments
+    /// * `ch` - Character to check
+    ///
+    /// # Returns
+    /// Type ID (0-based index) if this is an enclosure, None otherwise
+    fn get_enclosure_type_id(&self, ch: char) -> Option<usize>;
+
+    /// Get the total number of enclosure types supported
+    ///
+    /// This determines the size of the delta stack vector.
+    ///
+    /// # Returns
+    /// Number of distinct enclosure types
+    fn enclosure_type_count(&self) -> usize;
 }
 
 /// Trait for combining multiple language rules
