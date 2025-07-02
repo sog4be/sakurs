@@ -6,6 +6,10 @@
     <em>Fast, safe, and structurally correct — sentence boundary detection that scales.</em>
 </p>
 
+<p align="center">
+    <img src="https://img.shields.io/badge/coverage-0%25-red" alt="Coverage" id="coverage-badge">
+</p>
+
 ## Features
 
 - 🚀 Scalable performance through true parallel processing

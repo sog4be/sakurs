@@ -119,6 +119,48 @@ jobs:
             exit 1
           }
 
+      - name: Update README coverage badge
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          echo "🏷️ Updating README coverage badge..."
+          
+          # Extract overall coverage percentage
+          overall_percentage=$(cargo llvm-cov report --summary-only | grep -E 'lines\.*:' | grep -o '[0-9]\+\.[0-9]\+' | head -1 || echo "0.0")
+          
+          # Determine badge color based on coverage
+          if (( $(echo "$overall_percentage >= 90" | bc -l) )); then
+            color="brightgreen"
+          elif (( $(echo "$overall_percentage >= 80" | bc -l) )); then
+            color="green"
+          elif (( $(echo "$overall_percentage >= 70" | bc -l) )); then
+            color="yellow"
+          elif (( $(echo "$overall_percentage >= 60" | bc -l) )); then
+            color="orange"
+          else
+            color="red"
+          fi
+          
+          # Update README badge
+          new_badge_url="https://img.shields.io/badge/coverage-${overall_percentage}%25-${color}"
+          
+          # Use sed to update the badge URL in README.md
+          sed -i.bak "s|https://img.shields.io/badge/coverage-[^-]*-[^\"]*|${new_badge_url}|g" README.md
+          
+          # Check if README was actually modified
+          if ! git diff --quiet README.md; then
+            echo "✅ README coverage badge updated to ${overall_percentage}% (${color})"
+            
+            # Commit the change
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add README.md
+            git commit -m "chore: update coverage badge to ${overall_percentage}%"
+            git push
+          else
+            echo "ℹ️ README coverage badge already up to date"
+          fi
+
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4.6.2
         if: always()
