@@ -247,7 +247,10 @@ fn bench_thread_scaling(c: &mut Criterion) {
 // Configure criterion
 criterion_group! {
     name = benches;
-    config = Criterion::default().sample_size(10);
+    config = Criterion::default()
+        .sample_size(5)           // Reduce sample size for CI
+        .measurement_time(std::time::Duration::from_secs(3))  // Shorter measurement time
+        .warm_up_time(std::time::Duration::from_secs(1));     // Shorter warm-up
     targets =
         bench_processing_modes,
         bench_chunk_sizes,
@@ -260,7 +263,10 @@ criterion_group! {
 #[cfg(feature = "parallel")]
 criterion_group! {
     name = parallel_benches;
-    config = Criterion::default().sample_size(10);
+    config = Criterion::default()
+        .sample_size(5)
+        .measurement_time(std::time::Duration::from_secs(3))
+        .warm_up_time(std::time::Duration::from_secs(1));
     targets = bench_thread_scaling
 }
 
