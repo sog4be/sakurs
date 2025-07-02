@@ -55,11 +55,6 @@ impl JapanesePunctuationRule {
             return BoundaryDecision::NotBoundary;
         }
 
-        // Check for abbreviation patterns (less common in Japanese)
-        if self.is_abbreviation_context(context) {
-            return BoundaryDecision::NotBoundary;
-        }
-
         // Japanese period is typically a strong boundary
         BoundaryDecision::Boundary(BoundaryFlags::STRONG)
     }
@@ -104,23 +99,6 @@ impl JapanesePunctuationRule {
         let has_digit_after = following.chars().next().is_some_and(|c| c.is_ascii_digit());
 
         has_digit_before && has_digit_after
-    }
-
-    /// Checks if this might be an abbreviation context
-    fn is_abbreviation_context(&self, context: &BoundaryContext) -> bool {
-        let preceding = &context.preceding_context;
-
-        // Japanese abbreviations are rare, but check for patterns like "株式会社"
-        // This is a simplified check - more comprehensive patterns would be in abbreviation rules
-        if preceding.len() < 2 {
-            return false;
-        }
-
-        // Check for common Japanese abbreviation patterns
-        preceding.ends_with("株")
-            || preceding.ends_with("有")
-            || preceding.ends_with("会")
-            || preceding.ends_with("社")
     }
 
     /// Checks for English abbreviations in Japanese text
