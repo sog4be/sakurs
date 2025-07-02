@@ -34,6 +34,7 @@
 //! ```
 
 pub mod english;
+pub mod japanese;
 pub mod rules;
 pub mod traits;
 
@@ -49,6 +50,8 @@ pub use english::{
     CapitalizationAnalysis, EnglishAbbreviationRule, EnglishCapitalizationRule,
     EnglishLanguageRules, EnglishNumberRule, EnglishQuotationRule,
 };
+
+pub use japanese::{JapaneseLanguageRules, JapanesePunctuationRule, JapaneseQuotationRule};
 
 /// Default mock implementation for testing
 ///
