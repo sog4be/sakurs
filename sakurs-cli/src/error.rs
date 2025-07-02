@@ -18,10 +18,10 @@ pub enum CliError {
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CliError::FileNotFound(path) => write!(f, "File not found: {}", path),
-            CliError::InvalidPattern(pattern) => write!(f, "Invalid file pattern: {}", pattern),
-            CliError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
-            CliError::ProcessingError(msg) => write!(f, "Processing error: {}", msg),
+            CliError::FileNotFound(path) => write!(f, "File not found: {path}"),
+            CliError::InvalidPattern(pattern) => write!(f, "Invalid file pattern: {pattern}"),
+            CliError::ConfigError(msg) => write!(f, "Configuration error: {msg}"),
+            CliError::ProcessingError(msg) => write!(f, "Processing error: {msg}"),
         }
     }
 }

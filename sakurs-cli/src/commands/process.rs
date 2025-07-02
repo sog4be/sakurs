@@ -75,7 +75,7 @@ impl ProcessArgs {
         self.init_logging()?;
 
         log::info!("Starting text processing");
-        log::debug!("Arguments: {:?}", self);
+        log::debug!("Arguments: {self:?}");
 
         // Resolve file patterns
         let files = crate::input::resolve_patterns(&self.input)?;
