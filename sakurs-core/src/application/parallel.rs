@@ -33,7 +33,7 @@ impl ParallelProcessor {
     pub fn with_config(config: ThreadPoolConfig) -> ProcessingResult<Self> {
         let mut pool_builder = rayon::ThreadPoolBuilder::new()
             .num_threads(config.num_threads)
-            .thread_name(move |i| format!("{}-{}", config.thread_name_prefix, i));
+            .thread_name(move |i| format!("{}-{i}", config.thread_name_prefix));
 
         if let Some(stack_size) = config.stack_size {
             pool_builder = pool_builder.stack_size(stack_size);
@@ -212,15 +212,22 @@ mod tests {
     #[test]
     fn test_parallel_beneficial_heuristics() {
         let processor = ParallelProcessor::new().unwrap();
+        let thread_count = processor.thread_count();
 
-        // Small text, few chunks - not beneficial
+        // Small text, few chunks - not beneficial (less than min_chunks_for_parallel)
         assert!(!processor.is_parallel_beneficial(1024, 1));
 
-        // Large text, many chunks - beneficial
-        assert!(processor.is_parallel_beneficial(1024 * 1024, 16));
+        // Large text, many chunks - beneficial if we have enough chunks for all threads
+        let many_chunks = thread_count * 2;
+        assert!(processor.is_parallel_beneficial(1024 * 1024, many_chunks));
 
-        // Medium text, few chunks - not beneficial
-        assert!(!processor.is_parallel_beneficial(10 * 1024, 2));
+        // Small chunks (less than 4KB average) - not beneficial
+        let small_chunk_size = 2048; // 2KB average
+        assert!(!processor.is_parallel_beneficial(small_chunk_size * 2, 2));
+
+        // Chunks equal to thread count with sufficient size - beneficial
+        let sufficient_size = 4096 * thread_count;
+        assert!(processor.is_parallel_beneficial(sufficient_size, thread_count));
     }
 
     #[test]

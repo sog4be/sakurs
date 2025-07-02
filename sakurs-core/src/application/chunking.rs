@@ -232,8 +232,7 @@ impl ChunkManager {
         if actual_start >= actual_end || next_start > actual_end {
             return Err(ProcessingError::ChunkingError {
                 reason: format!(
-                    "Invalid boundaries: start={}, end={}, next={}",
-                    actual_start, actual_end, next_start
+                    "Invalid boundaries: start={actual_start}, end={actual_end}, next={next_start}"
                 ),
             });
         }
