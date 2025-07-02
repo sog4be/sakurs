@@ -52,14 +52,17 @@ mod tests {
 
         // Identity property
         assert_eq!(
-            state1.combine(&identity).boundaries.len(),
-            state1.boundaries.len()
+            state1.combine(&identity).boundary_candidates.len(),
+            state1.boundary_candidates.len()
         );
 
         // Associativity holds for basic operations
         let combined1 = state1.combine(&state2);
         let combined2 = identity.combine(&combined1);
-        assert_eq!(combined2.boundaries.len(), combined1.boundaries.len());
+        assert_eq!(
+            combined2.boundary_candidates.len(),
+            combined1.boundary_candidates.len()
+        );
     }
 
     #[test]

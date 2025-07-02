@@ -201,7 +201,6 @@ pub mod utils {
 mod tests {
     use super::*;
     use crate::domain::language::MockLanguageRules;
-    use crate::domain::state::Boundary;
     use crate::domain::Monoid;
 
     #[test]
@@ -321,12 +320,15 @@ mod tests {
     fn test_parallel_reduce_states_single() {
         // Test with single state
         let mut state = PartialState::new(1);
-        state.boundaries.insert(Boundary::new(10));
+        state.add_boundary_candidate(10, vec![0], crate::domain::BoundaryFlags::WEAK);
         state.chunk_length = 20;
 
         let states = vec![state.clone()];
         let result = utils::parallel_reduce_states(states);
-        assert_eq!(result.boundaries.len(), state.boundaries.len());
+        assert_eq!(
+            result.boundary_candidates.len(),
+            state.boundary_candidates.len()
+        );
         assert_eq!(result.chunk_length, state.chunk_length);
     }
 
