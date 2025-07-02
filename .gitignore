@@ -261,3 +261,8 @@ $RECYCLE.BIN/
 # Test artifacts
 /tmp/
 /temp/
+
+# Coverage reports
+lcov.info
+*.profraw
+*.profdata

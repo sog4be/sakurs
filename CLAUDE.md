@@ -144,6 +144,38 @@ EOF
 - Keep commits atomic and focused
 - Refer to CONTRIBUTING.md for detailed Git workflow and examples
 
+## Committing Changes with Git
+
+When the user asks you to create a new git commit, follow these steps carefully:
+
+1. **Pre-commit Verification** (MANDATORY):
+   - Run `git status` to identify all changes (staged, unstaged, and untracked files)
+   - Review the list and identify files that should NOT be committed:
+     - Coverage reports (lcov.info, *.profraw, *.profdata)
+     - Build artifacts in target/
+     - Temporary files in temp/ or tmp/
+     - IDE-specific files (.vscode/, .idea/)
+     - OS-specific files (.DS_Store, Thumbs.db)
+   - If any unwanted files are present:
+     - Remove them with `rm` or `git clean`
+     - Ensure they are in .gitignore
+     - Run `git status` again to verify cleanup
+
+2. **Change Review** (MANDATORY):
+   - Run `git diff --cached` to review staged changes
+   - Run `git diff` to review unstaged changes
+   - For each file, verify:
+     - The changes are intentional and correct
+     - No debugging code or console.log statements remain
+     - No sensitive information (passwords, API keys) is included
+     - Code follows project conventions
+
+3. **Commit Process**:
+   - Stage only the necessary files with `git add`
+   - Run final CI checks: `cargo fmt --all -- --check` and `cargo clippy --workspace -- -D warnings`
+   - Create commit with conventional commit format
+   - Include AI attribution footer
+
 ## Temporary Files and Reports
 For temporary analysis reports, documentation, and other working files:
 
