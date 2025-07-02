@@ -35,8 +35,8 @@ ci-check: format-check lint test check
 ci-local:
 	@echo "🔍 Running CI checks exactly as CI does..."
 	cargo fmt --all -- --check
-	cargo clippy --workspace -- -D warnings
-	cargo test --workspace
+	cargo clippy --all-features --workspace -- -D warnings
+	cargo test --all-features --workspace
 	cargo check --workspace
 	@echo "✅ Local CI verification complete!"
 
@@ -50,11 +50,11 @@ format-check:
 
 lint:
 	@echo "🔧 Running clippy..."
-	cargo clippy --workspace -- -D warnings
+	cargo clippy --all-features --workspace -- -D warnings
 
 test:
 	@echo "🧪 Running tests..."
-	cargo test --workspace
+	cargo test --all-features --workspace
 
 check:
 	@echo "⚙️ Checking compilation..."
@@ -71,12 +71,17 @@ clean:
 # Install git hooks
 install-hooks:
 	@echo "⚙️ Installing git pre-commit hooks..."
-	@if [ ! -f .git/hooks/pre-commit ]; then \
-		echo "❌ Pre-commit hook not found. Please create it first."; \
+	@if [ -f .githooks/pre-commit ]; then \
+		cp .githooks/pre-commit .git/hooks/pre-commit; \
+		chmod +x .git/hooks/pre-commit; \
+		echo "✅ Git hooks installed from .githooks/pre-commit!"; \
+	elif [ -f .git/hooks/pre-commit ]; then \
+		chmod +x .git/hooks/pre-commit; \
+		echo "✅ Existing git hooks made executable!"; \
+	else \
+		echo "❌ Pre-commit hook not found. Please create .githooks/pre-commit first."; \
 		exit 1; \
 	fi
-	chmod +x .git/hooks/pre-commit
-	@echo "✅ Git hooks installed!"
 
 # Coverage commands
 check-llvm-tools:
