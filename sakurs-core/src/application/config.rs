@@ -45,6 +45,11 @@ impl Default for ProcessorConfig {
 }
 
 impl ProcessorConfig {
+    /// Creates a new builder for ProcessorConfig
+    pub fn builder() -> ProcessorConfigBuilder {
+        ProcessorConfigBuilder::new()
+    }
+
     /// Creates a configuration optimized for small texts
     pub fn small_text() -> Self {
         Self {
@@ -129,6 +134,22 @@ pub enum ProcessingError {
     #[error("Failed to calculate chunk boundaries: {reason}")]
     ChunkingError { reason: String },
 
+    /// UTF-8 boundary detection failed
+    #[error("Failed to find UTF-8 boundary at position {position}")]
+    Utf8BoundaryError { position: usize },
+
+    /// Word boundary detection failed
+    #[error("Failed to find word boundary near position {position}")]
+    WordBoundaryError { position: usize },
+
+    /// Invalid chunk configuration
+    #[error("Invalid chunk boundaries: start={start}, end={end}, next={next}")]
+    InvalidChunkBoundaries {
+        start: usize,
+        end: usize,
+        next: usize,
+    },
+
     /// Memory allocation failure
     #[error("Memory allocation failed: {reason}")]
     AllocationError { reason: String },
@@ -147,6 +168,80 @@ pub enum ProcessingError {
 
 /// Result type for processing operations
 pub type ProcessingResult<T> = Result<T, ProcessingError>;
+
+/// Builder for ProcessorConfig with fluent API
+#[derive(Debug, Clone)]
+pub struct ProcessorConfigBuilder {
+    config: ProcessorConfig,
+}
+
+impl ProcessorConfigBuilder {
+    /// Creates a new builder with default values
+    pub fn new() -> Self {
+        Self {
+            config: ProcessorConfig::default(),
+        }
+    }
+
+    /// Sets the chunk size in bytes
+    pub fn chunk_size(mut self, size: usize) -> Self {
+        self.config.chunk_size = size;
+        self
+    }
+
+    /// Sets the parallel processing threshold
+    pub fn parallel_threshold(mut self, threshold: usize) -> Self {
+        self.config.parallel_threshold = threshold;
+        self
+    }
+
+    /// Sets the maximum number of threads
+    pub fn max_threads(mut self, threads: Option<usize>) -> Self {
+        self.config.max_threads = threads;
+        self
+    }
+
+    /// Sets the overlap size between chunks
+    pub fn overlap_size(mut self, size: usize) -> Self {
+        self.config.overlap_size = size;
+        self
+    }
+
+    /// Enables or disables SIMD optimizations
+    pub fn enable_simd(mut self, enable: bool) -> Self {
+        self.config.enable_simd = enable;
+        self
+    }
+
+    /// Sets the maximum text size limit
+    pub fn max_text_size(mut self, size: usize) -> Self {
+        self.config.max_text_size = size;
+        self
+    }
+
+    /// Enables or disables memory mapping
+    pub fn use_mmap(mut self, use_mmap: bool) -> Self {
+        self.config.use_mmap = use_mmap;
+        self
+    }
+
+    /// Builds the configuration, validating parameters
+    pub fn build(self) -> ProcessingResult<ProcessorConfig> {
+        self.config.validate()?;
+        Ok(self.config)
+    }
+
+    /// Builds the configuration without validation (for testing)
+    pub fn build_unchecked(self) -> ProcessorConfig {
+        self.config
+    }
+}
+
+impl Default for ProcessorConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Performance metrics collected during processing
 #[derive(Debug, Clone, Default)]
