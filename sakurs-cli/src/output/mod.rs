@@ -12,7 +12,9 @@ pub trait OutputFormatter: Send + Sync {
 }
 
 pub mod json;
+pub mod markdown;
 pub mod text;
 
 pub use json::JsonFormatter;
+pub use markdown::MarkdownFormatter;
 pub use text::TextFormatter;
