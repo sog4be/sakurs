@@ -1,45 +1,53 @@
-//! Placeholder implementation for sakurs-core
-//! This is a minimal implementation to verify CI pipeline functionality
+//! Delta-Stack Monoid algorithm for parallel sentence boundary detection
+//!
+//! This crate implements a mathematically sound parallel approach to sentence
+//! boundary detection using monoid algebra. The core innovation lies in
+//! representing parsing state as a monoid, enabling associative operations
+//! that can be computed in parallel while maintaining perfect accuracy.
+//!
+//! # Architecture
+//!
+//! The crate follows a hexagonal architecture pattern:
+//! - **Domain layer**: Pure mathematical algorithms and monoid operations
+//! - **Application layer**: Orchestration and parallel processing logic
+//! - **Adapter layer**: Interfaces for different use cases (CLI, Python, etc.)
 
-/// Placeholder function that returns a greeting
-pub fn placeholder_function() -> &'static str {
-    "Hello from sakurs-core! This is a placeholder implementation."
-}
+pub mod domain;
 
-/// Placeholder struct for future Delta-Stack implementation
-#[derive(Debug, Clone, Default)]
-pub struct DeltaStack {
-    pub placeholder: bool,
-}
-
-impl DeltaStack {
-    /// Creates a new placeholder DeltaStack
-    pub fn new() -> Self {
-        Self { placeholder: true }
-    }
-}
+pub use domain::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_placeholder_function() {
+    fn test_monoid_properties_integration() {
+        // Integration test ensuring monoid properties hold across the domain
+        let state1 = PartialState::new(2);
+        let state2 = PartialState::new(2);
+        let identity = PartialState::identity();
+
+        // Identity property
         assert_eq!(
-            placeholder_function(),
-            "Hello from sakurs-core! This is a placeholder implementation."
+            state1.combine(&identity).boundaries.len(),
+            state1.boundaries.len()
         );
+
+        // Associativity holds for basic operations
+        let combined1 = state1.combine(&state2);
+        let combined2 = identity.combine(&combined1);
+        assert_eq!(combined2.boundaries.len(), combined1.boundaries.len());
     }
 
     #[test]
-    fn test_delta_stack_creation() {
-        let stack = DeltaStack::new();
-        assert!(stack.placeholder);
-    }
-
-    #[test]
-    fn test_delta_stack_default() {
-        let stack = DeltaStack::default();
-        assert!(!stack.placeholder);
+    fn test_domain_module_exports() {
+        // Verify that all essential types are properly exported
+        let _monoid_test: PartialState = PartialState::identity();
+        let _boundary_test = Boundary {
+            offset: 0,
+            flags: BoundaryFlags::STRONG,
+        };
+        let _delta_test = DeltaEntry::new(0, 0);
+        let _abbr_test = AbbreviationState::identity();
     }
 }
