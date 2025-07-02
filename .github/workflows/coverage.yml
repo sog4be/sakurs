@@ -104,7 +104,7 @@ jobs:
             coverage-summary.txt
           retention-days: 30
 
-      - name: Comment PR with basic coverage
+      - name: Comment PR with coverage (update existing)
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7.0.1
         with:
@@ -115,8 +115,10 @@ jobs:
               // Read coverage summary
               const summary = fs.readFileSync('coverage-summary.txt', 'utf8');
               
-              // Create simple coverage comment
-              const body = `## 📊 Test Coverage Report
+              // Create coverage comment with unique identifier
+              const commentIdentifier = '<!-- SAKURS_COVERAGE_COMMENT -->';
+              const body = `${commentIdentifier}
+              ## 📊 Test Coverage Report
               
               \`\`\`
               ${summary.trim()}
@@ -127,18 +129,39 @@ jobs:
               ---
               _Automated coverage report • Updated: ${new Date().toISOString()}_`;
               
-              // Post comment to PR
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
+              // Check for existing coverage comment
+              const comments = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: body
+                issue_number: context.issue.number
               });
               
-              console.log('✅ Coverage comment posted to PR successfully');
+              const existingComment = comments.data.find(comment => 
+                comment.body.includes(commentIdentifier)
+              );
+              
+              if (existingComment) {
+                // Update existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existingComment.id,
+                  body: body
+                });
+                console.log('✅ Coverage comment updated successfully');
+              } else {
+                // Create new comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: body
+                });
+                console.log('✅ Coverage comment created successfully');
+              }
               
             } catch (error) {
-              console.error('❌ Failed to post coverage comment:', error);
+              console.error('❌ Failed to handle coverage comment:', error);
               // Don't fail the workflow if comment posting fails
             }
 
