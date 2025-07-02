@@ -147,3 +147,50 @@ fn test_config_generate() {
         .stdout(predicate::str::contains("[output]"))
         .stdout(predicate::str::contains("[performance]"));
 }
+
+#[test]
+fn test_streaming_mode() {
+    let mut cmd = Command::cargo_bin("sakurs").unwrap();
+    cmd.arg("process")
+        .arg("-i")
+        .arg(fixture_path("english-sample.txt"))
+        .arg("--stream");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Dr. Smith went to the store."))
+        .stdout(predicate::str::contains("He bought some milk and eggs."));
+}
+
+#[test]
+fn test_streaming_with_custom_chunk_size() {
+    let mut cmd = Command::cargo_bin("sakurs").unwrap();
+    cmd.arg("process")
+        .arg("-i")
+        .arg(fixture_path("english-sample.txt"))
+        .arg("--stream")
+        .arg("--stream-chunk-mb")
+        .arg("1");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Dr. Smith went to the store."));
+}
+
+#[test]
+fn test_streaming_japanese() {
+    let mut cmd = Command::cargo_bin("sakurs").unwrap();
+    cmd.arg("process")
+        .arg("-i")
+        .arg(fixture_path("japanese-sample.txt"))
+        .arg("-l")
+        .arg("japanese")
+        .arg("--stream");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("これはテストです。"))
+        .stdout(predicate::str::contains(
+            "日本語の文章を正しく分割できるか確認しています。",
+        ));
+}
