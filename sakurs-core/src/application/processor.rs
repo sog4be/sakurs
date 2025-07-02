@@ -140,8 +140,18 @@ impl TextProcessor {
 
         metrics.total_time_us = start_time.elapsed().as_micros() as u64;
 
+        // TODO: Temporary fix - will be updated when reduce phase is implemented
+        let boundaries = result
+            .boundary_candidates
+            .iter()
+            .map(|bc| Boundary {
+                offset: bc.local_offset,
+                flags: bc.flags,
+            })
+            .collect();
+
         Ok(ProcessingOutput {
-            boundaries: result.boundaries.into_iter().collect(),
+            boundaries,
             text_length: text.len(),
             metrics,
         })
@@ -164,10 +174,10 @@ impl TextProcessor {
 
         if chunks.len() == 1 {
             // Single chunk - process directly
-            let state =
-                self.parser
-                    .parse_chunk(&chunks[0].content, self.language_rules.as_ref(), None);
-            metrics.boundaries_found = state.boundaries.len();
+            let state = self
+                .parser
+                .scan_chunk(&chunks[0].content, self.language_rules.as_ref());
+            metrics.boundaries_found = state.boundary_candidates.len();
             Ok(state)
         } else {
             // Multiple chunks - process sequentially and merge
@@ -177,7 +187,7 @@ impl TextProcessor {
             let merged = self.merge_states(states);
             metrics.merge_time_us = merge_start.elapsed().as_micros() as u64;
 
-            metrics.boundaries_found = merged.boundaries.len();
+            metrics.boundaries_found = merged.boundary_candidates.len();
             Ok(merged)
         }
     }
@@ -188,17 +198,16 @@ impl TextProcessor {
         chunks: &[TextChunk],
     ) -> ProcessingResult<Vec<PartialState>> {
         let mut states = Vec::with_capacity(chunks.len());
-        let mut carry_state: Option<PartialState> = None;
+        let mut _carry_state: Option<PartialState> = None;
 
         for chunk in chunks {
-            let state = self.parser.parse_chunk(
-                &chunk.content,
-                self.language_rules.as_ref(),
-                carry_state.as_ref(),
-            );
+            // TODO: Temporary - scan_chunk doesn't take carry_state yet
+            let state = self
+                .parser
+                .scan_chunk(&chunk.content, self.language_rules.as_ref());
 
             // Update carry state for next chunk
-            carry_state = Some(state.clone());
+            _carry_state = Some(state.clone());
             states.push(state);
         }
 
@@ -237,11 +246,9 @@ impl TextProcessor {
             chunks
                 .par_iter()
                 .map(|chunk| {
-                    self.parser.parse_chunk(
-                        &chunk.content,
-                        self.language_rules.as_ref(),
-                        None, // No carry state in parallel mode
-                    )
+                    // TODO: Temporary - will be updated with prefix-sum
+                    self.parser
+                        .scan_chunk(&chunk.content, self.language_rules.as_ref())
                 })
                 .collect::<Vec<_>>()
         });
@@ -253,7 +260,7 @@ impl TextProcessor {
         let merged = self.merge_states_with_overlap_resolution(states, &chunks);
         metrics.merge_time_us = merge_start.elapsed().as_micros() as u64;
 
-        metrics.boundaries_found = merged.boundaries.len();
+        metrics.boundaries_found = merged.boundary_candidates.len();
         Ok(merged)
     }
 
@@ -282,28 +289,10 @@ impl TextProcessor {
             .into_iter()
             .zip(chunks)
             .map(|(state, chunk)| {
-                // Adjust boundary offsets to global positions
-                let adjusted_boundaries = state
-                    .boundaries
-                    .into_iter()
-                    .filter_map(|mut boundary| {
-                        // Only keep boundaries within effective range
-                        let effective_range = chunk.effective_range();
-                        let global_offset = chunk.start_offset + boundary.offset;
-
-                        if global_offset >= effective_range.start
-                            && global_offset < effective_range.end
-                        {
-                            boundary.offset = global_offset;
-                            Some(boundary)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
+                // TODO: Temporary - will be updated when reduce phase is implemented
+                // For now, just update chunk length
                 PartialState {
-                    boundaries: adjusted_boundaries,
+                    boundary_candidates: state.boundary_candidates,
                     deltas: state.deltas,
                     abbreviation: state.abbreviation,
                     chunk_length: chunk.effective_range().len(),
@@ -334,21 +323,30 @@ impl TextProcessor {
             metrics.bytes_processed += chunk_text.len();
             total_length += chunk_text.len();
 
-            let state = self.parser.parse_chunk(
-                &chunk_text,
-                self.language_rules.as_ref(),
-                Some(&accumulated_state),
-            );
+            // TODO: Temporary - will be updated with carry state support
+            let state = self
+                .parser
+                .scan_chunk(&chunk_text, self.language_rules.as_ref());
 
             accumulated_state = accumulated_state.combine(&state);
         }
 
-        metrics.boundaries_found = accumulated_state.boundaries.len();
+        metrics.boundaries_found = accumulated_state.boundary_candidates.len();
         metrics.total_time_us = start_time.elapsed().as_micros() as u64;
         metrics.thread_count = 1; // Streaming is sequential
 
+        // TODO: Temporary fix - will be updated when reduce phase is implemented
+        let boundaries = accumulated_state
+            .boundary_candidates
+            .iter()
+            .map(|bc| Boundary {
+                offset: bc.local_offset,
+                flags: bc.flags,
+            })
+            .collect();
+
         Ok(ProcessingOutput {
-            boundaries: accumulated_state.boundaries.into_iter().collect(),
+            boundaries,
             text_length: total_length,
             metrics,
         })
