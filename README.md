@@ -7,42 +7,180 @@
 </p>
 
 <p align="center">
-    <img src="https://img.shields.io/badge/coverage-89.89%25-green" alt="Coverage" id="coverage-badge">
+    <img src="https://img.shields.io/badge/coverage-90.99%25-green" alt="Coverage" id="coverage-badge">
+    <img src="https://img.shields.io/badge/rust-1.81%2B-orange" alt="Rust Version">
+    <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
 </p>
 
 ## Features
 
-- 🚀 Scalable performance through true parallel processing
-- 🌏 Multi-language support (English, Japanese)
-- 🐍 Python bindings
-- 📊 Streaming processing support
-- ⚡ SIMD optimization
+- 🚀 **True Parallel Processing** - Based on the Δ-Stack Monoid algorithm
+- 🌏 **Multi-language Support** - English and Japanese with extensible architecture
+- 📄 **Multiple Output Formats** - Plain text, JSON, and Markdown
+- 🎯 **High Accuracy** - Handles abbreviations, quotations, and nested structures
+- ⚡ **Fast Performance** - Optimized chunking and parallel execution
+- 🔧 **Flexible Configuration** - Customizable processing parameters
 
 ## Installation
 
+### From Source
+
 ```bash
-# CLI tool
+# Clone the repository
+git clone https://github.com/yourusername/sakurs.git
+cd sakurs
+
+# Build and install the CLI
+cargo install --path sakurs-cli
+
+# Or build without installing
+cargo build --release
+./target/release/sakurs --help
+```
+
+### From crates.io (Coming Soon)
+
+```bash
 cargo install sakurs-cli
-
-# Python library
-pip install sakurs
 ```
 
-## Usage Examples
+## Quick Start
 
-### CLI
+### Basic Usage
 
 ```bash
-sakurs -i input.txt -o output.txt --language en
+# Process a single file
+sakurs process -i document.txt
+
+# Process with Japanese language rules
+sakurs process -i japanese.txt -l japanese
+
+# Output to a file
+sakurs process -i input.txt -o sentences.txt
+
+# Process multiple files with glob pattern
+sakurs process -i "docs/*.txt" -o all_sentences.txt
 ```
 
-### Python
+### Output Formats
 
-```python
-from sakurs import DeltaSBD
+```bash
+# JSON format with sentence boundaries and offsets
+sakurs process -i text.txt -f json -o output.json
 
-sbd = DeltaSBD(language="en")
-sentences = sbd.split_sentences("This is an example sentence. Another sentence follows.")
+# Markdown format with numbered sentences
+sakurs process -i text.txt -f markdown
+
+# Default text format (one sentence per line)
+sakurs process -i text.txt
+```
+
+### Advanced Options
+
+```bash
+# Force parallel processing for small files
+sakurs process -i small.txt --parallel
+
+# Suppress progress output for scripting
+sakurs process -i *.txt --quiet > sentences.txt
+
+# Increase verbosity for debugging
+sakurs process -i debug.txt -vv
+```
+
+## Command Reference
+
+### `sakurs process`
+
+Process text files to detect sentence boundaries.
+
+**Options:**
+- `-i, --input <FILE/PATTERN>` - Input files (supports glob patterns)
+- `-o, --output <FILE>` - Output file (default: stdout)
+- `-f, --format <FORMAT>` - Output format: text, json, markdown (default: text)
+- `-l, --language <LANG>` - Language: english, japanese (default: english)
+- `-p, --parallel` - Force parallel processing
+- `-q, --quiet` - Suppress progress output
+- `-v, --verbose` - Increase verbosity (can be repeated)
+
+### `sakurs config`
+
+Configuration management commands.
+
+```bash
+# Generate a default configuration file
+sakurs config generate > sakurs.toml
+
+# Validate a configuration file (coming soon)
+sakurs config validate sakurs.toml
+```
+
+### `sakurs list`
+
+List available components.
+
+```bash
+# List supported languages
+sakurs list languages
+
+# List output formats
+sakurs list formats
+```
+
+## Configuration
+
+Create a `sakurs.toml` file to customize processing:
+
+```toml
+[processing]
+default_language = "english"
+detect_abbreviations = true
+strict_punctuation = false
+
+[output]
+default_format = "text"
+include_metadata = false
+pretty_json = true
+
+[performance]
+parallel_threshold_mb = 10
+chunk_size_kb = 256
+worker_threads = 0  # 0 = auto-detect
+```
+
+## Examples
+
+### Processing Research Papers
+
+```bash
+# Process all PDF-extracted text files
+sakurs process -i "papers/*.txt" -f json -o analysis.json
+
+# Extract first sentences for abstract generation
+sakurs process -i paper.txt | head -n 5
+```
+
+### Multilingual Document Processing
+
+```bash
+# Process English documents
+sakurs process -i "en/*.txt" -l english -o english_sentences.txt
+
+# Process Japanese documents  
+sakurs process -i "ja/*.txt" -l japanese -o japanese_sentences.txt
+```
+
+### Integration with Other Tools
+
+```bash
+# Count sentences
+sakurs process -i document.txt | wc -l
+
+# Extract sentences containing keywords
+sakurs process -i text.txt | grep -i "important"
+
+# Convert to one sentence per file
+sakurs process -i input.txt | split -l 1 - sentence_
 ```
 
 ## Architecture
