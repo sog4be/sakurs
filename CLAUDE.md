@@ -107,3 +107,30 @@ When creating or helping with PRs:
 - Use descriptive branch names: `feature/`, `fix/`, `docs/`, `chore/`
 - Keep commits atomic and focused
 - Refer to CONTRIBUTING.md for detailed Git workflow and examples
+
+## Temporary Files and Reports
+For temporary analysis reports, documentation, and other working files:
+
+### File Organization
+- **Location**: `temp/` directory in project root
+- **Naming Convention**: `yyyy-mm-dd_${report-name}.md`
+- **Examples**:
+  ```
+  temp/2025-07-02_test-coverage-analysis.md
+  temp/2025-07-02_performance-benchmarks.md
+  temp/2025-07-02_architecture-review.md
+  ```
+
+### Usage Guidelines
+- Use for analysis reports, investigation findings, temporary documentation
+- Include date for chronological tracking and cleanup
+- Use descriptive names with hyphens for readability
+- Clean up periodically - these files are not meant for long-term storage
+- Add `temp/` to `.gitignore` if temporary files should not be committed
+
+### When to Use
+- Code coverage analysis reports
+- Performance investigation findings
+- Architecture decision documentation drafts
+- Debug session logs and findings
+- Temporary research and analysis documents
