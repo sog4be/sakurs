@@ -172,6 +172,8 @@ fn execute_list(subcommand: ListCommands) -> Result<()> {
 mod tests {
     use super::*;
     use clap::CommandFactory;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn verify_cli() {
@@ -184,6 +186,221 @@ mod tests {
         // Test that help can be generated without panic
         let mut cmd = Cli::command();
         let help = cmd.render_help();
-        assert!(!help.to_string().is_empty());
+        let help_str = help.to_string();
+        assert!(!help_str.is_empty());
+        assert!(help_str.contains("sakurs"));
+        assert!(help_str.contains("process"));
+        assert!(help_str.contains("config"));
+        assert!(help_str.contains("list"));
+    }
+
+    #[test]
+    fn test_execute_config_generate() {
+        // Test config generation
+        let result = execute_config(ConfigCommands::Generate);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_execute_config_validate_valid_file() -> Result<()> {
+        // Create a valid config file
+        let mut temp_file = NamedTempFile::new()?;
+        writeln!(
+            temp_file,
+            r#"
+[processing]
+default_language = "english"
+detect_abbreviations = true
+strict_punctuation = false
+
+[output]
+default_format = "text"
+include_metadata = false
+pretty_json = true
+
+[performance]
+parallel_threshold_mb = 1
+chunk_size_kb = 256
+worker_threads = 0
+"#
+        )?;
+
+        let result = execute_config(ConfigCommands::Validate {
+            file: temp_file.path().to_string_lossy().to_string(),
+        });
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_execute_config_validate_missing_file() {
+        // Test with non-existent file
+        let result = execute_config(ConfigCommands::Validate {
+            file: "nonexistent-config-file.toml".to_string(),
+        });
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Failed to read config file"));
+    }
+
+    // Note: This test is commented out because it calls std::process::exit(1)
+    // which causes the test runner to exit. In a production application, you might
+    // want to refactor the error handling to return errors instead of exiting.
+
+    // #[test]
+    // fn test_execute_config_validate_invalid_toml() -> Result<()> {
+    //     // This test would call std::process::exit(1) and cannot be tested directly
+    //     Ok(())
+    // }
+
+    #[test]
+    fn test_execute_config_validate_with_warnings() -> Result<()> {
+        // Create config with invalid values that should trigger warnings
+        let mut temp_file = NamedTempFile::new()?;
+        writeln!(
+            temp_file,
+            r#"
+[processing]
+default_language = "unsupported_language"
+detect_abbreviations = true
+strict_punctuation = false
+
+[output]
+default_format = "unsupported_format"
+include_metadata = false
+pretty_json = true
+
+[performance]
+parallel_threshold_mb = 1
+chunk_size_kb = 0
+worker_threads = 0
+"#
+        )?;
+
+        let result = execute_config(ConfigCommands::Validate {
+            file: temp_file.path().to_string_lossy().to_string(),
+        });
+        // Should still pass validation but show warnings
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    // Note: These tests are commented out because they call std::process::exit(1)
+    // which causes the test runner to exit. To properly test these scenarios,
+    // the error handling would need to be refactored to return errors instead.
+
+    // #[test]
+    // fn test_execute_config_validate_missing_fields() -> Result<()> {
+    //     // This test would call std::process::exit(1) and cannot be tested directly
+    //     Ok(())
+    // }
+
+    // #[test]
+    // fn test_execute_config_validate_type_errors() -> Result<()> {
+    //     // This test would call std::process::exit(1) and cannot be tested directly
+    //     Ok(())
+    // }
+
+    #[test]
+    fn test_execute_list_languages() {
+        let result = execute_list(ListCommands::Languages);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_execute_list_formats() {
+        let result = execute_list(ListCommands::Formats);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_main_command_dispatch() {
+        // Test that command dispatch logic works for each variant
+        // Note: We can't easily test main() directly since it calls parse(),
+        // but we can test the execute functions directly
+
+        // Test all config subcommands
+        assert!(execute_config(ConfigCommands::Generate).is_ok());
+
+        // Test all list subcommands
+        assert!(execute_list(ListCommands::Languages).is_ok());
+        assert!(execute_list(ListCommands::Formats).is_ok());
+    }
+
+    #[test]
+    fn test_config_validation_edge_cases() -> Result<()> {
+        // Test minimal valid config
+        let mut temp_file = NamedTempFile::new()?;
+        writeln!(
+            temp_file,
+            r#"
+[processing]
+default_language = "japanese"
+detect_abbreviations = false
+strict_punctuation = true
+
+[output]
+default_format = "json"
+include_metadata = true
+pretty_json = false
+
+[performance]
+parallel_threshold_mb = 100
+chunk_size_kb = 1024
+worker_threads = 8
+"#
+        )?;
+
+        let result = execute_config(ConfigCommands::Validate {
+            file: temp_file.path().to_string_lossy().to_string(),
+        });
+        assert!(result.is_ok());
+
+        // Test config with markdown format
+        let mut temp_file2 = NamedTempFile::new()?;
+        writeln!(
+            temp_file2,
+            r#"
+[processing]
+default_language = "english"
+detect_abbreviations = true
+strict_punctuation = false
+
+[output]
+default_format = "markdown"
+include_metadata = false
+pretty_json = true
+
+[performance]
+parallel_threshold_mb = 50
+chunk_size_kb = 512
+worker_threads = 4
+"#
+        )?;
+
+        let result2 = execute_config(ConfigCommands::Validate {
+            file: temp_file2.path().to_string_lossy().to_string(),
+        });
+        assert!(result2.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_file_paths() {
+        // Test various file path formats
+        let invalid_paths = vec![
+            "/nonexistent/path/config.toml",
+            "~/nonexistent/config.toml",
+            "./missing/config.toml",
+            "../missing.toml",
+        ];
+
+        for path in invalid_paths {
+            let result = execute_config(ConfigCommands::Validate {
+                file: path.to_string(),
+            });
+            assert!(result.is_err(), "Should fail for path: {}", path);
+        }
     }
 }
