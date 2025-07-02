@@ -299,7 +299,7 @@ impl PartialState {
         _text_offset: usize,
         _rules: &R,
     ) -> Self {
-        // TODO: Temporarily disabled - will be updated when reduce phase is implemented
+        // Language rule refinement is handled by the reduce phase
         self.clone()
         /*
         use crate::domain::language::{BoundaryContext, BoundaryDecision};
@@ -376,7 +376,7 @@ impl PartialState {
         _text_offset: usize,
         rules: &R,
     ) -> Self {
-        // TODO: Temporarily disabled - will be updated when reduce phase is implemented
+        // Language rule processing is handled by scan and reduce phases
         use crate::domain::parser::scan_chunk;
         scan_chunk(text, rules)
         /*

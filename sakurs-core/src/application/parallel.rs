@@ -68,10 +68,7 @@ impl ParallelProcessor {
         let states = self.thread_pool.install(|| {
             chunks
                 .into_par_iter()
-                .map(|chunk| {
-                    // TODO: Temporary - will be updated with prefix-sum
-                    parser.scan_chunk(&chunk.content, language_rules.as_ref())
-                })
+                .map(|chunk| parser.scan_chunk(&chunk.content, language_rules.as_ref()))
                 .collect::<Vec<_>>()
         });
 
