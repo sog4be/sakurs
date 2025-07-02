@@ -217,8 +217,7 @@ impl JapaneseQuotationRule {
                         Some('「') => {} // Correct pairing
                         Some(other) => {
                             return Err(format!(
-                                "Mismatched quote: expected closing for {}, found 」",
-                                other
+                                "Mismatched quote: expected closing for {other}, found 」"
                             ))
                         }
                         None => return Err("Unmatched closing 」 quote".to_string()),
@@ -229,8 +228,7 @@ impl JapaneseQuotationRule {
                         Some('『') => {} // Correct pairing
                         Some(other) => {
                             return Err(format!(
-                                "Mismatched quote: expected closing for {}, found 』",
-                                other
+                                "Mismatched quote: expected closing for {other}, found 』"
                             ))
                         }
                         None => return Err("Unmatched closing 』 quote".to_string()),
@@ -241,7 +239,7 @@ impl JapaneseQuotationRule {
         }
 
         if !stack.is_empty() {
-            return Err(format!("Unmatched opening quotes: {:?}", stack));
+            return Err(format!("Unmatched opening quotes: {stack:?}"));
         }
 
         Ok(())
