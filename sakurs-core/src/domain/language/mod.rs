@@ -154,6 +154,38 @@ impl LanguageRules for MockLanguageRules {
                 enclosure_type: EnclosureType::JapaneseDoubleQuote,
                 is_opening: false,
             }),
+            '〈' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseAngleBracket,
+                is_opening: true,
+            }),
+            '〉' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseAngleBracket,
+                is_opening: false,
+            }),
+            '《' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseDoubleAngleBracket,
+                is_opening: true,
+            }),
+            '》' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseDoubleAngleBracket,
+                is_opening: false,
+            }),
+            '【' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseLenticularBracket,
+                is_opening: true,
+            }),
+            '】' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseLenticularBracket,
+                is_opening: false,
+            }),
+            '〔' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseTortoiseShellBracket,
+                is_opening: true,
+            }),
+            '〕' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseTortoiseShellBracket,
+                is_opening: false,
+            }),
             _ => None,
         }
     }
@@ -166,14 +198,19 @@ impl LanguageRules for MockLanguageRules {
                 EnclosureType::DoubleQuote => 0,
                 EnclosureType::SingleQuote => 1,
                 EnclosureType::Parenthesis => 2,
-                EnclosureType::JapaneseQuote => 3,
-                EnclosureType::JapaneseDoubleQuote => 4,
+                EnclosureType::SquareBracket => 3,
+                EnclosureType::JapaneseQuote => 4,
+                EnclosureType::JapaneseDoubleQuote => 5,
+                EnclosureType::JapaneseAngleBracket => 6,
+                EnclosureType::JapaneseDoubleAngleBracket => 7,
+                EnclosureType::JapaneseLenticularBracket => 8,
+                EnclosureType::JapaneseTortoiseShellBracket => 9,
                 _ => 0,
             })
     }
 
     fn enclosure_type_count(&self) -> usize {
-        5 // Support same types as English plus Japanese quotes
+        10 // Support all bracket types including extended Japanese brackets
     }
 }
 

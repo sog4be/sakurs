@@ -22,6 +22,14 @@ pub enum EnclosureType {
     JapaneseQuote,
     /// Japanese double quotation marks: 『』
     JapaneseDoubleQuote,
+    /// Japanese angle brackets: 〈〉
+    JapaneseAngleBracket,
+    /// Japanese double angle brackets: 《》
+    JapaneseDoubleAngleBracket,
+    /// Japanese lenticular brackets: 【】
+    JapaneseLenticularBracket,
+    /// Japanese tortoise shell brackets: 〔〕
+    JapaneseTortoiseShellBracket,
     /// French quotation marks: « »
     FrenchQuote,
     /// German quotation marks: „ "
@@ -57,6 +65,10 @@ pub trait EnclosureRules: Send + Sync {
                 | EnclosureType::CurlyBrace
                 | EnclosureType::JapaneseQuote
                 | EnclosureType::JapaneseDoubleQuote
+                | EnclosureType::JapaneseAngleBracket
+                | EnclosureType::JapaneseDoubleAngleBracket
+                | EnclosureType::JapaneseLenticularBracket
+                | EnclosureType::JapaneseTortoiseShellBracket
         )
     }
 }

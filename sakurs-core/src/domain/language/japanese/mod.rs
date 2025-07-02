@@ -230,6 +230,24 @@ impl LanguageRules for JapaneseLanguageRules {
                 is_opening: false,
             }),
 
+            // Square brackets (both full-width and half-width)
+            '[' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::SquareBracket,
+                is_opening: true,
+            }),
+            ']' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::SquareBracket,
+                is_opening: false,
+            }),
+            '［' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::SquareBracket,
+                is_opening: true,
+            }),
+            '］' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::SquareBracket,
+                is_opening: false,
+            }),
+
             _ => None,
         }
     }
@@ -240,14 +258,21 @@ impl LanguageRules for JapaneseLanguageRules {
                 EnclosureType::DoubleQuote => 0,
                 EnclosureType::SingleQuote => 1,
                 EnclosureType::Parenthesis => 2,
-                EnclosureType::JapaneseQuote => 3,
-                EnclosureType::JapaneseDoubleQuote => 4,
+                EnclosureType::SquareBracket => 3,
+                EnclosureType::JapaneseQuote => 4,
+                EnclosureType::JapaneseDoubleQuote => 5,
+                EnclosureType::JapaneseAngleBracket => 6,
+                EnclosureType::JapaneseDoubleAngleBracket => 7,
+                EnclosureType::JapaneseLenticularBracket => 8,
+                EnclosureType::JapaneseTortoiseShellBracket => 9,
                 _ => 0,
             })
     }
 
     fn enclosure_type_count(&self) -> usize {
-        5 // DoubleQuote, SingleQuote, Parenthesis, JapaneseQuote, JapaneseDoubleQuote
+        10 // DoubleQuote, SingleQuote, Parenthesis, SquareBracket, JapaneseQuote,
+           // JapaneseDoubleQuote, JapaneseAngleBracket, JapaneseDoubleAngleBracket,
+           // JapaneseLenticularBracket, JapaneseTortoiseShellBracket
     }
 }
 
@@ -266,7 +291,7 @@ mod tests {
         let rules = JapaneseLanguageRules::new();
         assert_eq!(rules.language_code(), "ja");
         assert_eq!(rules.language_name(), "Japanese");
-        assert_eq!(rules.enclosure_type_count(), 5);
+        assert_eq!(rules.enclosure_type_count(), 10);
     }
 
     #[test]
@@ -393,11 +418,16 @@ mod tests {
     fn test_enclosure_type_mapping() {
         let rules = JapaneseLanguageRules::new();
 
-        assert_eq!(rules.get_enclosure_type_id('「'), Some(3)); // JapaneseQuote
-        assert_eq!(rules.get_enclosure_type_id('』'), Some(4)); // JapaneseDoubleQuote
+        assert_eq!(rules.get_enclosure_type_id('「'), Some(4)); // JapaneseQuote
+        assert_eq!(rules.get_enclosure_type_id('』'), Some(5)); // JapaneseDoubleQuote
         assert_eq!(rules.get_enclosure_type_id('('), Some(2)); // Parenthesis
         assert_eq!(rules.get_enclosure_type_id('"'), Some(0)); // DoubleQuote
         assert_eq!(rules.get_enclosure_type_id('\''), Some(1)); // SingleQuote
+        assert_eq!(rules.get_enclosure_type_id('['), Some(3)); // SquareBracket
+        assert_eq!(rules.get_enclosure_type_id('〈'), Some(6)); // JapaneseAngleBracket
+        assert_eq!(rules.get_enclosure_type_id('《'), Some(7)); // JapaneseDoubleAngleBracket
+        assert_eq!(rules.get_enclosure_type_id('【'), Some(8)); // JapaneseLenticularBracket
+        assert_eq!(rules.get_enclosure_type_id('〔'), Some(9)); // JapaneseTortoiseShellBracket
     }
 
     #[test]
@@ -431,5 +461,59 @@ mod tests {
         assert_eq!(rules.analyze_quote_nesting(text, 4), 2); // Inside nested quote
         assert_eq!(rules.analyze_quote_nesting(text, 7), 1); // Back to outer quote
         assert_eq!(rules.analyze_quote_nesting(text, 10), 0); // After all quotes
+    }
+
+    #[test]
+    fn test_extended_bracket_support() {
+        let rules = JapaneseLanguageRules::new();
+
+        // Test angle brackets
+        let angle_open = rules.get_enclosure_char('〈').unwrap();
+        assert_eq!(
+            angle_open.enclosure_type,
+            EnclosureType::JapaneseAngleBracket
+        );
+        assert!(angle_open.is_opening);
+
+        let double_angle = rules.get_enclosure_char('《').unwrap();
+        assert_eq!(
+            double_angle.enclosure_type,
+            EnclosureType::JapaneseDoubleAngleBracket
+        );
+        assert!(double_angle.is_opening);
+
+        // Test lenticular brackets
+        let lent = rules.get_enclosure_char('【').unwrap();
+        assert_eq!(
+            lent.enclosure_type,
+            EnclosureType::JapaneseLenticularBracket
+        );
+        assert!(lent.is_opening);
+
+        // Test square brackets (both widths)
+        let sq_half = rules.get_enclosure_char('[').unwrap();
+        assert_eq!(sq_half.enclosure_type, EnclosureType::SquareBracket);
+        assert!(sq_half.is_opening);
+
+        let sq_full = rules.get_enclosure_char('［').unwrap();
+        assert_eq!(sq_full.enclosure_type, EnclosureType::SquareBracket);
+        assert!(sq_full.is_opening);
+    }
+
+    #[test]
+    fn test_mixed_bracket_pairing() {
+        let rules = JapaneseLanguageRules::new();
+
+        // Valid mixed nesting
+        assert!(rules.validate_quote_pairing("【見出し「内容」】").is_ok());
+        assert!(rules.validate_quote_pairing("《タイトル〈サブ〉》").is_ok());
+        assert!(rules
+            .validate_quote_pairing("〔注：「引用」を参照〕")
+            .is_ok());
+
+        // Complex nesting
+        assert!(rules
+            .validate_quote_pairing("【重要：《書名》の「引用」】")
+            .is_ok());
     }
 }
