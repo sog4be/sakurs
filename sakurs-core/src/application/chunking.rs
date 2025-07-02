@@ -2,6 +2,31 @@
 //!
 //! This module provides intelligent text chunking that respects UTF-8 boundaries,
 //! word boundaries, and provides overlap regions for cross-chunk processing.
+//!
+//! ## UTF-8 Limitations
+//!
+//! **Current Known Issue**: The chunking algorithm has a UTF-8 boundary detection
+//! issue specifically with Japanese and other CJK (Chinese, Japanese, Korean) text.
+//! This manifests as:
+//!
+//! - Chunking may split multi-byte UTF-8 sequences incorrectly
+//! - Japanese text processing may fail with UTF-8 boundary errors
+//! - Some edge cases with emoji and complex Unicode sequences
+//!
+//! **Workaround**: For CJK text processing:
+//! 1. Use larger chunk sizes (>= 8KB) to reduce boundary crossings
+//! 2. Consider processing as a single chunk if text is small enough
+//! 3. Japanese language rules will be added in a future PR to properly handle this
+//!
+//! **Root Cause**: The current word boundary detection logic is optimized for
+//! English text and doesn't account for CJK character boundaries properly.
+//!
+//! ## Safety Guarantees
+//!
+//! Despite the CJK limitation, this module maintains UTF-8 safety:
+//! - All returned strings are guaranteed to be valid UTF-8
+//! - No string slicing occurs at invalid UTF-8 boundaries
+//! - Errors are returned rather than panicking on invalid boundaries
 
 use crate::application::config::{ProcessingError, ProcessingResult};
 use std::ops::Range;
@@ -208,41 +233,78 @@ impl ChunkManager {
         include_prefix_overlap: bool,
         include_suffix_overlap: bool,
     ) -> ProcessingResult<(usize, usize, usize)> {
-        let text_len = text_bytes.len();
+        let actual_start = self.calculate_chunk_start(text_bytes, start, include_prefix_overlap)?;
+        let actual_end =
+            self.calculate_chunk_end(text_bytes, target_end, include_suffix_overlap)?;
+        let next_start =
+            self.calculate_next_start(text_bytes, target_end, actual_end, include_suffix_overlap)?;
 
-        // Calculate actual start with overlap
-        let actual_start = if include_prefix_overlap {
-            let overlap_start = start.saturating_sub(self.overlap_size);
-            self.find_utf8_boundary(text_bytes, overlap_start, true)?
-        } else {
-            start
-        };
-
-        // Calculate actual end with overlap
-        let actual_end = if include_suffix_overlap {
-            let overlap_end = (target_end + self.overlap_size).min(text_len);
-            self.find_utf8_boundary(text_bytes, overlap_end, false)?
-        } else {
-            self.find_utf8_boundary(text_bytes, target_end, false)?
-        };
-
-        // Calculate next chunk start (without overlap)
-        let next_start = if include_suffix_overlap {
-            self.find_word_boundary(text_bytes, target_end, false)?
-        } else {
-            actual_end
-        };
-
-        // Validate boundaries
-        if actual_start >= actual_end || next_start > actual_end {
-            return Err(ProcessingError::ChunkingError {
-                reason: format!(
-                    "Invalid boundaries: start={actual_start}, end={actual_end}, next={next_start}"
-                ),
-            });
-        }
-
+        self.validate_boundaries(actual_start, actual_end, next_start)?;
         Ok((actual_start, actual_end, next_start))
+    }
+
+    /// Calculates the actual start position with optional overlap
+    fn calculate_chunk_start(
+        &self,
+        text_bytes: &[u8],
+        start: usize,
+        include_prefix_overlap: bool,
+    ) -> ProcessingResult<usize> {
+        if include_prefix_overlap {
+            let overlap_start = start.saturating_sub(self.overlap_size);
+            self.find_utf8_boundary(text_bytes, overlap_start, true)
+        } else {
+            Ok(start)
+        }
+    }
+
+    /// Calculates the actual end position with optional overlap
+    fn calculate_chunk_end(
+        &self,
+        text_bytes: &[u8],
+        target_end: usize,
+        include_suffix_overlap: bool,
+    ) -> ProcessingResult<usize> {
+        if include_suffix_overlap {
+            let text_len = text_bytes.len();
+            let overlap_end = (target_end + self.overlap_size).min(text_len);
+            self.find_utf8_boundary(text_bytes, overlap_end, false)
+        } else {
+            self.find_utf8_boundary(text_bytes, target_end, false)
+        }
+    }
+
+    /// Calculates the next chunk start position
+    fn calculate_next_start(
+        &self,
+        text_bytes: &[u8],
+        target_end: usize,
+        actual_end: usize,
+        include_suffix_overlap: bool,
+    ) -> ProcessingResult<usize> {
+        if include_suffix_overlap {
+            self.find_word_boundary(text_bytes, target_end, false)
+        } else {
+            Ok(actual_end)
+        }
+    }
+
+    /// Validates that calculated boundaries are consistent
+    fn validate_boundaries(
+        &self,
+        actual_start: usize,
+        actual_end: usize,
+        next_start: usize,
+    ) -> ProcessingResult<()> {
+        if actual_start >= actual_end || next_start > actual_end {
+            Err(ProcessingError::InvalidChunkBoundaries {
+                start: actual_start,
+                end: actual_end,
+                next: next_start,
+            })
+        } else {
+            Ok(())
+        }
     }
 
     /// Finds the nearest valid UTF-8 boundary
@@ -278,7 +340,7 @@ impl ChunkManager {
             }
         }
 
-        Err(ProcessingError::Utf8Error { position: pos })
+        Err(ProcessingError::Utf8BoundaryError { position: pos })
     }
 
     /// Finds the nearest word boundary
