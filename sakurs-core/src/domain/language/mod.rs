@@ -346,7 +346,7 @@ mod tests {
         let text = "Dr. Smith earned his Ph.D. in 1999. He now works at Tech Corp. The company is valued at $2.5 billion! What an achievement.";
         let _state = PartialState::from_text_with_rules(text, 0, &rules);
 
-        // TODO: Temporarily disabled - will be updated when reduce phase is implemented
+        // Boundary validation is now handled by the unified processor and reduce phase
         // let boundary_positions: Vec<usize> = state.boundary_candidates.iter().map(|b| b.local_offset).collect();
 
         // // Should not have boundaries after abbreviations

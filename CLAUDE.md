@@ -33,6 +33,7 @@ When asked to create PRs or commits, always reference these documents to ensure 
 - Implement `Send + Sync` for parallel processing traits
 - Add rustdoc comments for public APIs
 - Use workspace dependencies for consistency
+- **Keep code clean**: Remove outdated TODO comments, temporary debug code, and commented-out blocks before committing
 
 ## Architecture Notes
 - Hexagonal architecture (Ports & Adapters pattern)
@@ -169,6 +170,7 @@ When the user asks you to create a new git commit, follow these steps carefully:
      - No debugging code or console.log statements remain
      - No sensitive information (passwords, API keys) is included
      - Code follows project conventions
+     - **Remove unnecessary comments**: Delete outdated TODO comments, temporary debug comments, commented-out code blocks, and development notes that are no longer relevant
 
 3. **Commit Process**:
    - Stage only the necessary files with `git add`
@@ -182,7 +184,16 @@ For temporary analysis reports, documentation, and other working files:
 ### File Organization
 - **Location**: `temp/` directory in project root
 - **Naming Convention**: `yyyy-mm-dd-HH:MM:SS_${report-name}.md`
-- **Examples**:
+- **Automatic Timestamp Generation**:
+  ```bash
+  # Generate accurate timestamp
+  TIMESTAMP=$(date "+%Y-%m-%d-%H:%M:%S")
+  echo "temp/${TIMESTAMP}_report-name.md"
+  
+  # Example output:
+  # temp/2025-07-02-23:15:42_test-coverage-analysis.md
+  ```
+- **Manual Examples** (for reference only):
   ```
   temp/2025-07-02-10:30:00_test-coverage-analysis.md
   temp/2025-07-02-14:15:30_performance-benchmarks.md
@@ -191,11 +202,26 @@ For temporary analysis reports, documentation, and other working files:
 
 ### Usage Guidelines
 - Use for analysis reports, investigation findings, temporary documentation
-- Include date and time for precise chronological tracking
+- **Always use automatic timestamp generation** for accuracy and consistency
 - Use 24-hour format (HH:MM:SS) for consistency
 - Use descriptive names with hyphens for readability
 - Clean up periodically - these files are not meant for long-term storage
 - Add `temp/` to `.gitignore` if temporary files should not be committed
+
+### Automated File Creation
+```bash
+# Recommended approach for creating temp files
+TIMESTAMP=$(date "+%Y-%m-%d-%H:%M:%S")
+FILENAME="temp/${TIMESTAMP}_your-report-name.md"
+echo "Creating: $FILENAME"
+
+# Use with your content creation
+cat > "$FILENAME" << 'EOF'
+# Your Report Title
+
+## Content goes here...
+EOF
+```
 
 ### When to Use
 - Code coverage analysis reports

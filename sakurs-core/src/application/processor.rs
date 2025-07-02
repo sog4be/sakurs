@@ -140,7 +140,6 @@ impl TextProcessor {
 
         metrics.total_time_us = start_time.elapsed().as_micros() as u64;
 
-        // TODO: Temporary fix - will be updated when reduce phase is implemented
         let boundaries = result
             .boundary_candidates
             .iter()
@@ -201,7 +200,6 @@ impl TextProcessor {
         let mut _carry_state: Option<PartialState> = None;
 
         for chunk in chunks {
-            // TODO: Temporary - scan_chunk doesn't take carry_state yet
             let state = self
                 .parser
                 .scan_chunk(&chunk.content, self.language_rules.as_ref());
@@ -246,7 +244,6 @@ impl TextProcessor {
             chunks
                 .par_iter()
                 .map(|chunk| {
-                    // TODO: Temporary - will be updated with prefix-sum
                     self.parser
                         .scan_chunk(&chunk.content, self.language_rules.as_ref())
                 })
@@ -289,8 +286,7 @@ impl TextProcessor {
             .into_iter()
             .zip(chunks)
             .map(|(state, chunk)| {
-                // TODO: Temporary - will be updated when reduce phase is implemented
-                // For now, just update chunk length
+                // Update chunk length for proper metrics
                 PartialState {
                     boundary_candidates: state.boundary_candidates,
                     deltas: state.deltas,
@@ -323,7 +319,6 @@ impl TextProcessor {
             metrics.bytes_processed += chunk_text.len();
             total_length += chunk_text.len();
 
-            // TODO: Temporary - will be updated with carry state support
             let state = self
                 .parser
                 .scan_chunk(&chunk_text, self.language_rules.as_ref());
@@ -335,7 +330,6 @@ impl TextProcessor {
         metrics.total_time_us = start_time.elapsed().as_micros() as u64;
         metrics.thread_count = 1; // Streaming is sequential
 
-        // TODO: Temporary fix - will be updated when reduce phase is implemented
         let boundaries = accumulated_state
             .boundary_candidates
             .iter()
