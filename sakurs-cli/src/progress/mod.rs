@@ -39,7 +39,7 @@ impl ProgressReporter {
     /// Update progress for a completed file
     pub fn file_completed(&self, filename: &str) {
         if let Some(pb) = &self.progress_bar {
-            pb.set_message(format!("Processed: {}", filename));
+            pb.set_message(format!("Processed: {filename}"));
             pb.inc(1);
         }
     }
