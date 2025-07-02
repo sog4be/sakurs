@@ -133,6 +133,73 @@ impl LanguageRules for EnglishLanguageRules {
     fn language_name(&self) -> &str {
         "English"
     }
+
+    fn get_enclosure_char(&self, ch: char) -> Option<crate::domain::enclosure::EnclosureChar> {
+        use crate::domain::enclosure::{EnclosureChar, EnclosureType};
+
+        #[allow(unreachable_patterns)]
+        match ch {
+            '"' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::DoubleQuote,
+                is_opening: true, // Ambiguous straight quote - parser will determine
+            }),
+            '"' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::DoubleQuote,
+                is_opening: true,
+            }),
+            '"' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::DoubleQuote,
+                is_opening: false,
+            }),
+            '\'' | '\u{2018}' | '\u{2019}' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::SingleQuote,
+                is_opening: matches!(ch, '\'' | '\u{2018}'),
+            }),
+            '(' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::Parenthesis,
+                is_opening: true,
+            }),
+            ')' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::Parenthesis,
+                is_opening: false,
+            }),
+            '[' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::SquareBracket,
+                is_opening: true,
+            }),
+            ']' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::SquareBracket,
+                is_opening: false,
+            }),
+            '{' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::CurlyBrace,
+                is_opening: true,
+            }),
+            '}' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::CurlyBrace,
+                is_opening: false,
+            }),
+            _ => None,
+        }
+    }
+
+    fn get_enclosure_type_id(&self, ch: char) -> Option<usize> {
+        use crate::domain::enclosure::EnclosureType;
+
+        self.get_enclosure_char(ch)
+            .map(|enc| match enc.enclosure_type {
+                EnclosureType::DoubleQuote => 0,
+                EnclosureType::SingleQuote => 1,
+                EnclosureType::Parenthesis => 2,
+                EnclosureType::SquareBracket => 3,
+                EnclosureType::CurlyBrace => 4,
+                _ => 0, // Default for any other types
+            })
+    }
+
+    fn enclosure_type_count(&self) -> usize {
+        5 // DoubleQuote, SingleQuote, Parenthesis, SquareBracket, CurlyBrace
+    }
 }
 
 /// Enhanced English abbreviation detection
