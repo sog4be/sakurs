@@ -92,8 +92,12 @@ Coverage reports are automatically generated in CI and displayed in GitHub Actio
 
 ## Pull Request Guidelines
 When creating or helping with PRs:
-1. Always use the PR template structure from `.github/PULL_REQUEST_TEMPLATE.md`
-2. Ensure all checklist items are addressed
+1. **MANDATORY**: Always use the PR template structure from `.github/PULL_REQUEST_TEMPLATE.md`
+   - Use `gh pr create --body "$(cat <<'EOF' ... EOF)"` with template format
+   - Fill out ALL required sections: Summary, Type of Change, Changes Made, etc.
+   - Mark checkboxes with `[x]` for completed items
+   - Do NOT skip sections or use free-form descriptions
+2. Ensure all checklist items are addressed before marking as ready for review
 3. Follow the commit message conventions (feat:, fix:, docs:, etc.)
 4. Include the AI attribution footer in commits:
    ```
@@ -101,6 +105,38 @@ When creating or helping with PRs:
    
    Co-Authored-By: Claude <noreply@anthropic.com>
    ```
+
+## PR Template Compliance Checklist
+Before creating any PR, verify these requirements:
+
+### ✅ Required Sections (ALL must be completed)
+- [ ] **Summary**: Brief description of what the PR accomplishes and why it's needed
+- [ ] **Type of Change**: Mark ALL applicable types with `[x]`
+- [ ] **Changes Made**: Detailed list with Core Changes, Testing Changes, Documentation Changes
+- [ ] **How Has This Been Tested**: Test environment details and test cases
+- [ ] **Algorithm/Architecture Impact**: Mark applicable items for algorithm/architecture changes
+- [ ] **Checklist**: Complete ALL items in Code Quality, Testing, Documentation, Dependencies sections
+
+### ❌ Common Mistakes to Avoid
+- ❌ Using free-form markdown instead of template sections
+- ❌ Skipping "Type of Change" checkboxes
+- ❌ Missing "Changes Made" subsections (Core/Testing/Documentation)
+- ❌ Incomplete test information in "How Has This Been Tested"
+- ❌ Unmarked checklist items (leave as `[ ]` if not applicable, explain why)
+
+### 📝 Template Usage Example
+```bash
+gh pr create --title "feat: implement feature X" --body "$(cat <<'EOF'
+## Summary
+Brief description here...
+
+## Type of Change
+- [x] ✨ New feature
+- [ ] 🐛 Bug fix
+...
+EOF
+)"
+```
 
 ## Git Workflow
 - Branch from `main` for new features
