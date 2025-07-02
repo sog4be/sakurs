@@ -1,0 +1,56 @@
+#!/bin/sh
+# Pre-commit hook for Rust projects
+# Runs cargo fmt, clippy, and tests to match CI requirements
+
+set -eu
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo "🔍 Running pre-commit checks..."
+
+# 1. Check formatting
+echo "📝 Checking code formatting..."
+if ! cargo fmt --all -- --check; then
+    echo "${RED}❌ Code formatting issues found!${NC}"
+    echo "💡 Run: cargo fmt --all"
+    exit 1
+fi
+
+# 2. Run clippy with warnings as errors (matching CI configuration)
+echo "🔧 Running clippy..."
+if ! cargo clippy --all-features --workspace -- -D warnings; then
+    echo "${RED}❌ Clippy issues found!${NC}"
+    
+    # Provide helpful context for common issues
+    echo ""
+    echo "${YELLOW}💡 Common clippy issues and fixes:${NC}"
+    echo "   - uninlined-format-args: Use format!(\"{var}\") instead of format!(\"{}\", var)"
+    echo "   - Use #[allow(clippy::lint_name)] to suppress specific warnings if needed"
+    echo "   - Run 'cargo clippy --fix' for automatic fixes (review changes carefully)"
+    exit 1
+fi
+
+# 3. Run tests (can be skipped with SKIP_TESTS=1)
+if [ "${SKIP_TESTS:-0}" != "1" ]; then
+    echo "🧪 Running tests..."
+    if ! cargo test --workspace; then
+        echo "${RED}❌ Tests failed!${NC}"
+        exit 1
+    fi
+else
+    echo "⏭️  Skipping tests (SKIP_TESTS=1)"
+fi
+
+# 4. Check compilation
+echo "⚙️ Checking compilation..."
+if ! cargo check --workspace; then
+    echo "${RED}❌ Compilation check failed!${NC}"
+    exit 1
+fi
+
+echo "${GREEN}✅ All pre-commit checks passed!${NC}"
+exit 0
