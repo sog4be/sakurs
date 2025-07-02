@@ -47,6 +47,10 @@ impl JapaneseQuotationRule {
             // Japanese double quote closing
             '』' => self.handle_nijuu_kakko_closing(context),
 
+            // Japanese angle brackets
+            '〈' | '《' | '【' | '〔' => QuotationDecision::QuoteStart,
+            '〉' | '》' | '】' | '〕' => self.handle_extended_bracket_closing(context),
+
             // English quotes in Japanese text
             '"' => self.handle_english_quote(context),
             '\'' => self.handle_english_single_quote(context),
@@ -74,6 +78,38 @@ impl JapaneseQuotationRule {
             }),
             '』' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseDoubleQuote,
+                is_opening: false,
+            }),
+            '〈' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseAngleBracket,
+                is_opening: true,
+            }),
+            '〉' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseAngleBracket,
+                is_opening: false,
+            }),
+            '《' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseDoubleAngleBracket,
+                is_opening: true,
+            }),
+            '》' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseDoubleAngleBracket,
+                is_opening: false,
+            }),
+            '【' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseLenticularBracket,
+                is_opening: true,
+            }),
+            '】' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseLenticularBracket,
+                is_opening: false,
+            }),
+            '〔' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseTortoiseShellBracket,
+                is_opening: true,
+            }),
+            '〕' => Some(EnclosureChar {
+                enclosure_type: EnclosureType::JapaneseTortoiseShellBracket,
                 is_opening: false,
             }),
             _ => None,
@@ -155,6 +191,19 @@ impl JapaneseQuotationRule {
         }
     }
 
+    /// Handles extended bracket closing (〉》】〕)
+    fn handle_extended_bracket_closing(&self, context: &QuotationContext) -> QuotationDecision {
+        if context.inside_quotes {
+            QuotationDecision::QuoteEnd
+        } else if self.strict_pairing {
+            // Strict mode: closing bracket without opening is an error
+            QuotationDecision::Regular
+        } else {
+            // Relaxed mode: allow unmatched closing brackets
+            QuotationDecision::QuoteEnd
+        }
+    }
+
     /// Checks if the single quote is part of a contraction
     fn is_contraction_context(&self, context: &QuotationContext) -> bool {
         let text = &context.text;
@@ -195,8 +244,8 @@ impl JapaneseQuotationRule {
             }
 
             match ch {
-                '「' | '『' => depth += 1,
-                '」' | '』' => depth = depth.saturating_sub(1),
+                '「' | '『' | '〈' | '《' | '【' | '〔' => depth += 1,
+                '」' | '』' | '〉' | '》' | '】' | '〕' => depth = depth.saturating_sub(1),
                 _ => {}
             }
         }
@@ -212,6 +261,10 @@ impl JapaneseQuotationRule {
             match ch {
                 '「' => stack.push('「'),
                 '『' => stack.push('『'),
+                '〈' => stack.push('〈'),
+                '《' => stack.push('《'),
+                '【' => stack.push('【'),
+                '〔' => stack.push('〔'),
                 '」' => {
                     match stack.pop() {
                         Some('「') => {} // Correct pairing
@@ -232,6 +285,50 @@ impl JapaneseQuotationRule {
                             ))
                         }
                         None => return Err("Unmatched closing 』 quote".to_string()),
+                    }
+                }
+                '〉' => {
+                    match stack.pop() {
+                        Some('〈') => {} // Correct pairing
+                        Some(other) => {
+                            return Err(format!(
+                                "Mismatched bracket: expected closing for {other}, found 〉"
+                            ))
+                        }
+                        None => return Err("Unmatched closing 〉 bracket".to_string()),
+                    }
+                }
+                '》' => {
+                    match stack.pop() {
+                        Some('《') => {} // Correct pairing
+                        Some(other) => {
+                            return Err(format!(
+                                "Mismatched bracket: expected closing for {other}, found 》"
+                            ))
+                        }
+                        None => return Err("Unmatched closing 》 bracket".to_string()),
+                    }
+                }
+                '】' => {
+                    match stack.pop() {
+                        Some('【') => {} // Correct pairing
+                        Some(other) => {
+                            return Err(format!(
+                                "Mismatched bracket: expected closing for {other}, found 】"
+                            ))
+                        }
+                        None => return Err("Unmatched closing 】 bracket".to_string()),
+                    }
+                }
+                '〕' => {
+                    match stack.pop() {
+                        Some('〔') => {} // Correct pairing
+                        Some(other) => {
+                            return Err(format!(
+                                "Mismatched bracket: expected closing for {other}, found 〕"
+                            ))
+                        }
+                        None => return Err("Unmatched closing 〕 bracket".to_string()),
                     }
                 }
                 _ => {}
@@ -431,5 +528,155 @@ mod tests {
             relaxed_rule.classify_quote(&context),
             QuotationDecision::QuoteEnd
         );
+    }
+
+    #[test]
+    fn test_angle_brackets() {
+        let rule = JapaneseQuotationRule::new();
+
+        // Single angle bracket opening
+        let context = QuotationContext {
+            text: "これは〈重要〉です。".to_string(),
+            position: 3,
+            quote_char: '〈',
+            inside_quotes: false,
+        };
+        assert_eq!(rule.classify_quote(&context), QuotationDecision::QuoteStart);
+
+        // Single angle bracket closing
+        let context = QuotationContext {
+            text: "これは〈重要〉です。".to_string(),
+            position: 6,
+            quote_char: '〉',
+            inside_quotes: true,
+        };
+        assert_eq!(rule.classify_quote(&context), QuotationDecision::QuoteEnd);
+
+        // Double angle bracket opening
+        let context = QuotationContext {
+            text: "《源氏物語》を読む。".to_string(),
+            position: 0,
+            quote_char: '《',
+            inside_quotes: false,
+        };
+        assert_eq!(rule.classify_quote(&context), QuotationDecision::QuoteStart);
+
+        // Double angle bracket closing
+        let context = QuotationContext {
+            text: "《源氏物語》を読む。".to_string(),
+            position: 5,
+            quote_char: '》',
+            inside_quotes: true,
+        };
+        assert_eq!(rule.classify_quote(&context), QuotationDecision::QuoteEnd);
+    }
+
+    #[test]
+    fn test_lenticular_brackets() {
+        let rule = JapaneseQuotationRule::new();
+
+        let context = QuotationContext {
+            text: "【重要】お知らせです。".to_string(),
+            position: 0,
+            quote_char: '【',
+            inside_quotes: false,
+        };
+        assert_eq!(rule.classify_quote(&context), QuotationDecision::QuoteStart);
+
+        let context = QuotationContext {
+            text: "【重要】お知らせです。".to_string(),
+            position: 3,
+            quote_char: '】',
+            inside_quotes: true,
+        };
+        assert_eq!(rule.classify_quote(&context), QuotationDecision::QuoteEnd);
+    }
+
+    #[test]
+    fn test_tortoise_shell_brackets() {
+        let rule = JapaneseQuotationRule::new();
+
+        let context = QuotationContext {
+            text: "これは〔補足〕です。".to_string(),
+            position: 3,
+            quote_char: '〔',
+            inside_quotes: false,
+        };
+        assert_eq!(rule.classify_quote(&context), QuotationDecision::QuoteStart);
+
+        let context = QuotationContext {
+            text: "これは〔補足〕です。".to_string(),
+            position: 6,
+            quote_char: '〕',
+            inside_quotes: true,
+        };
+        assert_eq!(rule.classify_quote(&context), QuotationDecision::QuoteEnd);
+    }
+
+    #[test]
+    fn test_extended_bracket_nesting() {
+        let rule = JapaneseQuotationRule::new();
+        let text = "【見出し「内容『詳細』内容」見出し】";
+
+        // Check nesting depth at various positions
+        assert_eq!(rule.analyze_nesting(text, 0), 0); // Before any brackets
+        assert_eq!(rule.analyze_nesting(text, 1), 1); // After 【
+        assert_eq!(rule.analyze_nesting(text, 5), 2); // After 「
+        assert_eq!(rule.analyze_nesting(text, 9), 3); // After 『
+        assert_eq!(rule.analyze_nesting(text, 12), 2); // After 』
+        assert_eq!(rule.analyze_nesting(text, 16), 1); // After 」
+        assert_eq!(rule.analyze_nesting(text, 20), 0); // After 】
+    }
+
+    #[test]
+    fn test_extended_bracket_pairing() {
+        let rule = JapaneseQuotationRule::new();
+
+        // Valid pairing
+        assert!(rule.validate_pairing("〈内容〉").is_ok());
+        assert!(rule.validate_pairing("《書名》").is_ok());
+        assert!(rule.validate_pairing("【見出し】").is_ok());
+        assert!(rule.validate_pairing("〔補足〕").is_ok());
+        assert!(rule.validate_pairing("《外側〈内側〉外側》").is_ok());
+
+        // Invalid pairing
+        assert!(rule.validate_pairing("〈内容》").is_err()); // Mismatched types
+        assert!(rule.validate_pairing("【見出し").is_err()); // Missing closing
+        assert!(rule.validate_pairing("補足〕").is_err()); // Missing opening
+    }
+
+    #[test]
+    fn test_enclosure_char_mapping_extended() {
+        let rule = JapaneseQuotationRule::new();
+
+        // Angle brackets
+        let angle_open = rule.get_enclosure_char('〈').unwrap();
+        assert_eq!(
+            angle_open.enclosure_type,
+            EnclosureType::JapaneseAngleBracket
+        );
+        assert!(angle_open.is_opening);
+
+        let angle_close = rule.get_enclosure_char('〉').unwrap();
+        assert_eq!(
+            angle_close.enclosure_type,
+            EnclosureType::JapaneseAngleBracket
+        );
+        assert!(!angle_close.is_opening);
+
+        // Lenticular brackets
+        let lent_open = rule.get_enclosure_char('【').unwrap();
+        assert_eq!(
+            lent_open.enclosure_type,
+            EnclosureType::JapaneseLenticularBracket
+        );
+        assert!(lent_open.is_opening);
+
+        let lent_close = rule.get_enclosure_char('】').unwrap();
+        assert_eq!(
+            lent_close.enclosure_type,
+            EnclosureType::JapaneseLenticularBracket
+        );
+        assert!(!lent_close.is_opening);
     }
 }
