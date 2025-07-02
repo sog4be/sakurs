@@ -15,24 +15,25 @@
 //! # Usage
 //!
 //! ```rust
-//! use sakurs_core::domain::language::{LanguageRules, CompositeRule, BoundaryContext};
+//! use sakurs_core::domain::language::{LanguageRules, EnglishLanguageRules, BoundaryContext};
 //! use sakurs_core::domain::BoundaryFlags;
 //!
-//! // Create a composite rule for general text processing
-//! let rules = CompositeRule::new();
+//! // Create English-specific language rules
+//! let rules = EnglishLanguageRules::new();
 //!
 //! // Analyze a potential sentence boundary
 //! let context = BoundaryContext {
-//!     text: "Hello world. This is a test.".to_string(),
-//!     position: 11,
+//!     text: "Dr. Smith said hello. This is a test.".to_string(),
+//!     position: 18,
 //!     boundary_char: '.',
-//!     preceding_context: "Hello world".to_string(),
-//!     following_context: " This is a".to_string(),
+//!     preceding_context: "Smith said hello".to_string(),
+//!     following_context: " This is a test.".to_string(),
 //! };
 //!
-//! let decision = rules.analyze_boundary(&context);
+//! let decision = rules.detect_sentence_boundary(&context);
 //! ```
 
+pub mod english;
 pub mod rules;
 pub mod traits;
 
@@ -43,6 +44,11 @@ pub use traits::{
 };
 
 pub use rules::{AbbreviationRule, CompositeRule, PunctuationRule, QuotationRule};
+
+pub use english::{
+    CapitalizationAnalysis, EnglishAbbreviationRule, EnglishCapitalizationRule,
+    EnglishLanguageRules, EnglishNumberRule, EnglishQuotationRule,
+};
 
 /// Default mock implementation for testing
 ///
@@ -172,5 +178,118 @@ mod tests {
             length: 3,
             confidence: 0.9,
         };
+    }
+
+    #[test]
+    fn test_english_language_rules_integration() {
+        let rules = EnglishLanguageRules::new();
+
+        assert_eq!(rules.language_code(), "en");
+        assert_eq!(rules.language_name(), "English");
+
+        // Test comprehensive abbreviation handling
+        let context = BoundaryContext {
+            text: "Dr. Smith works at Apple Inc. and lives on Main St. in the city.".to_string(),
+            position: 2,
+            boundary_char: '.',
+            preceding_context: "Dr".to_string(),
+            following_context: " Smith works at Apple Inc. and lives on Main St. in the city."
+                .to_string(),
+        };
+
+        // Should not detect boundary after "Dr."
+        assert_eq!(
+            rules.detect_sentence_boundary(&context),
+            BoundaryDecision::NotBoundary
+        );
+
+        // Test normal sentence boundary
+        let context = BoundaryContext {
+            text: "Hello world. This is a test.".to_string(),
+            position: 11,
+            boundary_char: '.',
+            preceding_context: "Hello world".to_string(),
+            following_context: " This is a test.".to_string(),
+        };
+
+        match rules.detect_sentence_boundary(&context) {
+            BoundaryDecision::Boundary(BoundaryFlags::WEAK) => {}
+            other => panic!("Expected weak boundary, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_english_rules_complex_scenarios() {
+        let rules = EnglishLanguageRules::new();
+
+        // Test decimal numbers
+        let context = BoundaryContext {
+            text: "The price is $29.99 for the item.".to_string(),
+            position: 16,
+            boundary_char: '.',
+            preceding_context: "price is $29".to_string(),
+            following_context: "99 for the item.".to_string(),
+        };
+
+        assert_eq!(
+            rules.detect_sentence_boundary(&context),
+            BoundaryDecision::NotBoundary
+        );
+
+        // Test quotation handling
+        let context = BoundaryContext {
+            text: "He said, \"Hello world.\" This is next.".to_string(),
+            position: 20,
+            boundary_char: '.',
+            preceding_context: "said, \"Hello world".to_string(),
+            following_context: "\" This is next.".to_string(),
+        };
+
+        match rules.detect_sentence_boundary(&context) {
+            BoundaryDecision::Boundary(_) => {}
+            other => panic!("Expected boundary after quoted speech, got {:?}", other),
+        }
+
+        // Test strong punctuation
+        let context = BoundaryContext {
+            text: "What a surprise! This is amazing.".to_string(),
+            position: 15,
+            boundary_char: '!',
+            preceding_context: "What a surprise".to_string(),
+            following_context: " This is amazing.".to_string(),
+        };
+
+        match rules.detect_sentence_boundary(&context) {
+            BoundaryDecision::Boundary(BoundaryFlags::STRONG) => {}
+            other => panic!(
+                "Expected strong boundary after exclamation, got {:?}",
+                other
+            ),
+        }
+    }
+
+    #[test]
+    fn test_english_rules_with_partial_state() {
+        use crate::domain::PartialState;
+
+        let rules = EnglishLanguageRules::new();
+
+        // Test complex English text with abbreviations, numbers, and normal sentences
+        let text = "Dr. Smith earned his Ph.D. in 1999. He now works at Tech Corp. The company is valued at $2.5 billion! What an achievement.";
+        let state = PartialState::from_text_with_rules(text, 0, &rules);
+
+        let boundary_positions: Vec<usize> = state.boundaries.iter().map(|b| b.offset).collect();
+
+        // Should not have boundaries after abbreviations
+        assert!(!boundary_positions.contains(&2)); // After "Dr."
+        assert!(!boundary_positions.contains(&23)); // After "Ph.D." (first dot)
+        assert!(!boundary_positions.contains(&25)); // After "Ph.D." (second dot)
+        assert!(!boundary_positions.contains(&61)); // After "Corp."
+        assert!(!boundary_positions.contains(&90)); // After "$2.5" (decimal)
+
+        // Should have boundaries after real sentence endings
+        assert!(boundary_positions.contains(&34)); // After "1999."
+        assert!(boundary_positions.contains(&100)); // After "billion!"
+        assert!(boundary_positions.contains(&121)); // After "achievement."
     }
 }
