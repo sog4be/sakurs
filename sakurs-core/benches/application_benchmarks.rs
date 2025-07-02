@@ -24,7 +24,8 @@ fn bench_processing_modes(c: &mut Criterion) {
 
     let rules = Arc::new(EnglishLanguageRules::new());
 
-    for size in [1024, 10_240, 102_400, 1_024_000] {
+    for size in [1024, 10_240, 102_400] {
+        // Reduced for CI
         let text = generate_text(size);
 
         group.throughput(Throughput::Bytes(size as u64));
@@ -66,7 +67,8 @@ fn bench_chunk_sizes(c: &mut Criterion) {
 
     group.throughput(Throughput::Bytes(text.len() as u64));
 
-    for chunk_size in [1024, 4096, 16384, 65536] {
+    for chunk_size in [4096, 16384] {
+        // Reduced for CI
         group.bench_with_input(
             BenchmarkId::new("chunk_size", chunk_size),
             &text,
@@ -95,7 +97,8 @@ fn bench_overlap_sizes(c: &mut Criterion) {
 
     group.throughput(Throughput::Bytes(text.len() as u64));
 
-    for overlap_size in [0, 64, 256, 512] {
+    for overlap_size in [0, 256] {
+        // Reduced for CI
         group.bench_with_input(
             BenchmarkId::new("overlap", overlap_size),
             &text,
@@ -191,8 +194,8 @@ fn bench_memory_patterns(c: &mut Criterion) {
 
     let rules = Arc::new(EnglishLanguageRules::new());
 
-    // Test different text sizes to observe memory scaling
-    for size_mb in [1, 5, 10] {
+    // Reduced test sizes for CI - only test up to 1MB
+    for size_mb in [1] {
         let size = size_mb * 1024 * 1024;
         let text = generate_text(size);
 
@@ -222,7 +225,8 @@ fn bench_thread_scaling(c: &mut Criterion) {
 
     group.throughput(Throughput::Bytes(text.len() as u64));
 
-    for num_threads in [1, 2, 4, 8] {
+    for num_threads in [1, 4] {
+        // Reduced for CI
         group.bench_with_input(
             BenchmarkId::new("threads", num_threads),
             &text,
@@ -244,13 +248,29 @@ fn bench_thread_scaling(c: &mut Criterion) {
     group.finish();
 }
 
-// Configure criterion
+// Configure criterion with CI-friendly settings
+fn get_criterion_config() -> Criterion {
+    let mut criterion = Criterion::default();
+
+    // Check if we're in CI (fast mode)
+    if std::env::var("CRITERION_FAST").is_ok() {
+        criterion = criterion
+            .sample_size(10)
+            .measurement_time(std::time::Duration::from_millis(500))
+            .warm_up_time(std::time::Duration::from_millis(250));
+    } else {
+        criterion = criterion
+            .sample_size(10)
+            .measurement_time(std::time::Duration::from_secs(2))
+            .warm_up_time(std::time::Duration::from_secs(1));
+    }
+
+    criterion
+}
+
 criterion_group! {
     name = benches;
-    config = Criterion::default()
-        .sample_size(5)           // Reduce sample size for CI
-        .measurement_time(std::time::Duration::from_secs(3))  // Shorter measurement time
-        .warm_up_time(std::time::Duration::from_secs(1));     // Shorter warm-up
+    config = get_criterion_config();
     targets =
         bench_processing_modes,
         bench_chunk_sizes,
@@ -263,10 +283,7 @@ criterion_group! {
 #[cfg(feature = "parallel")]
 criterion_group! {
     name = parallel_benches;
-    config = Criterion::default()
-        .sample_size(5)
-        .measurement_time(std::time::Duration::from_secs(3))
-        .warm_up_time(std::time::Duration::from_secs(1));
+    config = get_criterion_config();
     targets = bench_thread_scaling
 }
 
