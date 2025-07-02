@@ -1,7 +1,7 @@
 # Makefile for sakurs - Rust workspace automation
 # Usage: make ci-check, make format, make test, etc.
 
-.PHONY: help ci-check format lint test check build clean install-hooks
+.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools
 
 # Default target
 help:
@@ -17,6 +17,12 @@ help:
 	@echo "  test        Run all tests"
 	@echo "  check       Check compilation"
 	@echo "  build       Build all packages"
+	@echo ""
+	@echo "Coverage:"
+	@echo "  coverage          Generate test coverage report"
+	@echo "  coverage-html     Generate and open HTML coverage report"
+	@echo "  coverage-threshold Check coverage threshold (80%)"
+	@echo "  coverage-clean    Clean coverage data"
 	@echo ""
 	@echo "Setup:"
 	@echo "  install-hooks  Install git pre-commit hooks"
@@ -71,3 +77,50 @@ install-hooks:
 	fi
 	chmod +x .git/hooks/pre-commit
 	@echo "✅ Git hooks installed!"
+
+# Coverage commands
+check-llvm-tools:
+	@if ! rustup component list --installed | grep -q llvm-tools-preview; then \
+		echo "📦 Installing llvm-tools-preview..."; \
+		rustup component add llvm-tools-preview; \
+	fi
+
+coverage: check-llvm-tools
+	@echo "📊 Generating test coverage report..."
+	@if ! command -v cargo-llvm-cov >/dev/null 2>&1; then \
+		echo "❌ cargo-llvm-cov not found. Installing..."; \
+		cargo install cargo-llvm-cov || (echo "❌ Failed to install cargo-llvm-cov" && exit 1); \
+	fi
+	@if command -v cargo-nextest >/dev/null 2>&1; then \
+		cargo llvm-cov nextest --all-features --workspace || (echo "❌ Coverage generation failed" && exit 1); \
+	else \
+		cargo llvm-cov test --all-features --workspace || (echo "❌ Coverage generation failed" && exit 1); \
+	fi
+	@echo ""
+	cargo llvm-cov report --summary-only
+
+coverage-html: check-llvm-tools
+	@echo "📄 Generating HTML coverage report..."
+	@if ! command -v cargo-llvm-cov >/dev/null 2>&1; then \
+		echo "❌ cargo-llvm-cov not found. Installing..."; \
+		cargo install cargo-llvm-cov || (echo "❌ Failed to install cargo-llvm-cov" && exit 1); \
+	fi
+	cargo llvm-cov report --html || (echo "❌ HTML coverage generation failed" && exit 1)
+	@echo "✅ Coverage report generated at: target/llvm-cov/html/index.html"
+	@if command -v open >/dev/null 2>&1; then \
+		open target/llvm-cov/html/index.html; \
+	elif command -v xdg-open >/dev/null 2>&1; then \
+		xdg-open target/llvm-cov/html/index.html; \
+	fi
+
+coverage-threshold: check-llvm-tools
+	@echo "🎯 Checking coverage threshold..."
+	@if ! command -v cargo-llvm-cov >/dev/null 2>&1; then \
+		echo "❌ cargo-llvm-cov not found. Installing..."; \
+		cargo install cargo-llvm-cov || (echo "❌ Failed to install cargo-llvm-cov" && exit 1); \
+	fi
+	cargo llvm-cov report --fail-under-lines 80 || (echo "❌ Coverage below 80% threshold" && exit 1)
+
+coverage-clean:
+	@echo "🧹 Cleaning coverage data..."
+	cargo llvm-cov clean --workspace || echo "⚠️ Coverage clean failed (may not be installed)"
