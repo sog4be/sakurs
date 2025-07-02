@@ -184,6 +184,11 @@ pub mod utils {
         thread_count: usize,
         l2_cache_size: usize,
     ) -> usize {
+        // Handle edge case of zero threads
+        if thread_count == 0 {
+            return 4096; // Return minimum chunk size
+        }
+
         // Aim for chunks that fit in L2 cache
         let cache_optimal = l2_cache_size / 2; // Leave room for other data
 
@@ -199,6 +204,8 @@ pub mod utils {
 mod tests {
     use super::*;
     use crate::domain::language::MockLanguageRules;
+    use crate::domain::state::Boundary;
+    use crate::domain::Monoid;
 
     #[test]
     fn test_parallel_processor_creation() {
@@ -207,6 +214,21 @@ mod tests {
 
         let processor = processor.unwrap();
         assert!(processor.thread_count() > 0);
+    }
+
+    #[test]
+    fn test_parallel_processor_with_custom_config() {
+        let config = ThreadPoolConfig {
+            num_threads: 2,
+            thread_name_prefix: "test-worker".to_string(),
+            stack_size: Some(2 * 1024 * 1024), // 2MB
+        };
+
+        let processor = ParallelProcessor::with_config(config);
+        assert!(processor.is_ok());
+
+        let processor = processor.unwrap();
+        assert_eq!(processor.thread_count(), 2);
     }
 
     #[test]
@@ -288,5 +310,129 @@ mod tests {
         // Large text - should consider cache
         let chunk_size = utils::estimate_optimal_chunk_size(10 * 1024 * 1024, 4, l2_cache);
         assert_eq!(chunk_size, l2_cache / 2);
+    }
+
+    #[test]
+    fn test_parallel_reduce_states_empty() {
+        // Test with empty vector
+        let states = vec![];
+        let result = utils::parallel_reduce_states(states);
+        assert_eq!(result, PartialState::identity());
+    }
+
+    #[test]
+    fn test_parallel_reduce_states_single() {
+        // Test with single state
+        let mut state = PartialState::new(1);
+        state.boundaries.insert(Boundary::new(10));
+        state.chunk_length = 20;
+
+        let states = vec![state.clone()];
+        let result = utils::parallel_reduce_states(states);
+        assert_eq!(result.boundaries.len(), state.boundaries.len());
+        assert_eq!(result.chunk_length, state.chunk_length);
+    }
+
+    #[test]
+    fn test_partition_work_edge_cases() {
+        // Test with 0 items
+        let partitions = utils::partition_work(0, 4);
+        assert!(partitions.is_empty());
+
+        // Test with 1 item
+        let partitions = utils::partition_work(1, 4);
+        assert_eq!(partitions.len(), 1);
+        assert_eq!(partitions[0], (0, 1));
+
+        // Test with more threads than items
+        let partitions = utils::partition_work(3, 10);
+        assert_eq!(partitions.len(), 3);
+        assert_eq!(partitions[0], (0, 1));
+        assert_eq!(partitions[1], (1, 2));
+        assert_eq!(partitions[2], (2, 3));
+
+        // Test with items not evenly divisible
+        let partitions = utils::partition_work(7, 3);
+        assert_eq!(partitions.len(), 3);
+        assert_eq!(partitions[0], (0, 3));
+        assert_eq!(partitions[1], (3, 6));
+        assert_eq!(partitions[2], (6, 7));
+    }
+
+    #[test]
+    fn test_sequential_fallback_for_small_chunks() {
+        let processor = ParallelProcessor::new().unwrap();
+        let rules = Arc::new(MockLanguageRules::english());
+
+        // Single chunk - should use sequential
+        let chunks = vec![TextChunk {
+            content: "Single chunk test.".to_string(),
+            start_offset: 0,
+            end_offset: 18,
+            has_prefix_overlap: false,
+            has_suffix_overlap: false,
+            index: 0,
+            total_chunks: 1,
+        }];
+
+        let states = processor.process_chunks(chunks, rules).unwrap();
+        assert_eq!(states.len(), 1);
+    }
+
+    #[test]
+    fn test_process_adaptive() {
+        let processor = ParallelProcessor::new().unwrap();
+        let rules = Arc::new(MockLanguageRules::english());
+
+        // Small text - should use sequential
+        let small_chunks = vec![TextChunk {
+            content: "Small text.".to_string(),
+            start_offset: 0,
+            end_offset: 11,
+            has_prefix_overlap: false,
+            has_suffix_overlap: false,
+            index: 0,
+            total_chunks: 1,
+        }];
+
+        let result = processor
+            .process_adaptive(small_chunks, rules.clone(), 11)
+            .unwrap();
+        assert_eq!(result.len(), 1);
+
+        // Large text with many chunks - should use parallel
+        let thread_count = processor.thread_count();
+        let many_chunks: Vec<TextChunk> = (0..thread_count * 2)
+            .map(|i| TextChunk {
+                content: format!("Chunk number {}.", i),
+                start_offset: i * 100,
+                end_offset: (i + 1) * 100,
+                has_prefix_overlap: false,
+                has_suffix_overlap: false,
+                index: i,
+                total_chunks: thread_count * 2,
+            })
+            .collect();
+
+        let total_size = 100 * 1024; // 100KB
+        let result = processor
+            .process_adaptive(many_chunks, rules, total_size)
+            .unwrap();
+        assert_eq!(result.len(), thread_count * 2);
+    }
+
+    #[test]
+    fn test_estimate_optimal_chunk_size_edge_cases() {
+        // Very small total size
+        let chunk_size = utils::estimate_optimal_chunk_size(100, 4, 256 * 1024);
+        assert_eq!(chunk_size, 4096); // Should return minimum
+
+        // Zero threads (edge case)
+        let chunk_size = utils::estimate_optimal_chunk_size(10000, 0, 256 * 1024);
+        assert_eq!(chunk_size, 4096); // Should handle division by zero gracefully
+
+        // Very large cache
+        let chunk_size = utils::estimate_optimal_chunk_size(1024 * 1024, 4, 10 * 1024 * 1024);
+        assert_eq!(chunk_size, 256 * 1024); // Should be limited by thread distribution
     }
 }
