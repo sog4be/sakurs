@@ -99,9 +99,9 @@ jobs:
             echo "🔄 Fetching main branch coverage for comparison..."
             
             # Save current coverage percentages
-            current_overall=$(cargo llvm-cov report --summary-only | grep -E 'lines\.*:' | grep -o '[0-9]\+\.[0-9]\+%' | head -1 || echo "0.0%")
-            current_core=$(cargo llvm-cov report --summary-only --package sakurs-core | grep -E 'lines\.*:' | grep -o '[0-9]\+\.[0-9]\+%' | head -1 || echo "0.0%")
-            current_cli=$(cargo llvm-cov report --summary-only --package sakurs-cli | grep -E 'lines\.*:' | grep -o '[0-9]\+\.[0-9]\+%' | head -1 || echo "0.0%")
+            current_overall=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
+            current_core=$(cargo llvm-cov report --summary-only --package sakurs-core | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
+            current_cli=$(cargo llvm-cov report --summary-only --package sakurs-cli | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
             
             echo "current_overall=$current_overall" > coverage-current.txt
             echo "current_core=$current_core" >> coverage-current.txt
@@ -194,8 +194,8 @@ jobs:
           set -euo pipefail
           echo "🏷️ Updating README coverage badge..."
           
-          # Extract overall coverage percentage
-          overall_percentage=$(cargo llvm-cov report --summary-only | grep -E 'lines\.*:' | grep -o '[0-9]\+\.[0-9]\+' | head -1 || echo "0.0")
+          # Extract overall coverage percentage from TOTAL line (Lines Cover column)
+          overall_percentage=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 | sed 's/%//' || echo "0.0")
           
           # Determine badge color based on coverage
           if (( $(echo "$overall_percentage >= 90" | bc -l) )); then
