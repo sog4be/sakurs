@@ -235,6 +235,120 @@ impl Monoid for PartialState {
 
 impl MonoidReduce for PartialState {}
 
+// Language rule integration methods
+impl PartialState {
+    /// Apply language-specific rules to refine sentence boundaries
+    ///
+    /// This method allows language rules to post-process boundaries detected
+    /// by the basic algorithm, enabling language-specific logic for:
+    /// - Abbreviation handling
+    /// - Quotation mark processing
+    /// - Culture-specific punctuation rules
+    ///
+    /// # Arguments
+    /// * `text` - The original text being processed
+    /// * `text_offset` - Offset of this chunk within the original text
+    /// * `rules` - Language-specific rules to apply
+    ///
+    /// # Returns
+    /// A new PartialState with refined boundaries
+    pub fn apply_language_rules<R: crate::domain::language::LanguageRules>(
+        &self,
+        text: &str,
+        text_offset: usize,
+        rules: &R,
+    ) -> Self {
+        use crate::domain::language::{BoundaryContext, BoundaryDecision};
+
+        let mut refined_boundaries = std::collections::BTreeSet::new();
+
+        for boundary in &self.boundaries {
+            let absolute_position = text_offset + boundary.offset;
+
+            // Skip if position is out of bounds
+            if absolute_position >= text.len() {
+                refined_boundaries.insert(boundary.clone());
+                continue;
+            }
+
+            let boundary_char = text.chars().nth(absolute_position).unwrap_or('.');
+
+            // Create context for language rules
+            let preceding_start = absolute_position.saturating_sub(10);
+            let following_end = (absolute_position + 11).min(text.len());
+
+            let preceding_context = text[preceding_start..absolute_position].to_string();
+            let following_context = text[absolute_position + 1..following_end].to_string();
+
+            let context = BoundaryContext {
+                text: text.to_string(),
+                position: absolute_position,
+                boundary_char,
+                preceding_context,
+                following_context,
+            };
+
+            // Apply language rules
+            match rules.detect_sentence_boundary(&context) {
+                BoundaryDecision::Boundary(new_flags) => {
+                    refined_boundaries.insert(Boundary {
+                        offset: boundary.offset,
+                        flags: new_flags,
+                    });
+                }
+                BoundaryDecision::NotBoundary => {
+                    // Language rules determined this is not a boundary, skip it
+                }
+                BoundaryDecision::NeedsMoreContext => {
+                    // Keep original boundary when uncertain
+                    refined_boundaries.insert(boundary.clone());
+                }
+            }
+        }
+
+        Self {
+            boundaries: refined_boundaries,
+            deltas: self.deltas.clone(),
+            abbreviation: self.abbreviation.clone(),
+            chunk_length: self.chunk_length,
+        }
+    }
+
+    /// Create a PartialState with language rule analysis for a text chunk
+    ///
+    /// This is a convenience method that combines chunk processing with
+    /// immediate language rule application.
+    ///
+    /// # Arguments
+    /// * `text` - Text chunk to process
+    /// * `text_offset` - Offset within the original text
+    /// * `rules` - Language rules to apply
+    ///
+    /// # Returns
+    /// A PartialState with language-aware boundary detection
+    pub fn from_text_with_rules<R: crate::domain::language::LanguageRules>(
+        text: &str,
+        text_offset: usize,
+        rules: &R,
+    ) -> Self {
+        // Start with a basic analysis (this would normally come from the parser)
+        let mut state = Self::new(text.len());
+
+        // Add basic punctuation boundaries
+        for (i, ch) in text.char_indices() {
+            if matches!(ch, '.' | '!' | '?') {
+                state.boundaries.insert(Boundary {
+                    offset: i,
+                    flags: crate::domain::BoundaryFlags::WEAK,
+                });
+            }
+        }
+
+        // Apply language rules to refine the boundaries
+        state.apply_language_rules(text, text_offset, rules)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -333,5 +447,65 @@ mod tests {
         // For empty states, should be equal
         assert_eq!(left_assoc.boundaries.len(), right_assoc.boundaries.len());
         assert_eq!(left_assoc.chunk_length, right_assoc.chunk_length);
+    }
+
+    #[test]
+    fn test_language_rules_integration() {
+        use crate::domain::language::MockLanguageRules;
+
+        let rules = MockLanguageRules::english();
+
+        // Test text with abbreviation that should not be a sentence boundary
+        let text = "Dr. Smith is here. This is a test.";
+        let state = PartialState::from_text_with_rules(text, 0, &rules);
+
+        // Should have boundaries at positions 17 (after "here.") and 33 (after "test.")
+        // but NOT at position 2 (after "Dr.")
+        let boundary_positions: Vec<usize> = state.boundaries.iter().map(|b| b.offset).collect();
+
+        assert!(!boundary_positions.contains(&2)); // No boundary after "Dr."
+        assert!(boundary_positions.contains(&17)); // Boundary after "here."
+        assert!(boundary_positions.contains(&33)); // Boundary after "test."
+    }
+
+    #[test]
+    fn test_apply_language_rules() {
+        use crate::domain::language::MockLanguageRules;
+
+        let rules = MockLanguageRules::english();
+
+        // Create a state with a boundary after "Dr."
+        let mut state = PartialState::new(20);
+        state.boundaries.insert(Boundary {
+            offset: 2,
+            flags: BoundaryFlags::WEAK,
+        });
+
+        let text = "Dr. Smith is here.";
+        let refined_state = state.apply_language_rules(text, 0, &rules);
+
+        // The boundary after "Dr." should be removed by language rules
+        assert!(refined_state.boundaries.is_empty());
+    }
+
+    #[test]
+    fn test_language_rules_preserve_valid_boundaries() {
+        use crate::domain::language::MockLanguageRules;
+
+        let rules = MockLanguageRules::english();
+
+        // Create a state with a valid sentence boundary
+        let mut state = PartialState::new(20);
+        state.boundaries.insert(Boundary {
+            offset: 11,
+            flags: BoundaryFlags::WEAK,
+        });
+
+        let text = "Hello world. This is a test.";
+        let refined_state = state.apply_language_rules(text, 0, &rules);
+
+        // The valid boundary should be preserved
+        assert_eq!(refined_state.boundaries.len(), 1);
+        assert!(refined_state.boundaries.iter().any(|b| b.offset == 11));
     }
 }
