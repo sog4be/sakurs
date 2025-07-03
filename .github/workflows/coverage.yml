@@ -42,12 +42,12 @@ jobs:
             ${{ runner.os }}-cargo-coverage-
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@v2.56.1
+        uses: taiki-e/install-action@v2.56.2
         with:
           tool: cargo-llvm-cov
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@v2.56.1
+        uses: taiki-e/install-action@v2.56.2
         with:
           tool: nextest
 
