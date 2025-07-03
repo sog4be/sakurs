@@ -1,16 +1,15 @@
 //! Generate scalability report for sakurs
 
+use sakurs_benchmarks::constants::{text_sizes, DEFAULT_PARALLEL_THRESHOLD, THREAD_COUNTS};
+use sakurs_benchmarks::create_processor_with_config;
 use sakurs_benchmarks::data::generators;
-use sakurs_core::application::{ProcessorConfig, TextProcessor};
-use sakurs_core::domain::language::EnglishLanguageRules;
-use std::sync::Arc;
+use sakurs_core::application::ProcessorConfig;
 use std::time::Instant;
 
 fn main() {
     println!("\n=== Sakurs Scalability Report ===\n");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let test_data = generators::large_text(1_000_000);
+    let test_data = generators::large_text(text_sizes::HUGE);
     let cpu_count = num_cpus::get();
 
     println!("System: {} CPU cores available", cpu_count);
@@ -27,7 +26,7 @@ fn main() {
 
     let mut baseline_time = 0.0;
 
-    for thread_count in [1, 2, 4, 8] {
+    for &thread_count in THREAD_COUNTS {
         if thread_count > cpu_count {
             continue;
         }
@@ -37,10 +36,10 @@ fn main() {
         config.parallel_threshold = if thread_count == 1 {
             usize::MAX
         } else {
-            10_000
+            DEFAULT_PARALLEL_THRESHOLD
         };
 
-        let processor = TextProcessor::with_config(config, rules.clone());
+        let processor = create_processor_with_config(config);
 
         // Warm up
         for _ in 0..3 {

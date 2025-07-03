@@ -4,51 +4,33 @@
 //! with known ground truth boundaries.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use sakurs_benchmarks::constants::{bench_profiles, text_sizes};
 use sakurs_benchmarks::data::{brown_corpus, generators};
-use sakurs_benchmarks::metrics::{calculate_pk_score, calculate_window_diff};
-use sakurs_benchmarks::{calculate_accuracy_metrics, AccuracyMetrics, TestData};
-use sakurs_core::application::TextProcessor;
-use sakurs_core::domain::language::EnglishLanguageRules;
+use sakurs_benchmarks::{
+    calculate_complete_metrics, create_default_processor, extract_boundaries, AccuracyMetrics,
+    TestData,
+};
 use std::hint::black_box;
-use std::sync::Arc;
 
 /// Run accuracy evaluation on a single test case
-fn evaluate_accuracy(processor: &TextProcessor, test_data: &TestData) -> AccuracyMetrics {
+fn evaluate_accuracy(
+    processor: &sakurs_core::application::TextProcessor,
+    test_data: &TestData,
+) -> AccuracyMetrics {
     let output = processor
         .process_text(&test_data.text)
         .expect("Processing should not fail");
 
-    // Convert boundaries to positions (character offsets)
-    let predicted: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
-
-    let mut metrics = calculate_accuracy_metrics(&predicted, &test_data.boundaries);
-
-    // Add Pk and WindowDiff scores
-    let pk = calculate_pk_score(
-        &predicted,
-        &test_data.boundaries,
-        test_data.text.len(),
-        None,
-    );
-    metrics = metrics.with_pk_score(pk);
-
-    let wd = calculate_window_diff(
-        &predicted,
-        &test_data.boundaries,
-        test_data.text.len(),
-        None,
-    );
-    metrics = metrics.with_window_diff(wd);
-
-    metrics
+    // Extract boundaries and calculate all metrics
+    let predicted = extract_boundaries(&output);
+    calculate_complete_metrics(&predicted, &test_data.boundaries, test_data.text.len())
 }
 
 /// Benchmark accuracy on different text types
 fn bench_accuracy_by_text_type(c: &mut Criterion) {
     let mut group = c.benchmark_group("accuracy_by_type");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let processor = TextProcessor::new(rules);
+    let processor = create_default_processor();
 
     let test_cases = vec![
         generators::simple_sentences(10),
@@ -81,10 +63,9 @@ fn bench_accuracy_by_text_type(c: &mut Criterion) {
 fn bench_accuracy_by_size(c: &mut Criterion) {
     let mut group = c.benchmark_group("accuracy_by_size");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let processor = TextProcessor::new(rules);
+    let processor = create_default_processor();
 
-    for size in [1_000, 10_000, 50_000] {
+    for &size in text_sizes::ACCURACY_SIZES {
         let test_data = generators::large_text(size);
         test_data.validate().expect("Test data should be valid");
 
@@ -107,8 +88,7 @@ fn bench_accuracy_by_size(c: &mut Criterion) {
 fn bench_brown_corpus_accuracy(c: &mut Criterion) {
     let mut group = c.benchmark_group("brown_corpus_accuracy");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let processor = TextProcessor::new(rules);
+    let processor = create_default_processor();
 
     let test_data = brown_corpus::small_sample();
     test_data.validate().expect("Test data should be valid");
@@ -143,8 +123,7 @@ fn bench_brown_corpus_accuracy(c: &mut Criterion) {
 fn generate_accuracy_report() {
     println!("\n=== Sakurs Accuracy Report ===\n");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let processor = TextProcessor::new(rules);
+    let processor = create_default_processor();
 
     let test_cases = vec![
         ("Simple Sentences", generators::simple_sentences(10)),

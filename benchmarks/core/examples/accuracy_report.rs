@@ -1,17 +1,12 @@
 //! Generate accuracy report for sakurs
 
-use sakurs_benchmarks::calculate_accuracy_metrics;
 use sakurs_benchmarks::data::{brown_corpus, generators};
-use sakurs_benchmarks::metrics::{calculate_pk_score, calculate_window_diff};
-use sakurs_core::application::TextProcessor;
-use sakurs_core::domain::language::EnglishLanguageRules;
-use std::sync::Arc;
+use sakurs_benchmarks::{calculate_complete_metrics, create_default_processor, extract_boundaries};
 
 fn main() {
     println!("\n=== Sakurs Accuracy Report ===\n");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let processor = TextProcessor::new(rules);
+    let processor = create_default_processor();
 
     let test_cases = vec![
         ("Simple Sentences", generators::simple_sentences(10)),
@@ -36,28 +31,10 @@ fn main() {
             .process_text(&test_data.text)
             .expect("Processing should not fail");
 
-        // Convert boundaries to positions
-        let predicted: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
-
-        // Calculate metrics
-        let mut metrics = calculate_accuracy_metrics(&predicted, &test_data.boundaries);
-
-        // Add Pk and WindowDiff
-        let pk = calculate_pk_score(
-            &predicted,
-            &test_data.boundaries,
-            test_data.text.len(),
-            None,
-        );
-        metrics = metrics.with_pk_score(pk);
-
-        let wd = calculate_window_diff(
-            &predicted,
-            &test_data.boundaries,
-            test_data.text.len(),
-            None,
-        );
-        metrics = metrics.with_window_diff(wd);
+        // Extract boundaries and calculate metrics
+        let predicted = extract_boundaries(&output);
+        let metrics =
+            calculate_complete_metrics(&predicted, &test_data.boundaries, test_data.text.len());
 
         // Print results
         println!(

@@ -4,21 +4,19 @@
 //! of the sakurs text processor.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use sakurs_benchmarks::constants::{bench_profiles, sentence_lengths, text_sizes};
+use sakurs_benchmarks::create_default_processor;
 use sakurs_benchmarks::data::generators;
-use sakurs_core::application::TextProcessor;
-use sakurs_core::domain::language::EnglishLanguageRules;
 use std::hint::black_box;
-use std::sync::Arc;
 use std::time::Instant;
 
 /// Benchmark throughput for different text sizes
 fn bench_throughput_by_size(c: &mut Criterion) {
     let mut group = c.benchmark_group("throughput");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let processor = TextProcessor::new(rules);
+    let processor = create_default_processor();
 
-    for size in [1_000, 10_000, 100_000, 1_000_000] {
+    for &size in text_sizes::THROUGHPUT_SIZES {
         let test_data = generators::large_text(size);
 
         group.throughput(Throughput::Bytes(size as u64));
@@ -43,20 +41,21 @@ fn bench_throughput_by_size(c: &mut Criterion) {
 fn bench_throughput_by_complexity(c: &mut Criterion) {
     let mut group = c.benchmark_group("throughput_complexity");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let processor = TextProcessor::new(rules);
+    let processor = create_default_processor();
 
     // Create texts of same size but different complexity
     let size = 50_000;
 
     // Simple: just periods
-    let simple_text = "This is a simple sentence. ".repeat(size / 27);
+    let simple_text = "This is a simple sentence. ".repeat(size / sentence_lengths::SIMPLE);
 
     // Medium: some abbreviations
-    let medium_text = "Dr. Smith said this. The U.S. is great. ".repeat(size / 40);
+    let medium_text =
+        "Dr. Smith said this. The U.S. is great. ".repeat(size / sentence_lengths::MEDIUM);
 
     // Complex: quotes, abbreviations, numbers
-    let complex_text = r#"Dr. Smith said, "The U.S. GDP grew 3.5% in Q1." "#.repeat(size / 48);
+    let complex_text = r#"Dr. Smith said, "The U.S. GDP grew 3.5% in Q1." "#
+        .repeat(size / sentence_lengths::COMPLEX);
 
     let test_cases = vec![
         ("simple", simple_text),
@@ -83,8 +82,7 @@ fn bench_throughput_by_complexity(c: &mut Criterion) {
 fn bench_latency_small_inputs(c: &mut Criterion) {
     let mut group = c.benchmark_group("latency_small");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let processor = TextProcessor::new(rules);
+    let processor = create_default_processor();
 
     let test_cases = vec![
         ("single_sentence", "This is a single sentence."),
@@ -141,8 +139,7 @@ fn bench_memory_patterns(c: &mut Criterion) {
 fn measure_sentences_per_second() {
     println!("\n=== Sakurs Performance Metrics ===\n");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-    let processor = TextProcessor::new(rules);
+    let processor = create_default_processor();
 
     let test_sizes = vec![
         ("Small (1K)", 1_000),
