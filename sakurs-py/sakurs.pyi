@@ -3,7 +3,6 @@
 from typing import overload
 
 __version__: str
-__doc__: str
 
 class Boundary:
     """Represents a sentence boundary in text."""
@@ -18,7 +17,6 @@ class Boundary:
         is_sentence_end: bool,
         confidence: float | None = None,
     ) -> None: ...
-
     def __repr__(self) -> str: ...
 
 class ProcessorConfig:
@@ -34,7 +32,6 @@ class ProcessorConfig:
         overlap_size: int = 256,
         max_threads: int | None = None,
     ) -> None: ...
-
     def __repr__(self) -> str: ...
 
 class ProcessingMetrics:
@@ -49,7 +46,6 @@ class ProcessingMetrics:
     merge_time_us: int
 
     def __repr__(self) -> str: ...
-
     @property
     def chars_per_second(self) -> float: ...
 
@@ -70,28 +66,22 @@ class Processor:
         language: str = "en",
         config: ProcessorConfig | None = None,
     ) -> None: ...
-
     def process(
         self,
         text: str,
         threads: int | None = None,
     ) -> ProcessingResult: ...
-
     def sentences(
         self,
         text: str,
         threads: int | None = None,
     ) -> list[str]: ...
-
     @property
     def language(self) -> str: ...
-
     @property
     def supports_parallel(self) -> bool: ...
-
     @property
     def config(self) -> ProcessorConfig: ...
-
     def __repr__(self) -> str: ...
 
 @overload
@@ -102,7 +92,6 @@ def sent_tokenize(
     config: ProcessorConfig | None = None,
     threads: int | None = None,
 ) -> list[str]: ...
-
 @overload
 def sent_tokenize(
     text: str,
@@ -110,19 +99,16 @@ def sent_tokenize(
     config: ProcessorConfig | None = None,
     threads: int | None = None,
 ) -> list[str]: ...
-
 def load(
     language: str,
     config: ProcessorConfig | None = None,
 ) -> Processor: ...
-
 def segment(
     text: str,
     language: str = "en",
     config: ProcessorConfig | None = None,
     threads: int | None = None,
 ) -> list[str]: ...
-
 def supported_languages() -> list[str]: ...
 
 # Exception types

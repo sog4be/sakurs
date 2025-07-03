@@ -49,21 +49,33 @@ fi
 if [ -d "sakurs-py" ]; then
     echo "🐍 Checking Python code..."
     
-    # Check if ruff is available
-    if command -v ruff >/dev/null 2>&1; then
-        if ! (cd sakurs-py && ruff check .); then
+    # Run ruff checks using uv
+    if command -v uv >/dev/null 2>&1; then
+        if ! (cd sakurs-py && uv run ruff check .); then
             echo "${RED}❌ Python linting failed!${NC}"
-            echo "💡 Run: cd sakurs-py && ruff check --fix ."
+            echo "💡 Run: cd sakurs-py && uv run ruff check --fix ."
             exit 1
         fi
         
-        if ! (cd sakurs-py && ruff format --check .); then
+        if ! (cd sakurs-py && uv run ruff format --check .); then
             echo "${RED}❌ Python formatting issues found!${NC}"
-            echo "💡 Run: cd sakurs-py && ruff format ."
+            echo "💡 Run: cd sakurs-py && uv run ruff format ."
             exit 1
         fi
     else
-        echo "${YELLOW}⚠️  Ruff not found. Install with: pip install ruff${NC}"
+        echo "${YELLOW}⚠️  uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}"
+    fi
+    
+    # Run mypy type checks using uv
+    if command -v uv >/dev/null 2>&1; then
+        echo "🔍 Running mypy type checks..."
+        if ! (cd sakurs-py && uv run mypy . --config-file ../pyproject.toml); then
+            echo "${RED}❌ Type checking failed!${NC}"
+            echo "💡 Fix type errors reported by mypy"
+            exit 1
+        fi
+    else
+        echo "${YELLOW}⚠️  uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}"
     fi
 fi
 

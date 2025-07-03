@@ -1,7 +1,7 @@
 # Makefile for sakurs - Rust workspace automation
 # Usage: make ci-check, make format, make test, etc.
 
-.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools check-python format-python lint-python
+.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools check-python format-python lint-python type-check-python
 
 # Default target
 help:
@@ -25,9 +25,10 @@ help:
 	@echo "  coverage-clean    Clean coverage data"
 	@echo ""
 	@echo "Python Development:"
-	@echo "  check-python   Run Python checks (ruff, mypy)"
-	@echo "  format-python  Format Python code"
-	@echo "  lint-python    Lint Python code"
+	@echo "  check-python     Run Python checks (ruff, mypy)"
+	@echo "  format-python    Format Python code"
+	@echo "  lint-python      Lint Python code"
+	@echo "  type-check-python Run mypy type checking"
 	@echo ""
 	@echo "Setup:"
 	@echo "  install-hooks  Install git pre-commit hooks"
@@ -141,11 +142,11 @@ check-python:
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
 		echo "  Running ruff check..." && \
-		ruff check . && \
+		uv run ruff check . && \
 		echo "  Running ruff format check..." && \
-		ruff format --check . && \
+		uv run ruff format --check . && \
 		echo "  Running mypy..." && \
-		mypy . --config-file pyproject.toml || true; \
+		uv run mypy . --config-file ../pyproject.toml || true; \
 		echo "✅ Python checks complete!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
@@ -155,8 +156,8 @@ format-python:
 	@echo "🎨 Formatting Python code..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		ruff format . && \
-		ruff check --fix . && \
+		uv run ruff format . && \
+		uv run ruff check --fix . && \
 		echo "✅ Python code formatted!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
@@ -166,8 +167,18 @@ lint-python:
 	@echo "🔍 Linting Python code..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		ruff check . --fix && \
+		uv run ruff check . --fix && \
 		echo "✅ Python linting complete!"; \
+	else \
+		echo "⚠️ sakurs-py directory not found"; \
+	fi
+
+type-check-python:
+	@echo "🔍 Running mypy type checking..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run mypy . --config-file ../pyproject.toml && \
+		echo "✅ Type checking complete!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
 	fi
