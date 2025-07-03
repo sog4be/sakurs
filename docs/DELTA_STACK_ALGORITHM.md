@@ -68,16 +68,16 @@ This elegantly tracks nested enclosures across chunk boundaries without global s
 
 Consider text with nested parentheses:
 ```
-"(abc. def). ghi. jkl"
+(abc. def). ghi. jkl
 ```
 
 The string is split into three equal‑sized chunks by the runtime:
 
 | Chunk | Raw text | Local Δ `(net, min)` | Candidate boundaries (byte offsets*) |
 | --- | --- | --- | --- |
-| C₀ | `"(abc.` | `(+1, 0)` | `5` (after the dot) |
-| C₁ | `" def). ghi"` | `(−1, −1)` | `11` (after the dot) |
-| C₂ | `". jkl"` | `(0, 0)` | `17` (after the dot) |
+| C₀ | `(abc.` | `(+1, 0)` | `5` (after the dot) |
+| C₁ | ` def). ghi` | `(−1, −1)` | `11` (after the dot) |
+| C₂ | `. jkl` | `(0, 0)` | `17` (after the dot) |
 
 *Offsets are relative to the start of the **combined** three‑chunk buffer for easier comparison.
 
