@@ -7,7 +7,18 @@
 </p>
 
 <p align="center">
-    <img src="https://img.shields.io/badge/coverage-89.89%25-green" alt="Coverage" id="coverage-badge">
+    <a href="https://github.com/sog4be/sakurs/actions/workflows/ci.yml">
+        <img src="https://github.com/sog4be/sakurs/actions/workflows/ci.yml/badge.svg" alt="CI Status">
+    </a>
+    <a href="https://github.com/sog4be/sakurs/actions/workflows/coverage.yml">
+        <img src="https://img.shields.io/badge/coverage-89.89%25-green" alt="Coverage" id="coverage-badge">
+    </a>
+    <a href="https://github.com/sog4be/sakurs/blob/main/LICENSE">
+        <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
+    </a>
+    <a href="https://github.com/sog4be/sakurs">
+        <img src="https://img.shields.io/badge/rust-1.81+-orange.svg" alt="Rust Version">
+    </a>
 </p>
 
 ## Features
