@@ -245,7 +245,8 @@ jobs:
           merge-multiple: true
           path: wheels/
       
-      - name: Test wheel installation
+      - name: Test wheel installation (Unix)
+        if: runner.os != 'Windows'
         run: |
           # Find the appropriate wheel for this platform
           python -c "
@@ -287,9 +288,74 @@ jobs:
               f.write(f'WHEEL_FILE={wheel}\n')
           "
       
-      - name: Install and test wheel
+      - name: Test wheel installation (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Find the appropriate wheel for this platform
+          python -c "
+          import sys
+          import os
+          import glob
+          
+          platform_tag = 'win_amd64'
+          
+          # Find matching wheel
+          pattern = f'wheels/*{platform_tag}.whl'
+          wheels = glob.glob(pattern)
+          if not wheels:
+              print(f'No wheel found for pattern: {pattern}')
+              print('Available wheels:')
+              for wheel in glob.glob('wheels/*.whl'):
+                  print(f'  {wheel}')
+              sys.exit(1)
+          
+          wheel = wheels[0]
+          print(f'Installing wheel: {wheel}')
+          
+          # Write to GitHub Actions environment
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f'WHEEL_FILE={wheel}\n')
+          "
+      
+      - name: Install and test wheel (Unix)
+        if: runner.os != 'Windows'
         run: |
           uv pip install --force-reinstall "${{ env.WHEEL_FILE }}"
+          
+          # Test basic functionality
+          uv run python -c "
+          import sakurs
+          
+          print(f'sakurs version: {sakurs.__version__}')
+          
+          # Test English processing
+          sbd = sakurs.DeltaSBD(language='english')
+          sentences = sbd.split_sentences('Hello world. This is a test.')
+          assert len(sentences) == 2, f'Expected 2 sentences, got {len(sentences)}'
+          print('✓ English processing test passed')
+          
+          # Test Japanese processing
+          sbd_jp = sakurs.DeltaSBD(language='japanese')
+          jp_sentences = sbd_jp.split_sentences('こんにちは。これはテストです。')
+          assert len(jp_sentences) == 2, f'Expected 2 Japanese sentences, got {len(jp_sentences)}'
+          print('✓ Japanese processing test passed')
+          
+          # Test spaCy-style API
+          nlp = sakurs.SakursNLP(language='english')
+          doc = nlp('Hello world. This is a test.')
+          sent_count = len(list(doc.sents))
+          assert sent_count == 2, f'Expected 2 sentences via spaCy API, got {sent_count}'
+          print('✓ spaCy-style API test passed')
+          
+          print('All release tests passed!')
+          "
+      
+      - name: Install and test wheel (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          uv pip install --force-reinstall "$env:WHEEL_FILE"
           
           # Test basic functionality
           uv run python -c "
