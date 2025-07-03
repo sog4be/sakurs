@@ -3,6 +3,7 @@ members = [
     "sakurs-core",
     "sakurs-cli",
     "sakurs-py",
+    "benchmarks/core",
 ]
 resolver = "2"
 
