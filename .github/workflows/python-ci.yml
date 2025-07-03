@@ -126,7 +126,14 @@ jobs:
         run: |
           cd sakurs-py
           uv run maturin build --release
-          uv pip install --force-reinstall target/wheels/*.whl
+          # Find the built wheel file
+          WHEEL_FILE=$(find target/wheels -name "*.whl" | head -1)
+          if [ -z "$WHEEL_FILE" ]; then
+            echo "No wheel file found in target/wheels/"
+            exit 1
+          fi
+          echo "Installing wheel: $WHEEL_FILE"
+          uv pip install --force-reinstall "$WHEEL_FILE"
           uv run python -c "import sakurs; print(sakurs.__version__)"
       
       - name: Minimize uv cache
