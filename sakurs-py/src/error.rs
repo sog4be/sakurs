@@ -9,13 +9,13 @@ use thiserror::Error;
 pub enum SakursError {
     #[error("Unsupported language: {0}")]
     UnsupportedLanguage(String),
-    
+
     #[error("Processing error: {0}")]
     ProcessingError(String),
-    
+
     #[error("Configuration error: {0}")]
     ConfigurationError(String),
-    
+
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 }
