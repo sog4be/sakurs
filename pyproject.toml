@@ -2,7 +2,7 @@
 
 [tool.ruff]
 # Target the minimum supported Python version
-target-version = "py38"
+target-version = "py39"
 line-length = 88
 src = ["sakurs-py/src", "sakurs-py/tests", "sakurs-py/python"]
 

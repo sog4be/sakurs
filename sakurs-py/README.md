@@ -16,6 +16,8 @@ High-performance sentence boundary detection for Python using the Delta-Stack Mo
 pip install sakurs
 ```
 
+**Requirements**: Python 3.9 or later
+
 ## Quick Start
 
 ```python
