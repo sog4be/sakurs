@@ -1,0 +1,149 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  UV_CACHE_DIR: /tmp/.uv-cache
+  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
+
+jobs:
+  # Fast checks that run first to fail quickly
+  python-quick-checks:
+    name: Python Quick Checks (Ruff & mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "sakurs-py/pyproject.toml"
+      
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.uv-cache
+          key: uv-${{ runner.os }}-${{ hashFiles('sakurs-py/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ hashFiles('sakurs-py/pyproject.toml') }}
+            uv-${{ runner.os }}
+      
+      - name: Install dependencies
+        run: |
+          cd sakurs-py
+          uv sync --dev
+      
+      - name: Check formatting with Ruff
+        run: |
+          cd sakurs-py
+          uv run ruff format --check .
+      
+      - name: Lint with Ruff
+        run: |
+          cd sakurs-py
+          uv run ruff check .
+      
+      - name: Type check with mypy
+        run: |
+          cd sakurs-py
+          uv run mypy .
+      
+      - name: Minimize uv cache
+        run: uv cache prune --ci
+
+  python-test:
+    name: Python Tests
+    runs-on: ${{ matrix.os }}
+    needs: python-quick-checks  # Only run tests if quick checks pass
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        exclude:
+          # Skip older Python versions on Windows to save CI time
+          - os: windows-latest
+            python-version: '3.8'
+          - os: windows-latest
+            python-version: '3.9'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "sakurs-py/pyproject.toml"
+      
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: ${{ matrix.os }}-${{ matrix.python-version }}
+      
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.uv-cache
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('sakurs-py/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('sakurs-py/pyproject.toml') }}
+            uv-${{ runner.os }}-${{ matrix.python-version }}
+            uv-${{ runner.os }}
+      
+      - name: Install dependencies and build wheel
+        run: |
+          cd sakurs-py
+          uv sync --dev
+          uv run maturin develop
+      
+      - name: Run Python tests
+        run: |
+          cd sakurs-py
+          uv run pytest -v
+      
+      - name: Test wheel installation
+        run: |
+          cd sakurs-py
+          uv run maturin build --release
+          uv pip install --force-reinstall target/wheels/*.whl
+          uv run python -c "import sakurs; print(sakurs.__version__)"
+      
+      - name: Minimize uv cache
+        run: uv cache prune --ci
+
+  # Job to verify all Python CI passed (for branch protection rules)
+  python-ci-success:
+    name: Python CI Success
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    needs: [python-quick-checks, python-test]
+    steps:
+      - name: Check if all Python CI jobs passed
+        run: |
+          if [[ "${{ needs.python-quick-checks.result }}" != "success" || \
+                "${{ needs.python-test.result }}" != "success" ]]; then
+            echo "One or more Python CI jobs failed"
+            exit 1
+          fi
+          echo "All Python CI jobs passed successfully"

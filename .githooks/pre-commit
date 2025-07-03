@@ -69,7 +69,7 @@ if [ -d "sakurs-py" ]; then
     # Run mypy type checks using uv
     if command -v uv >/dev/null 2>&1; then
         echo "🔍 Running mypy type checks..."
-        if ! (cd sakurs-py && uv run mypy . --config-file ../pyproject.toml); then
+        if ! (cd sakurs-py && uv run mypy .); then
             echo "${RED}❌ Type checking failed!${NC}"
             echo "💡 Fix type errors reported by mypy"
             exit 1

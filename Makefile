@@ -146,7 +146,7 @@ check-python:
 		echo "  Running ruff format check..." && \
 		uv run ruff format --check . && \
 		echo "  Running mypy..." && \
-		uv run mypy . --config-file ../pyproject.toml || true; \
+		uv run mypy . || true; \
 		echo "✅ Python checks complete!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
@@ -177,7 +177,7 @@ type-check-python:
 	@echo "🔍 Running mypy type checking..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run mypy . --config-file ../pyproject.toml && \
+		uv run mypy . && \
 		echo "✅ Type checking complete!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
