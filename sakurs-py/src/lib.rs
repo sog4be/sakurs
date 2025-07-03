@@ -57,7 +57,9 @@ fn supported_languages() -> Vec<&'static str> {
 
 /// Main Python module for sakurs
 #[pymodule]
-fn sakurs(py: Python, m: &PyModule) -> PyResult<()> {
+fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    let py = m.py();
+
     // Core classes
     m.add_class::<PyProcessor>()?;
     m.add_class::<PyBoundary>()?;
@@ -101,7 +103,7 @@ mod tests {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
             let module = PyModule::new(py, "test_sakurs").unwrap();
-            let result = sakurs(py, module);
+            let result = sakurs(&module);
             assert!(result.is_ok());
         });
     }
