@@ -125,11 +125,15 @@ jobs:
       - name: Test wheel installation
         run: |
           cd sakurs-py
-          uv run maturin build --release
+          # Build wheel to a specific directory
+          mkdir -p dist
+          uv run maturin build --release -o dist
+          
           # Find the built wheel file
-          WHEEL_FILE=$(find target/wheels -name "*.whl" | head -1)
+          WHEEL_FILE=$(find dist -name "*.whl" | head -1)
           if [ -z "$WHEEL_FILE" ]; then
-            echo "No wheel file found in target/wheels/"
+            echo "No wheel file found in dist/"
+            ls -la dist/
             exit 1
           fi
           echo "Installing wheel: $WHEEL_FILE"

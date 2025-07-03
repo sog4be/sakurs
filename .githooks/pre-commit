@@ -37,7 +37,7 @@ fi
 # 3. Run tests (can be skipped with SKIP_TESTS=1)
 if [ "${SKIP_TESTS:-0}" != "1" ]; then
     echo "🧪 Running tests..."
-    if ! cargo test --workspace; then
+    if ! cargo test --workspace --exclude sakurs-py; then
         echo "${RED}❌ Tests failed!${NC}"
         exit 1
     fi

@@ -58,9 +58,9 @@ jobs:
           echo "🧪 Running tests with coverage instrumentation..."
           # Use nextest if available, otherwise fall back to regular test
           if command -v cargo-nextest >/dev/null 2>&1; then
-            cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
+            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-py --lcov --output-path lcov.info
           else
-            cargo llvm-cov test --all-features --workspace --lcov --output-path lcov.info
+            cargo llvm-cov test --all-features --workspace --exclude sakurs-py --lcov --output-path lcov.info
           fi
           
           echo ""
