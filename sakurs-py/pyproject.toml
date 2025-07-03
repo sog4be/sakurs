@@ -51,7 +51,7 @@ benchmark = [
 ]
 
 [tool.maturin]
-features = ["pyo3/extension-module"]
+features = ["extension-module"]
 
 [tool.uv]
 dev-dependencies = [

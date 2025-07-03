@@ -9,7 +9,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
 jobs:
   # Fast checks that run first to fail quickly

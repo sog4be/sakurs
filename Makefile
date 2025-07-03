@@ -1,7 +1,7 @@
 # Makefile for sakurs - Rust workspace automation
 # Usage: make ci-check, make format, make test, etc.
 
-.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools check-python format-python lint-python type-check-python
+.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools check-python format-python lint-python type-check-python py-dev py-test py-bench py-build wheels
 
 # Default target
 help:
@@ -29,6 +29,11 @@ help:
 	@echo "  format-python    Format Python code"
 	@echo "  lint-python      Lint Python code"
 	@echo "  type-check-python Run mypy type checking"
+	@echo "  py-dev           Build Python bindings for development"
+	@echo "  py-test          Run Python tests"
+	@echo "  py-bench         Run Python benchmarks"
+	@echo "  py-build         Build Python wheel for release"
+	@echo "  wheels           Build wheels for distribution"
 	@echo ""
 	@echo "Setup:"
 	@echo "  install-hooks  Install git pre-commit hooks"
@@ -181,4 +186,61 @@ type-check-python:
 		echo "✅ Type checking complete!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
+	fi
+
+# Python development commands
+py-dev:
+	@echo "🐍 Building Python bindings for development..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run maturin develop --features extension-module && \
+		echo "✅ Python bindings built for development!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi
+
+py-test: py-dev
+	@echo "🧪 Running Python tests..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run pytest tests/ -v && \
+		echo "✅ Python tests passed!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi
+
+py-bench: py-dev
+	@echo "⚡ Running Python benchmarks..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run pytest benches/ --benchmark-only && \
+		echo "✅ Python benchmarks complete!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi
+
+py-build:
+	@echo "📦 Building Python wheel..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run maturin build --features extension-module --release && \
+		echo "✅ Python wheel built!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi
+
+# Build wheels for distribution
+wheels:
+	@echo "📦 Building wheels for distribution..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run maturin build --features extension-module --release --strip && \
+		echo "✅ Distribution wheels built!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
 	fi

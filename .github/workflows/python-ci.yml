@@ -9,7 +9,6 @@ on:
 
 env:
   UV_CACHE_DIR: /tmp/.uv-cache
-  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
 jobs:
   # Fast checks that run first to fail quickly
@@ -125,7 +124,7 @@ jobs:
         run: |
           cd sakurs-py
           uv sync --dev
-          uv run maturin develop
+          uv run maturin develop --features extension-module
       
       - name: Run Python tests
         run: |
@@ -137,7 +136,7 @@ jobs:
           cd sakurs-py
           # Build wheel to a specific directory
           mkdir -p dist
-          uv run maturin build --release -o dist
+          uv run maturin build --release --features extension-module -o dist
           
           # Find the built wheel file
           WHEEL_FILE=$(find dist -name "*.whl" | head -1)

@@ -10,12 +10,16 @@ description = "Python bindings for Sakurs sentence boundary detection"
 
 [lib]
 name = "sakurs"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]  # Both for testing flexibility
 
 [dependencies]
-pyo3 = { version = "0.20", features = ["extension-module"] }
+pyo3 = { version = "0.20", features = ["abi3-py39"] }  # abi3 for forward compatibility
 sakurs-core = { path = "../sakurs-core" }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 pyo3 = { version = "0.20", features = ["auto-initialize"] }
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]  # NOT a default feature
