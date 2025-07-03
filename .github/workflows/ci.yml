@@ -43,6 +43,12 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --all-features --workspace --exclude sakurs-py
+      
+      # Check sakurs-py separately (can't run normal tests for extension modules)
+      - name: Check sakurs-py compilation
+        run: cargo check -p sakurs-py --all-features
+      - name: Check sakurs-py with clippy
+        run: cargo clippy -p sakurs-py --all-features -- -D warnings
 
   benchmark:
     name: Benchmark

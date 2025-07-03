@@ -59,6 +59,16 @@ jobs:
           cd sakurs-py
           uv run mypy .
       
+      - name: Check Rust code compilation
+        run: |
+          cd sakurs-py
+          cargo check --all-features
+      
+      - name: Lint Rust code with clippy
+        run: |
+          cd sakurs-py
+          cargo clippy --all-features -- -D warnings
+      
       - name: Minimize uv cache
         run: uv cache prune --ci
 

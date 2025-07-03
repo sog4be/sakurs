@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn test_processor_creation() {
         pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::with_gil(|_py| {
             // Test English processor
             let en_processor = PyProcessor::new("en", None);
             assert!(en_processor.is_ok());

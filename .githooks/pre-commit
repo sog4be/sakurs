@@ -22,7 +22,7 @@ fi
 
 # 2. Run clippy with warnings as errors (matching CI configuration)
 echo "🔧 Running clippy..."
-if ! cargo clippy --all-features --workspace -- -D warnings; then
+if ! PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo clippy --all-features --workspace -- -D warnings; then
     echo "${RED}❌ Clippy issues found!${NC}"
     
     # Provide helpful context for common issues
@@ -81,7 +81,7 @@ fi
 
 # 5. Check compilation
 echo "⚙️ Checking compilation..."
-if ! cargo check --workspace; then
+if ! PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo check --workspace; then
     echo "${RED}❌ Compilation check failed!${NC}"
     exit 1
 fi
