@@ -382,8 +382,10 @@ mod tests {
 
     #[test]
     fn test_large_text_threshold() {
-        let mut config = ProcessorConfig::default();
-        config.parallel_threshold = 100; // Very low threshold
+        let config = ProcessorConfig {
+            parallel_threshold: 100, // Very low threshold
+            ..Default::default()
+        };
 
         let rules = Arc::new(MockLanguageRules::english());
         let processor = TextProcessor::with_config(config, rules);
@@ -401,8 +403,10 @@ mod tests {
 
     #[test]
     fn test_text_size_limit() {
-        let mut config = ProcessorConfig::default();
-        config.max_text_size = 100;
+        let config = ProcessorConfig {
+            max_text_size: 100,
+            ..Default::default()
+        };
 
         let rules = Arc::new(MockLanguageRules::english());
         let processor = TextProcessor::with_config(config, rules);

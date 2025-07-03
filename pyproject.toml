@@ -1,0 +1,148 @@
+# Global Python configuration for sakurs workspace
+
+[tool.ruff]
+# Target the minimum supported Python version
+target-version = "py39"
+line-length = 88
+src = ["sakurs-py/src", "sakurs-py/tests", "sakurs-py/python"]
+
+# Exclude common directories and Rust files
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "*.egg-info",
+    "dist",
+    "build",
+    "target",
+    "*.rs",
+    ".cargo",
+    "*.lock",
+    "*.toml",
+    "node_modules",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+]
+
+[tool.ruff.lint]
+select = [
+    # Core error detection
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes (undefined names, unused imports, etc.)
+    
+    # Import organization
+    "I",      # isort (import sorting)
+    
+    # Modernization
+    "UP",     # pyupgrade (upgrade syntax for newer Python versions)
+    
+    # Bug detection
+    "B",      # flake8-bugbear (common bugs and design problems)
+    "C4",     # flake8-comprehensions (unnecessary comprehensions)
+    "SIM",    # flake8-simplify (code simplification)
+    
+    # Performance
+    "PERF",   # perflint (performance anti-patterns)
+    
+    # Ruff-specific
+    "RUF",    # ruff-specific rules
+    
+    # Additional quality checks
+    "PL",     # pylint subset
+    "NPY",    # numpy-specific rules
+]
+
+# Ignore rules that conflict with our style or are too strict
+ignore = [
+    "E501",   # Line too long (handled by formatter)
+    "E741",   # Ambiguous variable names (sometimes needed)
+    "B008",   # Do not perform function calls in argument defaults
+    "SIM108", # Use ternary operator (sometimes less readable)
+    "PLR0913", # Too many arguments (needed for complex functions)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Relax some rules for specific files
+"__init__.py" = ["F401", "E402"]  # Unused imports and import order
+"tests/*" = ["B", "SIM", "PLR"]   # Relax complexity rules in tests
+"benchmarks/*" = ["B", "SIM"]      # Relax rules in benchmarks
+"examples/*" = ["B", "E402"]       # Relax rules in examples
+
+[tool.ruff.lint.isort]
+# Configure import sorting
+known-first-party = ["sakurs"]
+force-single-line = false
+combine-as-imports = true
+
+[tool.ruff.lint.pydocstyle]
+# Use Google-style docstrings
+convention = "google"
+
+[tool.ruff.format]
+# Formatting configuration
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# Tool integration
+[tool.mypy]
+python_version = "3.8"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+# Allow gradual typing adoption
+allow_untyped_globals = true
+allow_redefinition = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "benchmark: marks tests as benchmarks",
+]
+
+[tool.coverage.run]
+source = ["sakurs"]
+omit = [
+    "*/tests/*",
+    "*/benchmarks/*",
+    "*/__init__.py",
+    "*/conftest.py",
+]
+parallel = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+precision = 2
+show_missing = true
+skip_covered = false

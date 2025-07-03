@@ -336,20 +336,26 @@ mod tests {
 
     #[test]
     fn test_config_validation() {
-        let mut config = ProcessorConfig::default();
-
         // Invalid chunk size
-        config.chunk_size = 0;
+        let config = ProcessorConfig {
+            chunk_size: 0,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
 
         // Invalid overlap size
-        config.chunk_size = 1024;
-        config.overlap_size = 2048;
+        let config = ProcessorConfig {
+            chunk_size: 1024,
+            overlap_size: 2048,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
 
         // Invalid thread count
-        config = ProcessorConfig::default();
-        config.max_threads = Some(0);
+        let config = ProcessorConfig {
+            max_threads: Some(0),
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 
@@ -369,14 +375,21 @@ mod tests {
 
     #[test]
     fn test_processing_metrics() {
-        let mut metrics = ProcessingMetrics::default();
-        metrics.bytes_processed = 10 * 1024 * 1024; // 10MB
-        metrics.total_time_us = 1_000_000; // 1 second
+        let metrics = ProcessingMetrics {
+            bytes_processed: 10 * 1024 * 1024, // 10MB
+            total_time_us: 1_000_000,          // 1 second
+            ..Default::default()
+        };
 
         assert_eq!(metrics.throughput_mbps(), 10.0);
 
-        metrics.thread_count = 4;
-        metrics.parallel_time_us = 300_000; // 0.3 seconds
-        assert!(metrics.parallel_efficiency() > 0.8);
+        let metrics_parallel = ProcessingMetrics {
+            bytes_processed: 10 * 1024 * 1024,
+            total_time_us: 1_000_000,
+            thread_count: 4,
+            parallel_time_us: 300_000, // 0.3 seconds
+            ..Default::default()
+        };
+        assert!(metrics_parallel.parallel_efficiency() > 0.8);
     }
 }

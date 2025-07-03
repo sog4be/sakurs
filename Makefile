@@ -1,7 +1,7 @@
 # Makefile for sakurs - Rust workspace automation
 # Usage: make ci-check, make format, make test, etc.
 
-.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools
+.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools check-python format-python lint-python type-check-python py-dev py-test py-bench py-build wheels
 
 # Default target
 help:
@@ -24,6 +24,17 @@ help:
 	@echo "  coverage-threshold Check coverage threshold (80%)"
 	@echo "  coverage-clean    Clean coverage data"
 	@echo ""
+	@echo "Python Development:"
+	@echo "  check-python     Run Python checks (ruff, mypy)"
+	@echo "  format-python    Format Python code"
+	@echo "  lint-python      Lint Python code"
+	@echo "  type-check-python Run mypy type checking"
+	@echo "  py-dev           Build Python bindings for development"
+	@echo "  py-test          Run Python tests"
+	@echo "  py-bench         Run Python benchmarks"
+	@echo "  py-build         Build Python wheel for release"
+	@echo "  wheels           Build wheels for distribution"
+	@echo ""
 	@echo "Setup:"
 	@echo "  install-hooks  Install git pre-commit hooks"
 	@echo "  clean          Clean build artifacts"
@@ -35,8 +46,8 @@ ci-check: format-check lint test check
 ci-local:
 	@echo "🔍 Running CI checks exactly as CI does..."
 	cargo fmt --all -- --check
-	cargo clippy --workspace -- -D warnings
-	cargo test --workspace
+	cargo clippy --all-features --workspace -- -D warnings
+	cargo test --all-features --workspace
 	cargo check --workspace
 	@echo "✅ Local CI verification complete!"
 
@@ -50,11 +61,11 @@ format-check:
 
 lint:
 	@echo "🔧 Running clippy..."
-	cargo clippy --workspace -- -D warnings
+	cargo clippy --all-features --workspace -- -D warnings
 
 test:
 	@echo "🧪 Running tests..."
-	cargo test --workspace
+	cargo test --all-features --workspace
 
 check:
 	@echo "⚙️ Checking compilation..."
@@ -71,12 +82,17 @@ clean:
 # Install git hooks
 install-hooks:
 	@echo "⚙️ Installing git pre-commit hooks..."
-	@if [ ! -f .git/hooks/pre-commit ]; then \
-		echo "❌ Pre-commit hook not found. Please create it first."; \
+	@if [ -f .githooks/pre-commit ]; then \
+		cp .githooks/pre-commit .git/hooks/pre-commit; \
+		chmod +x .git/hooks/pre-commit; \
+		echo "✅ Git hooks installed from .githooks/pre-commit!"; \
+	elif [ -f .git/hooks/pre-commit ]; then \
+		chmod +x .git/hooks/pre-commit; \
+		echo "✅ Existing git hooks made executable!"; \
+	else \
+		echo "❌ Pre-commit hook not found. Please create .githooks/pre-commit first."; \
 		exit 1; \
 	fi
-	chmod +x .git/hooks/pre-commit
-	@echo "✅ Git hooks installed!"
 
 # Coverage commands
 check-llvm-tools:
@@ -124,3 +140,107 @@ coverage-threshold: check-llvm-tools
 coverage-clean:
 	@echo "🧹 Cleaning coverage data..."
 	cargo llvm-cov clean --workspace || echo "⚠️ Coverage clean failed (may not be installed)"
+
+# Python development commands
+check-python:
+	@echo "🐍 Running Python checks..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		echo "  Running ruff check..." && \
+		uv run ruff check . && \
+		echo "  Running ruff format check..." && \
+		uv run ruff format --check . && \
+		echo "  Running mypy..." && \
+		uv run mypy . || true; \
+		echo "✅ Python checks complete!"; \
+	else \
+		echo "⚠️ sakurs-py directory not found"; \
+	fi
+
+format-python:
+	@echo "🎨 Formatting Python code..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run ruff format . && \
+		uv run ruff check --fix . && \
+		echo "✅ Python code formatted!"; \
+	else \
+		echo "⚠️ sakurs-py directory not found"; \
+	fi
+
+lint-python:
+	@echo "🔍 Linting Python code..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run ruff check . --fix && \
+		echo "✅ Python linting complete!"; \
+	else \
+		echo "⚠️ sakurs-py directory not found"; \
+	fi
+
+type-check-python:
+	@echo "🔍 Running mypy type checking..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run mypy . && \
+		echo "✅ Type checking complete!"; \
+	else \
+		echo "⚠️ sakurs-py directory not found"; \
+	fi
+
+# Python development commands
+py-dev:
+	@echo "🐍 Building Python bindings for development..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run maturin develop --features extension-module && \
+		echo "✅ Python bindings built for development!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi
+
+py-test: py-dev
+	@echo "🧪 Running Python tests..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run pytest tests/ -v && \
+		echo "✅ Python tests passed!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi
+
+py-bench: py-dev
+	@echo "⚡ Running Python benchmarks..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run pytest benches/ --benchmark-only && \
+		echo "✅ Python benchmarks complete!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi
+
+py-build:
+	@echo "📦 Building Python wheel..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run maturin build --features extension-module --release && \
+		echo "✅ Python wheel built!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi
+
+# Build wheels for distribution
+wheels:
+	@echo "📦 Building wheels for distribution..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv run maturin build --features extension-module --release --strip && \
+		echo "✅ Distribution wheels built!"; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi

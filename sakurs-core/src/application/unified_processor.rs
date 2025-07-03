@@ -224,8 +224,10 @@ mod tests {
     #[test]
     fn test_parallel_processing() {
         let rules = Arc::new(MockLanguageRules::english());
-        let mut config = ProcessorConfig::default();
-        config.chunk_size = 10; // Small chunks to force multiple chunks
+        let config = ProcessorConfig {
+            chunk_size: 10, // Small chunks to force multiple chunks
+            ..Default::default()
+        };
         let processor = UnifiedProcessor::with_config(rules, config);
 
         let text = "Hello world. This is a test. Another sentence here.";
@@ -247,7 +249,7 @@ mod tests {
         // Medium text (between chunk_size and chunk_size * 4)
         // Default chunk_size is 8192, so 10_000 should give 2 threads
         let medium_count = processor.determine_thread_count(10_000);
-        assert!(medium_count >= 1 && medium_count <= 2);
+        assert!((1..=2).contains(&medium_count));
 
         // Large text
         let large_count = processor.determine_thread_count(1_000_000);
