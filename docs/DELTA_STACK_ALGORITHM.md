@@ -1,325 +1,218 @@
-# Δ-Stack Monoid Algorithm: Core Concepts and Implementation
+# Δ-Stack Monoid Algorithm
 
 ## Overview
 
-The Δ-Stack Monoid algorithm revolutionizes sentence boundary detection (SBD) by transforming what has traditionally been a sequential process into a parallelizable one. The key innovation lies in formulating SBD as an associative monoid operation, enabling mathematically-sound parallel execution while maintaining perfect accuracy.
+The Δ-Stack Monoid algorithm enables parallel sentence boundary detection (SBD) by formulating it as an associative monoid operation. This allows text to be processed in chunks across multiple cores while maintaining perfect accuracy—a critical feature for Sakurs' high-performance text segmentation.
 
-## Key Innovation: Monoid Formulation
+## Why Monoids?
 
-### Why Monoids Enable Parallelization
+A monoid's associativity property `(a ⊕ b) ⊕ c = a ⊕ (b ⊕ c)` means we can:
+1. Split text into chunks
+2. Process chunks independently on different cores
+3. Combine results in any order
+4. Get identical results to sequential processing
 
-A monoid is a mathematical structure with three properties:
-1. **Closure**: Combining two states produces another valid state
-2. **Associativity**: `(a ⊕ b) ⊕ c = a ⊕ (b ⊕ c)`
-3. **Identity element**: There exists an element `e` where `a ⊕ e = e ⊕ a = a`
+This mathematical guarantee enables true parallelism without compromising correctness.
 
-The associativity property is crucial because it means we can split text into chunks, process them independently, and combine results in any order while getting the same final result.
+## Core Data Structure
 
-### State Representation
+The algorithm represents parsing state as a triple `State = ⟨B, Δ, A⟩`:
 
-The algorithm represents the parsing state as a triple:
-
-```
-State = ⟨B, Δ, A⟩
-```
-
-Where:
-- **B (Boundaries)**: Set of detected sentence boundaries with metadata
-- **Δ (Delta Stack)**: Tracks enclosure states (quotes, parentheses) across chunks
-- **A (Abbreviation State)**: Handles cross-chunk abbreviation patterns
-
-Let's examine each component:
-
-#### 1. Boundary Set (B)
-
+### 1. Boundaries (B)
+Stores detected sentence boundaries with metadata:
 ```
 B = {(offset, flags) | offset ∈ ℕ, flags ∈ {STRONG, FROM_ABBR}}
 ```
 
-Each boundary stores:
-- `offset`: Position in the text
-- `flags`: Metadata about the boundary type
-
-#### 2. Delta Stack (Δ)
-
-The delta stack is the algorithm's most innovative component. For each enclosure type (parentheses, quotes, etc.), it tracks:
-
+### 2. Delta Stack (Δ) - The Key Innovation
+Tracks enclosure depth changes without storing full state:
 ```
-Δ = [(net₁, min₁), ..., (netₙ, minₙ)]
+Δ = [(net, min) | for each enclosure type]
 ```
+- `net`: Net change in depth (opens - closes)
+- `min`: Minimum depth reached in chunk
 
-- `netᵢ`: Net count of opening minus closing delimiters
-- `minᵢ`: Minimum cumulative sum observed during the chunk scan
+This compact representation enables O(1) boundary decisions during parallel reduction.
 
-This clever representation allows us to determine if we're inside an enclosure at chunk boundaries without knowing the global state.
-
-#### 3. Abbreviation State (A)
-
+### 3. Abbreviation State (A)
+Handles cross-chunk abbreviations:
 ```
 A = (dangling_dot, head_alpha)
 ```
+Detects patterns like "U.S." split across chunks.
 
-- `dangling_dot`: Whether the chunk ends with a potential abbreviation dot
-- `head_alpha`: Whether the chunk starts with alphabetic characters
+## Monoid Operations
 
-This enables detection of abbreviations that span chunk boundaries (e.g., "U.S." split as "U." | "S.").
+**Identity**: `e = ⟨∅, 0⃗, (false, false)⟩` (empty text)
 
-## The Monoid Operations
-
-### Identity Element
-
-The identity element represents an empty text segment:
-
-```
-e = ⟨∅, 0⃗, (false, false)⟩
-```
-
-### Combine Operation (⊕)
-
-The combine operation merges two adjacent text segments' states:
-
+**Combine (⊕)**: Merges adjacent chunk states:
 ```python
 def combine(state1, state2):
-    # Merge boundaries with offset adjustment
-    merged_boundaries = merge_boundaries(state1.B, state2.B, state1.A, state2.A)
-    
-    # Merge delta stacks
-    merged_deltas = merge_deltas(state1.Δ, state2.Δ)
-    
-    # Merge abbreviation states
-    merged_abbr = merge_abbr(state1.A, state2.A)
-    
-    return State(merged_boundaries, merged_deltas, merged_abbr)
+    return State(
+        merge_boundaries(state1.B, state2.B, state1.A, state2.A),
+        merge_deltas(state1.Δ, state2.Δ),
+        merge_abbr(state1.A, state2.A)
+    )
 ```
 
-### Delta Merge Algorithm
-
-The delta merge is particularly elegant:
-
+The critical delta merge formula:
 ```python
 def merge_deltas(Δ1, Δ2):
-    result = []
-    for i in range(len(Δ1)):
-        net1, min1 = Δ1[i]
-        net2, min2 = Δ2[i]
-        
-        # Combined net change
-        new_net = net1 + net2
-        
-        # The minimum in the combined range is either:
-        # - The minimum from the left chunk, or
-        # - The left's net + minimum from the right chunk
-        new_min = min(min1, net1 + min2)
-        
-        result.append((new_net, new_min))
-    
-    return result
+    return [(net1 + net2, min(min1, net1 + min2)) 
+            for (net1, min1), (net2, min2) in zip(Δ1, Δ2)]
 ```
 
-This formula correctly tracks whether we ever go "negative" (more closing than opening delimiters) even when processing chunks in parallel.
+This elegantly tracks nested enclosures across chunk boundaries without global state.
 
-## Parallel Algorithm
+## Example: Parallel Boundary Detection
 
-### Map Phase
+Consider text with nested parentheses:
+```
+(abc. def). ghi. jkl
+```
 
-Each thread processes a chunk independently:
+The string is split into three equal‑sized chunks by the runtime:
 
+| Chunk | Raw text | Local Δ `(net, min)` | Candidate boundaries (byte offsets*) |
+| --- | --- | --- | --- |
+| C₀ | `(abc.` | `(+1, 0)` | `5` (after the dot) |
+| C₁ | ` def). ghi` | `(−1, −1)` | `11` (after the dot) |
+| C₂ | `. jkl` | `(0, 0)` | `17` (after the dot) |
+
+*Offsets are relative to the start of the **combined** three‑chunk buffer for easier comparison.
+
+**Step 1: Parallel prefix-sum** computes cumulative deltas:
+```
+ΣΔ_before = [0, +1, 0]  // Before chunks C₀, C₁, C₂
+```
+
+**Step 2: Each chunk decides independently**:
+
+Each chunk independently decides whether to accept or suppress its candidate boundaries:
+
+| Chunk | Depth at candidate = `ΣΔ_before` + partial Δ | Decision |
+| --- | --- | --- |
+| C₀ | `0 + (+1) = 1 (>0)` | Suppress (inside parentheses) |
+| C₁ | `+1 + (−1) = 0 (=0)` | **Accept** (at depth 0) |
+| C₂ | `0 + 0 = 0 (=0)` | **Accept** (at depth 0) |
+
+Key insight: Each chunk needs only two values—its local Δ and the prefix-sum—to make O(1) boundary decisions. This enables embarrassingly parallel reduction.
+
+## Three-Phase Processing
+
+```mermaid
+flowchart LR
+    subgraph Map["1. Map (parallel)"]
+        C0["Chunk 0 → Δ₀"]
+        C1["Chunk 1 → Δ₁"]
+        C2["Chunk 2 → Δ₂"]
+    end
+    
+    subgraph Prefix["2. Prefix-sum (log P)"]
+        PS["Compute ΣΔ"]
+    end
+    
+    subgraph Reduce["3. Reduce (parallel)"]
+        R0["Decide C₀"]
+        R1["Decide C₁"]
+        R2["Decide C₂"]
+    end
+    
+    Map --> Prefix --> Reduce --> Result["Boundaries"]
+```
+
+1. **Map**: Independent chunk scanning → local deltas
+2. **Prefix-sum**: O(log P) synchronization → cumulative deltas
+3. **Reduce**: Independent boundary decisions → final results
+
+## Implementation Highlights
+
+### Map Phase (Per Chunk)
 ```rust
-fn parse_chunk(chunk: &str, config: &Config) -> PartialState {
-    let mut state = PartialState::new();
-    let mut depth = vec![0; config.enclosure_count()];
-    let mut min_prefix = vec![0; config.enclosure_count()];
-    let mut total_depth = 0;
-    
-    for (i, ch) in chunk.char_indices() {
-        // Track enclosure depth
-        if let Some(id) = config.open_id(ch) {
-            depth[id] += 1;
-            total_depth += 1;
-        } else if let Some(id) = config.close_id(ch) {
-            depth[id] -= 1;
-            total_depth -= 1;
-            min_prefix[id] = min_prefix[id].min(depth[id]);
-        }
-        
-        // Detect boundaries only at depth 0
-        else if config.is_terminator(ch) && total_depth == 0 {
-            state.add_boundary(i + ch.len_utf8());
-        }
+for (i, ch) in chunk.char_indices() {
+    // Update enclosure depths
+    if let Some(id) = config.open_id(ch) {
+        depth[id] += 1;
+        total_depth += 1;
+    } else if let Some(id) = config.close_id(ch) {
+        depth[id] -= 1;
+        total_depth -= 1;
+        min_prefix[id] = min_prefix[id].min(depth[id]);
     }
-    
-    // Convert to delta representation
-    state.enclosures = create_deltas(depth, min_prefix);
-    state.abbr_state = detect_abbreviation_state(chunk);
-    
-    return state;
+    // Mark boundaries only at depth 0
+    else if config.is_terminator(ch) && total_depth == 0 {
+        state.add_boundary(i + ch.len_utf8());
+    }
 }
 ```
 
-### Reduce Phase
-
-The reduce phase combines chunk results using tree reduction:
-
+### Tree Reduction (O(log P))
 ```rust
-fn reduce_states(states: Vec<PartialState>) -> PartialState {
-    let mut level = states;
-    
-    // Tree reduction maintains O(log P) depth
-    while level.len() > 1 {
-        let mut next_level = Vec::new();
-        
-        for chunk in level.chunks(2) {
-            match chunk {
-                [left, right] => next_level.push(left.combine(right)),
-                [single] => next_level.push(single.clone()),
-            }
-        }
-        
-        level = next_level;
+while level.len() > 1 {
+    for chunk in level.chunks(2) {
+        next_level.push(chunk[0].combine(chunk[1]));
     }
-    
-    level.into_iter().next().unwrap()
+    level = next_level;
 }
 ```
 
-## Handling Complex Cases
+## Complex Case Handling
 
 ### Nested Quotations
-
-Japanese text often contains nested quotations like 「彼は『こんにちは』と言った」. The algorithm handles this through the delta stack mechanism:
-
-1. When encountering 「, increment depth for quote type 1
-2. When encountering 『, increment depth for quote type 2
-3. Only mark sentence boundaries when total depth = 0
-4. The delta representation preserves nesting information across chunks
-
-### Multi-Dot Abbreviations
-
-The algorithm uses a look-ahead approach for abbreviations:
-
-```rust
-fn detect_multi_dot(text: &str, start: usize) -> Option<(String, usize)> {
-    let mut pos = start;
-    let mut pattern = String::new();
-    
-    // Look for pattern: letter+ dot letter+ dot ...
-    while pos < text.len() && pattern.len() < MAX_ABBR_LENGTH {
-        // Expect letters
-        let letter_start = pos;
-        while pos < text.len() && text[pos].is_alphabetic() {
-            pos += 1;
-        }
-        
-        if pos == letter_start {
-            break; // No letters found
-        }
-        
-        // Expect dot
-        if pos < text.len() && text[pos] == '.' {
-            pattern.push_str(&text[letter_start..=pos]);
-            pos += 1;
-        } else {
-            break;
-        }
-    }
-    
-    if pattern.matches('.').count() > 1 {
-        Some((pattern, pos))
-    } else {
-        None
-    }
-}
-```
+Japanese example: 「彼は『こんにちは』と言った」
+- Each quote type gets separate depth tracking
+- Boundaries only at total depth = 0
+- Delta representation preserves nesting across chunks
 
 ### Cross-Chunk Abbreviations
+Example: "U.S." split as "U." | "S."
+- Left chunk: `dangling_dot = true`
+- Right chunk: `head_alpha = true`
+- Merge: Remove false boundary if both conditions met
 
-When an abbreviation spans chunks (e.g., "U.S." split as "U." | "S."), the algorithm:
+## Performance
 
-1. Left chunk sets `dangling_dot = true`
-2. Right chunk sets `head_alpha = true`
-3. During merge, if both conditions are met:
-   - Remove the boundary after the dot in the left chunk
-   - Suppress boundaries in the right chunk until non-abbreviation text
+| Metric | Sequential | Parallel |
+|--------|------------|----------|
+| Time | O(N) | O(N/P + log P) |
+| Space | O(1) | O(P) |
+| Speedup | 1× | Near-linear up to P cores |
 
-## Performance Characteristics
+Optimizations:
+- Single-pass scanning
+- Cache-friendly sequential access
+- SIMD-capable character matching
+- Lock-free map phase
 
-### Complexity Analysis
+## Key Implementation Details
 
-- **Sequential baseline**: O(N) time, O(1) space
-- **Δ-Stack parallel**: O(N/P + log P) time, O(P) space
-
-Where:
-- N = text length
-- P = number of processors
-
-### Why It's Fast
-
-1. **Single pass**: Each byte is read exactly once
-2. **Cache-friendly**: Sequential memory access within chunks
-3. **SIMD-capable**: Character scanning can use vector instructions
-4. **Lock-free**: No synchronization needed during map phase
-5. **Work-efficient**: Total work remains O(N)
-
-## Implementation Insights
-
-### Chunk Boundary Handling
-
-The algorithm must carefully handle UTF-8 boundaries:
-
+### UTF-8 Safety
 ```rust
-fn find_chunk_boundary(text: &[u8], target: usize) -> usize {
-    let mut pos = target.min(text.len());
-    
-    // Backtrack to valid UTF-8 boundary
-    while pos > 0 && !is_utf8_char_boundary(text[pos]) {
-        pos -= 1;
-    }
-    
-    pos
+// Backtrack to valid UTF-8 boundary
+while pos > 0 && !is_utf8_char_boundary(text[pos]) {
+    pos -= 1;
 }
 ```
 
-### Streaming Architecture
+### Streaming Support
+- Maintain carry-over text between chunks
+- Process with overlap to catch cross-chunk patterns
+- Extract only "safe" sentences (not near chunk end)
 
-For real-time processing, the algorithm maintains state across chunks:
+## Correctness
 
-```rust
-impl StreamingSegmenter {
-    pub fn push_chunk(&mut self, chunk: &str) -> Vec<String> {
-        // Combine carry-over with new chunk
-        let combined = self.carry_text.clone() + chunk;
-        
-        // Parse combined text
-        let state = parse_chunk(&combined, &self.config);
-        
-        // Extract complete sentences
-        let safe_boundary = combined.len() - OVERLAP_SIZE;
-        let sentences = extract_sentences_up_to(&combined, &state, safe_boundary);
-        
-        // Update carry-over
-        let last_boundary = sentences.last()
-            .map(|s| s.end_offset)
-            .unwrap_or(0);
-        self.carry_text = combined[last_boundary..].to_string();
-        
-        sentences
-    }
-}
-```
-
-## Mathematical Proof Sketch
-
-The associativity of the combine operation is proven component-wise:
-
-1. **Boundaries**: Shifting offsets and handling abbreviations preserves associativity
-2. **Deltas**: Addition and minimum operations are associative
-3. **Abbreviation state**: The (head, tail) selection is associative
-
-The formal proof shows that for any three states s₁, s₂, s₃:
+The algorithm's correctness relies on proving associativity:
 ```
 (s₁ ⊕ s₂) ⊕ s₃ = s₁ ⊕ (s₂ ⊕ s₃)
 ```
 
-## Conclusion
+This holds because:
+- **Boundaries**: Offset shifting is associative
+- **Deltas**: Addition and min are associative
+- **Abbreviations**: Head/tail selection is associative
 
-The Δ-Stack Monoid algorithm achieves parallelization of sentence boundary detection through elegant mathematical formulation. By representing the parsing state as a monoid and carefully handling cross-chunk dependencies, it achieves near-linear speedup while maintaining exact compatibility with complex punctuation rules. The algorithm's success demonstrates the power of applying algebraic structures to traditionally sequential text processing tasks.
+## Summary
+
+The Δ-Stack Monoid algorithm transforms traditionally sequential sentence boundary detection into a parallel operation through monoid formulation. This enables Sakurs to achieve near-linear speedup on multicore systems while maintaining 100% accuracy with complex language rules.
+
+For implementation details, see the [Architecture Guide](ARCHITECTURE.md) and source code in `sakurs-core/src/domain/`.
