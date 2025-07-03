@@ -108,7 +108,7 @@ pub mod generators {
         }
 
         TestData::new(
-            format!("simple_{}_sentences", sentence_count),
+            format!("simple_{sentence_count}_sentences"),
             text,
             boundaries,
         )

@@ -222,8 +222,10 @@ fn measure_scalability_metrics() {
 fn bench_no_parallel(c: &mut Criterion) {
     let mut group = c.benchmark_group("no_parallel");
 
-    // Rules will be created in processor factory
-    let processor = TextProcessor::new(rules);
+    // Create processor without parallel processing
+    let mut config = ProcessorConfig::default();
+    config.parallel_threshold = usize::MAX; // Disable parallel processing
+    let processor = create_processor_with_config(config);
 
     let test_data = generators::large_text(100_000);
 
