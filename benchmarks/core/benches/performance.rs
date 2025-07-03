@@ -4,7 +4,7 @@
 //! of the sakurs text processor.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use sakurs_benchmarks::constants::{bench_profiles, sentence_lengths, text_sizes};
+use sakurs_benchmarks::constants::{sentence_lengths, text_sizes};
 use sakurs_benchmarks::create_default_processor;
 use sakurs_benchmarks::data::generators;
 use std::hint::black_box;
@@ -111,8 +111,6 @@ fn bench_latency_small_inputs(c: &mut Criterion) {
 fn bench_memory_patterns(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_allocation");
 
-    let rules = Arc::new(EnglishLanguageRules::new());
-
     for size in [10_000, 100_000, 1_000_000] {
         let test_data = generators::large_text(size);
 
@@ -122,7 +120,7 @@ fn bench_memory_patterns(c: &mut Criterion) {
             |b, text| {
                 b.iter(|| {
                     // Create new processor each time to measure full allocation
-                    let processor = TextProcessor::new(rules.clone());
+                    let processor = create_default_processor();
                     let result = processor
                         .process_text(black_box(text))
                         .expect("Processing should not fail");

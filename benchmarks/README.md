@@ -111,6 +111,26 @@ The benchmarks use custom Criterion configurations optimized for different scena
 3. Add benchmark entry to `core/Cargo.toml`
 4. Update this README
 
+## Brown Corpus Integration
+
+The benchmarks can use the real Brown Corpus dataset for evaluation:
+
+### Setup
+```bash
+# Download and process Brown Corpus
+cd benchmarks/data/brown_corpus
+make download
+```
+
+### Running Brown Corpus Benchmarks
+```bash
+# Run detailed Brown Corpus accuracy report
+cargo run --example brown_corpus_report
+
+# Run benchmarks with Brown Corpus data
+cargo bench brown_corpus
+```
+
 ## Comparing with Baselines
 
 NLTK Punkt comparison will be added in a future PR. The infrastructure is designed to support:

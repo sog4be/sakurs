@@ -28,10 +28,17 @@ harness = false
 name = "scalability"
 harness = false
 
+[[bench]]
+name = "brown_corpus"
+harness = false
+
 # Comparison with baselines will be added later
 # [[bench]]
 # name = "comparison"
 # harness = false
+
+[[example]]
+name = "brown_corpus_report"
 
 [features]
 default = ["parallel"]

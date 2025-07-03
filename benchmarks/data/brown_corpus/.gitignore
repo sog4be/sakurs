@@ -1,0 +1,18 @@
+# Cache directory
+cache/
+*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# uv
+.python-version

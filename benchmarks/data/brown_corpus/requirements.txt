@@ -1,0 +1,4 @@
+# Python dependencies for Brown Corpus processing
+nltk>=3.8
+tqdm>=4.65.0  # For progress bars
+click>=8.1.0  # For CLI interface
