@@ -14,3 +14,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.20", features = ["extension-module"] }
+sakurs-core = { path = "../sakurs-core" }
+thiserror = { workspace = true }

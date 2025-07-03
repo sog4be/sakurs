@@ -2,7 +2,7 @@
 members = [
     "sakurs-core",
     "sakurs-cli",
-    # "sakurs-py",  # Temporarily disabled until PyO3 supports Python 3.13
+    "sakurs-py",
 ]
 resolver = "2"
 

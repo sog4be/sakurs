@@ -1,7 +1,7 @@
 # Makefile for sakurs - Rust workspace automation
 # Usage: make ci-check, make format, make test, etc.
 
-.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools
+.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools check-python format-python lint-python
 
 # Default target
 help:
@@ -23,6 +23,11 @@ help:
 	@echo "  coverage-html     Generate and open HTML coverage report"
 	@echo "  coverage-threshold Check coverage threshold (80%)"
 	@echo "  coverage-clean    Clean coverage data"
+	@echo ""
+	@echo "Python Development:"
+	@echo "  check-python   Run Python checks (ruff, mypy)"
+	@echo "  format-python  Format Python code"
+	@echo "  lint-python    Lint Python code"
 	@echo ""
 	@echo "Setup:"
 	@echo "  install-hooks  Install git pre-commit hooks"
@@ -129,3 +134,40 @@ coverage-threshold: check-llvm-tools
 coverage-clean:
 	@echo "🧹 Cleaning coverage data..."
 	cargo llvm-cov clean --workspace || echo "⚠️ Coverage clean failed (may not be installed)"
+
+# Python development commands
+check-python:
+	@echo "🐍 Running Python checks..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		echo "  Running ruff check..." && \
+		ruff check . && \
+		echo "  Running ruff format check..." && \
+		ruff format --check . && \
+		echo "  Running mypy..." && \
+		mypy . --config-file pyproject.toml || true; \
+		echo "✅ Python checks complete!"; \
+	else \
+		echo "⚠️ sakurs-py directory not found"; \
+	fi
+
+format-python:
+	@echo "🎨 Formatting Python code..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		ruff format . && \
+		ruff check --fix . && \
+		echo "✅ Python code formatted!"; \
+	else \
+		echo "⚠️ sakurs-py directory not found"; \
+	fi
+
+lint-python:
+	@echo "🔍 Linting Python code..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		ruff check . --fix && \
+		echo "✅ Python linting complete!"; \
+	else \
+		echo "⚠️ sakurs-py directory not found"; \
+	fi

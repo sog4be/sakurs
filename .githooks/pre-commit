@@ -45,7 +45,29 @@ else
     echo "⏭️  Skipping tests (SKIP_TESTS=1)"
 fi
 
-# 4. Check compilation
+# 4. Check Python code if sakurs-py exists
+if [ -d "sakurs-py" ]; then
+    echo "🐍 Checking Python code..."
+    
+    # Check if ruff is available
+    if command -v ruff >/dev/null 2>&1; then
+        if ! (cd sakurs-py && ruff check .); then
+            echo "${RED}❌ Python linting failed!${NC}"
+            echo "💡 Run: cd sakurs-py && ruff check --fix ."
+            exit 1
+        fi
+        
+        if ! (cd sakurs-py && ruff format --check .); then
+            echo "${RED}❌ Python formatting issues found!${NC}"
+            echo "💡 Run: cd sakurs-py && ruff format ."
+            exit 1
+        fi
+    else
+        echo "${YELLOW}⚠️  Ruff not found. Install with: pip install ruff${NC}"
+    fi
+fi
+
+# 5. Check compilation
 echo "⚙️ Checking compilation..."
 if ! cargo check --workspace; then
     echo "${RED}❌ Compilation check failed!${NC}"
