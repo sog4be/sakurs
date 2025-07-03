@@ -1,8 +1,8 @@
 //! Generate accuracy report for sakurs
 
+use sakurs_benchmarks::calculate_accuracy_metrics;
 use sakurs_benchmarks::data::{brown_corpus, generators};
 use sakurs_benchmarks::metrics::{calculate_pk_score, calculate_window_diff};
-use sakurs_benchmarks::{calculate_accuracy_metrics, AccuracyMetrics};
 use sakurs_core::application::TextProcessor;
 use sakurs_core::domain::language::EnglishLanguageRules;
 use std::sync::Arc;

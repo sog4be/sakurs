@@ -251,6 +251,8 @@ impl EnglishAbbreviationRule {
         abbreviations.insert("Apt".to_string()); // Apartment
         abbreviations.insert("Bldg".to_string()); // Building
         abbreviations.insert("Fl".to_string()); // Floor
+        abbreviations.insert("U".to_string()); // U.S., U.K., etc.
+        abbreviations.insert("S".to_string()); // U.S. (also B.S., M.S.)
 
         // Business/Organization
         abbreviations.insert("Corp".to_string());
@@ -260,6 +262,9 @@ impl EnglishAbbreviationRule {
         abbreviations.insert("Co".to_string());
         abbreviations.insert("Assn".to_string()); // Association
         abbreviations.insert("Org".to_string()); // Organization
+        abbreviations.insert("C".to_string()); // C.E.O., C.F.O., etc.
+        abbreviations.insert("E".to_string()); // C.E.O.
+        abbreviations.insert("O".to_string()); // C.E.O., C.O.O., etc.
 
         // Common abbreviations
         abbreviations.insert("etc".to_string());
