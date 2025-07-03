@@ -1,0 +1,36 @@
+# CODEOWNERS for sakurs
+# These owners will be the default owners for everything in the repo
+# Unless a later match takes precedence, @sog4be will be requested for
+# review when someone opens a pull request.
+
+# Global owners
+* @sog4be
+
+# Core Rust library - Critical component
+/sakurs-core/ @sog4be
+
+# CLI implementation
+/sakurs-cli/ @sog4be
+
+# Python bindings
+/sakurs-py/ @sog4be
+
+# Documentation
+/docs/ @sog4be
+*.md @sog4be
+/README.md @sog4be
+
+# CI/CD and GitHub configuration
+/.github/ @sog4be
+/Makefile @sog4be
+
+# Security-sensitive files
+/SECURITY.md @sog4be
+/.github/CODEOWNERS @sog4be
+/Cargo.toml @sog4be
+/Cargo.lock @sog4be
+
+# Development configuration
+/rust-toolchain.toml @sog4be
+/.gitignore @sog4be
+/.githooks/ @sog4be

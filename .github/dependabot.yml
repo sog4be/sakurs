@@ -1,0 +1,57 @@
+version: 2
+updates:
+  # Enable version updates for Rust
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "sog4be"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "rust"
+    
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "sog4be"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "ci"
+
+  # Enable version updates for Python (when sakurs-py is active)
+  # - package-ecosystem: "pip"
+  #   directory: "/sakurs-py"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "monday"
+  #     time: "09:00"
+  #     timezone: "Asia/Tokyo"
+  #   open-pull-requests-limit: 5
+  #   reviewers:
+  #     - "sog4be"
+  #   commit-message:
+  #     prefix: "chore"
+  #     prefix-development: "chore"
+  #     include: "scope"
+  #   labels:
+  #     - "dependencies"
+  #     - "python"
