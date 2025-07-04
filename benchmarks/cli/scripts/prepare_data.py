@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from data.ud_english_ewt import is_available as ewt_available, load_sample as load_ewt
 from data.brown_corpus import is_available as brown_available, load_subsets as load_brown
 from data.ud_japanese_bccwj import is_available as bccwj_available, load_sample as load_bccwj
+from data.wikipedia import create_loader as create_wikipedia_loader
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -65,10 +66,45 @@ def prepare_brown_corpus():
 
 
 def prepare_wikipedia_samples():
-    """Prepare Wikipedia samples (placeholder)."""
-    logger.info("Wikipedia sample preparation not yet implemented")
-    logger.info("This will be added in Phase 3")
-    return True
+    """Prepare Wikipedia samples for performance benchmarking."""
+    logger.info("Checking Wikipedia samples...")
+    
+    success = True
+    sizes_mb = [500]  # Default size for benchmarking
+    
+    # Prepare English Wikipedia
+    try:
+        logger.info("Preparing English Wikipedia samples...")
+        en_loader = create_wikipedia_loader('en', size_mb=500)
+        
+        if not en_loader.is_cached():
+            logger.info("Downloading English Wikipedia sample (this may take a while)...")
+            en_loader.download()
+            logger.info("English Wikipedia sample ready")
+        else:
+            logger.info("English Wikipedia sample already cached")
+            
+    except Exception as e:
+        logger.error(f"Failed to prepare English Wikipedia: {e}")
+        success = False
+        
+    # Prepare Japanese Wikipedia
+    try:
+        logger.info("Preparing Japanese Wikipedia samples...")
+        ja_loader = create_wikipedia_loader('ja', size_mb=500)
+        
+        if not ja_loader.is_cached():
+            logger.info("Downloading Japanese Wikipedia sample (this may take a while)...")
+            ja_loader.download()
+            logger.info("Japanese Wikipedia sample ready")
+        else:
+            logger.info("Japanese Wikipedia sample already cached")
+            
+    except Exception as e:
+        logger.error(f"Failed to prepare Japanese Wikipedia: {e}")
+        success = False
+        
+    return success
 
 
 def prepare_japanese_data():
@@ -138,9 +174,9 @@ def main(force):
     if not prepare_brown_corpus():
         success = False
         
-    # Prepare Wikipedia samples (Phase 3)
+    # Prepare Wikipedia samples
     if not prepare_wikipedia_samples():
-        logger.warning("Wikipedia samples not ready (Phase 3)")
+        success = False
         
     # Prepare Japanese data (Phase 2)
     if not prepare_japanese_data():

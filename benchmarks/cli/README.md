@@ -93,15 +93,18 @@ Fair comparison against established baselines:
 Benchmark data is managed by the parent `benchmarks/data/` directory:
 
 ```bash
-# Download all required corpora
-cd ../data
-make download-all
+# Prepare all benchmark data (recommended)
+python scripts/prepare_data.py
 
-# Or download specific datasets
+# Or download specific datasets manually
+cd ../data
 python ud_english_ewt/download.py
 python ud_japanese_bccwj/download.py
-python wikipedia/download.py --language en --size 500MB
-python wikipedia/download.py --language ja --size 500MB
+
+# Wikipedia samples are downloaded automatically by prepare_data.py
+# but can be prepared manually:
+python -c "from wikipedia import create_loader; create_loader('en', 500).download()"
+python -c "from wikipedia import create_loader; create_loader('ja', 500).download()"
 ```
 
 ## Running Benchmarks
