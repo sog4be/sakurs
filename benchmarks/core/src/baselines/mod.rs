@@ -74,7 +74,7 @@ pub fn run_nltk_punkt_benchmark(subset_size: Option<usize>) -> BenchmarkResult<B
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(BenchmarkError::Config {
-            message: format!("NLTK Punkt benchmark failed: {}", stderr),
+            message: format!("NLTK Punkt benchmark failed: {stderr}"),
         });
     }
 
