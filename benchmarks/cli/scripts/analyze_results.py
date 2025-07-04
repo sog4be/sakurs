@@ -4,12 +4,24 @@
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import click
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
+import numpy as np
+
+# Import statistical analysis utilities
+sys.path.insert(0, str(Path(__file__).parent))
+from statistical_analysis import (
+    bootstrap_confidence_interval,
+    add_confidence_intervals_to_metrics,
+    paired_t_test,
+    wilcoxon_signed_rank_test,
+    calculate_effect_size,
+    format_statistical_result
+)
 
 # Set style for plots
 plt.style.use('seaborn-v0_8-darkgrid')
@@ -38,16 +50,29 @@ def format_time(seconds: float) -> str:
         return f"{seconds:.2f}s"
 
 
-def generate_performance_plot(results: List[Dict[str, Any]], output_path: Path):
-    """Generate performance comparison plot."""
+def generate_performance_plot(results: List[Dict[str, Any]], output_path: Path, with_ci: bool = True):
+    """Generate performance comparison plot with confidence intervals."""
     # Extract data for plotting
     data = []
     for result in results:
         if 'performance' in result:
+            perf = result['performance']
+            
+            # Check if we have timing data for bootstrap CI
+            if with_ci and 'times' in perf:
+                ci = bootstrap_confidence_interval(perf['times'])
+                error_lower = ci.estimate - ci.lower
+                error_upper = ci.upper - ci.estimate
+                yerr = [[error_lower], [error_upper]]
+            else:
+                # Fallback to standard deviation
+                yerr = perf.get('stddev', 0)
+            
             data.append({
                 'Language': result['language'],
-                'Mean Time (s)': result['performance']['mean_time'],
-                'Std Dev': result['performance']['stddev']
+                'Mean Time (s)': perf['mean_time'],
+                'Error': yerr,
+                'CI_text': f"95% CI [{ci.lower:.3f}, {ci.upper:.3f}]" if with_ci and 'times' in perf else None
             })
     
     if not data:
@@ -58,56 +83,95 @@ def generate_performance_plot(results: List[Dict[str, Any]], output_path: Path):
     # Create bar plot with error bars
     fig, ax = plt.subplots(figsize=(10, 6))
     x = range(len(df))
-    bars = ax.bar(x, df['Mean Time (s)'], yerr=df['Std Dev'], 
+    
+    # Handle asymmetric error bars for CI
+    yerr_values = []
+    for err in df['Error']:
+        if isinstance(err, list):
+            yerr_values.append(err)
+        else:
+            yerr_values.append([[err], [err]])
+    
+    yerr_array = np.array(yerr_values).T
+    
+    bars = ax.bar(x, df['Mean Time (s)'], yerr=yerr_array, 
                    capsize=10, alpha=0.7, edgecolor='black')
     
     # Customize plot
     ax.set_xlabel('Language', fontsize=12)
     ax.set_ylabel('Processing Time (seconds)', fontsize=12)
-    ax.set_title('Sakurs Performance Benchmark Results', fontsize=14, fontweight='bold')
+    title = 'Sakurs Performance Benchmark Results'
+    if with_ci:
+        title += ' (with 95% Confidence Intervals)'
+    ax.set_title(title, fontsize=14, fontweight='bold')
     ax.set_xticks(x)
     ax.set_xticklabels(df['Language'])
     
     # Add value labels on bars
-    for i, (bar, mean, std) in enumerate(zip(bars, df['Mean Time (s)'], df['Std Dev'])):
+    for i, (bar, row) in enumerate(zip(bars, df.itertuples())):
         height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height + std,
-                f'{format_time(mean)}', ha='center', va='bottom')
+        # Position text above error bar
+        y_pos = height + yerr_array[1][i] if isinstance(row.Error, list) else height + row.Error
+        label = f'{format_time(row._2)}'  # Mean Time
+        if row.CI_text:
+            label += f'\n{row.CI_text}'
+        ax.text(bar.get_x() + bar.get_width()/2., y_pos,
+                label, ha='center', va='bottom', fontsize=9)
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
 
 
-def generate_accuracy_plot(results: List[Dict[str, Any]], output_path: Path):
-    """Generate accuracy metrics comparison plot."""
+def generate_accuracy_plot(results: List[Dict[str, Any]], output_path: Path, with_ci: bool = True):
+    """Generate accuracy metrics comparison plot with confidence intervals."""
     # Extract accuracy data
     metrics = ['precision', 'recall', 'f1']
-    data = {metric: [] for metric in metrics}
+    data = {metric: {'values': [], 'ci_lower': [], 'ci_upper': []} for metric in metrics}
     languages = []
     
     for result in results:
         if 'accuracy' in result:
             languages.append(result['language'])
+            acc = result['accuracy']
+            
+            # Get sample size if available
+            n_samples = result.get('n_samples', result.get('n_boundaries', 1000))
+            
             for metric in metrics:
-                data[metric].append(result['accuracy'].get(metric, 0))
+                value = acc.get(metric, 0)
+                data[metric]['values'].append(value)
+                
+                # Calculate confidence intervals
+                if with_ci:
+                    from statistical_analysis import proportion_confidence_interval
+                    successes = int(value * n_samples)
+                    ci = proportion_confidence_interval(successes, n_samples)
+                    data[metric]['ci_lower'].append(value - ci.lower)
+                    data[metric]['ci_upper'].append(ci.upper - value)
+                else:
+                    # No CI
+                    data[metric]['ci_lower'].append(0)
+                    data[metric]['ci_upper'].append(0)
     
     if not languages:
         return
     
     # Create grouped bar plot
     fig, ax = plt.subplots(figsize=(10, 6))
-    x = range(len(languages))
+    x = np.arange(len(languages))
     width = 0.25
     
-    # Plot bars for each metric
-    for i, (metric, values) in enumerate(data.items()):
+    # Plot bars for each metric with error bars
+    for i, (metric, metric_data) in enumerate(data.items()):
         offset = (i - 1) * width
-        bars = ax.bar([p + offset for p in x], values, width, 
+        yerr = [metric_data['ci_lower'], metric_data['ci_upper']] if with_ci else None
+        bars = ax.bar(x + offset, metric_data['values'], width, 
+                      yerr=yerr, capsize=5,
                       label=metric.capitalize(), alpha=0.8)
         
         # Add value labels
-        for bar, value in zip(bars, values):
+        for bar, value in zip(bars, metric_data['values']):
             height = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
                     f'{value:.3f}', ha='center', va='bottom', fontsize=9)
