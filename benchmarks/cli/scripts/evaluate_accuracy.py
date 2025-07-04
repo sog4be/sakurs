@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 import click
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -91,23 +90,127 @@ def calculate_metrics(predicted: List[str], reference: List[str]) -> Dict[str, f
 def calculate_pk(pred_boundaries: List[int], ref_boundaries: List[int], k: int = None) -> float:
     """Calculate Pk metric (Beeferman et al., 1999).
     
-    Simplified implementation - production version would need proper windowing.
+    Pk measures the probability that a randomly chosen pair of sentences
+    separated by k sentences are incorrectly classified as being in the
+    same segment or different segments.
+    
+    Args:
+        pred_boundaries: List of predicted boundary positions (character indices)
+        ref_boundaries: List of reference boundary positions (character indices)
+        k: Window size (default: half of average segment length)
+    
+    Returns:
+        Pk score (0 = perfect, 1 = worst)
     """
-    # Placeholder - return error rate for now
-    total = len(ref_boundaries)
-    errors = len(set(pred_boundaries) ^ set(ref_boundaries))
-    return errors / total if total > 0 else 0
+    # Get text length from the last boundary position
+    # Add some buffer to ensure we cover the last segment
+    if not ref_boundaries and not pred_boundaries:
+        return 0.0
+    
+    text_length = max(
+        max(ref_boundaries) if ref_boundaries else 0,
+        max(pred_boundaries) if pred_boundaries else 0
+    ) + 100  # Add buffer for last segment
+    
+    # Convert boundaries to segment assignments
+    pred_segments = boundaries_to_segments(pred_boundaries, text_length)
+    ref_segments = boundaries_to_segments(ref_boundaries, text_length)
+    
+    # Default k to half of average segment length
+    if k is None:
+        avg_segment_length = text_length // (len(ref_boundaries) + 1) if ref_boundaries else text_length
+        k = max(1, avg_segment_length // 2)
+    
+    if text_length <= k:
+        return 0.0
+    
+    errors = 0
+    comparisons = text_length - k
+    
+    for i in range(comparisons):
+        j = i + k
+        pred_same = pred_segments[i] == pred_segments[j]
+        ref_same = ref_segments[i] == ref_segments[j]
+        
+        if pred_same != ref_same:
+            errors += 1
+    
+    return errors / comparisons if comparisons > 0 else 0.0
 
 
 def calculate_window_diff(pred_boundaries: List[int], ref_boundaries: List[int], k: int = None) -> float:
     """Calculate WindowDiff metric (Pevzner & Hearst, 2002).
     
-    Simplified implementation - production version would need proper windowing.
+    WindowDiff is similar to Pk but counts the difference in the number
+    of boundaries within each window, making it more sensitive to
+    near-miss errors.
+    
+    Args:
+        pred_boundaries: List of predicted boundary positions (character indices)
+        ref_boundaries: List of reference boundary positions (character indices)
+        k: Window size (default: half of average segment length)
+    
+    Returns:
+        WindowDiff score (0 = perfect, 1 = worst)
     """
-    # Placeholder - return normalized error count
-    total = len(ref_boundaries)
-    errors = len(set(pred_boundaries) ^ set(ref_boundaries))
-    return errors / total if total > 0 else 0
+    # Get text length from the last boundary position
+    if not ref_boundaries and not pred_boundaries:
+        return 0.0
+    
+    text_length = max(
+        max(ref_boundaries) if ref_boundaries else 0,
+        max(pred_boundaries) if pred_boundaries else 0
+    ) + 100  # Add buffer for last segment
+    
+    # Default k to half of average segment length
+    if k is None:
+        avg_segment_length = text_length // (len(ref_boundaries) + 1) if ref_boundaries else text_length
+        k = max(1, avg_segment_length // 2)
+    
+    if text_length <= k:
+        return 0.0
+    
+    errors = 0
+    comparisons = text_length - k
+    
+    for i in range(comparisons):
+        window_end = i + k
+        
+        # Count boundaries in window for predicted
+        pred_count = sum(1 for pos in pred_boundaries if i < pos <= window_end)
+        
+        # Count boundaries in window for reference
+        ref_count = sum(1 for pos in ref_boundaries if i < pos <= window_end)
+        
+        if pred_count != ref_count:
+            errors += 1
+    
+    return errors / comparisons if comparisons > 0 else 0.0
+
+
+def boundaries_to_segments(boundaries: List[int], text_length: int) -> List[int]:
+    """Convert boundary positions to segment assignments for each position.
+    
+    Args:
+        boundaries: List of boundary positions (sorted)
+        text_length: Total length of text
+    
+    Returns:
+        List of segment IDs for each character position
+    """
+    segments = [0] * text_length
+    current_segment = 0
+    boundary_idx = 0
+    
+    sorted_boundaries = sorted(boundaries)
+    
+    for i in range(text_length):
+        if boundary_idx < len(sorted_boundaries) and i >= sorted_boundaries[boundary_idx]:
+            current_segment += 1
+            boundary_idx += 1
+        segments[i] = current_segment
+    
+    return segments
 
 
 @click.command()
@@ -118,7 +221,8 @@ def calculate_window_diff(pred_boundaries: List[int], ref_boundaries: List[int],
 @click.option('--output', '-o', type=click.Path(), help='Output JSON file for results')
 @click.option('--format', 'output_format', type=click.Choice(['json', 'text']), 
               default='text', help='Output format')
-def main(predicted, reference, output, output_format):
+@click.option('--with-ci/--no-ci', default=True, help='Include confidence intervals')
+def main(predicted, reference, output, output_format, with_ci):
     """Evaluate segmentation accuracy."""
     # Read files
     pred_sentences = read_sentences(Path(predicted))
@@ -130,12 +234,29 @@ def main(predicted, reference, output, output_format):
     # Calculate metrics
     metrics = calculate_metrics(pred_sentences, ref_sentences)
     
+    # Add confidence intervals if requested
+    if with_ci:
+        # Import here to avoid circular dependency
+        from statistical_analysis import add_confidence_intervals_to_metrics
+        
+        # For boundary-based metrics, use number of boundaries as sample size
+        pred_boundaries, ref_boundaries = align_sentences(pred_sentences, ref_sentences)
+        n_boundaries = len(ref_boundaries)
+        
+        # Enhanced metrics with CI
+        enhanced_metrics = add_confidence_intervals_to_metrics(
+            metrics, 
+            n_samples=n_boundaries
+        )
+        metrics = enhanced_metrics
+    
     # Output results
     if output_format == 'json' or output:
         result = {
             "predicted_file": str(predicted),
             "reference_file": str(reference),
-            "metrics": metrics
+            "metrics": metrics,
+            "with_confidence_intervals": with_ci
         }
         
         if output:
@@ -147,14 +268,25 @@ def main(predicted, reference, output, output_format):
     else:
         # Text format
         print("\nSegmentation Accuracy Results")
-        print("=" * 40)
-        print(f"Predicted sentences: {metrics['predicted_sentences']}")
-        print(f"Reference sentences: {metrics['reference_sentences']}")
-        print(f"Precision: {metrics['precision']:.4f}")
-        print(f"Recall: {metrics['recall']:.4f}")
-        print(f"F1 Score: {metrics['f1']:.4f}")
-        print(f"Pk: {metrics['pk']:.4f}")
-        print(f"WindowDiff: {metrics['window_diff']:.4f}")
+        print("=" * 60)
+        print(f"Predicted sentences: {metrics.get('predicted_sentences', 'N/A')}")
+        print(f"Reference sentences: {metrics.get('reference_sentences', 'N/A')}")
+        
+        # Format metrics with or without CI
+        def format_metric(name, key):
+            if isinstance(metrics.get(key), dict):
+                # With CI
+                m = metrics[key]
+                return f"{name}: {m['estimate']:.4f} [95% CI: {m['ci_lower']:.4f}, {m['ci_upper']:.4f}]"
+            else:
+                # Without CI
+                return f"{name}: {metrics.get(key, 0):.4f}"
+        
+        print(format_metric("Precision", "precision"))
+        print(format_metric("Recall", "recall"))
+        print(format_metric("F1 Score", "f1"))
+        print(format_metric("Pk", "pk"))
+        print(format_metric("WindowDiff", "window_diff"))
 
 
 if __name__ == '__main__':
