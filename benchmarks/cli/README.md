@@ -57,7 +57,10 @@ python scripts/prepare_data.py
 # Run all accuracy benchmarks
 bash scenarios/accuracy/run_all.sh
 
-# Run all performance benchmarks
+# Run all performance benchmarks (Wikipedia-based with Hyperfine)
+bash scenarios/performance/run_all_hyperfine.sh
+
+# Or run basic performance test
 bash scenarios/performance/run_all.sh
 
 # Generate comparison report
@@ -101,10 +104,9 @@ cd ../data
 python ud_english_ewt/download.py
 python ud_japanese_bccwj/download.py
 
-# Wikipedia samples use Hugging Face datasets (automatic via prepare_data.py)
-# Manual creation example:
-python -c "from wikipedia import create_loader; create_loader('en', 500, '20231101').download()"
-python -c "from wikipedia import create_loader; create_loader('ja', 500, '20231101').download()"
+# Wikipedia samples for performance benchmarks (prepared automatically)
+# Manual preparation (if needed):
+bash scenarios/performance/prepare_wikipedia_data.sh
 ```
 
 ## Running Benchmarks
@@ -115,8 +117,11 @@ python -c "from wikipedia import create_loader; create_loader('ja', 500, '202311
 # English accuracy
 bash scenarios/accuracy/english_ewt.sh
 
-# Japanese performance
-bash scenarios/performance/japanese_wikipedia.sh
+# English performance (Wikipedia)
+bash scenarios/performance/english_wikipedia_hyperfine.sh
+
+# Japanese performance (Wikipedia)
+bash scenarios/performance/japanese_wikipedia_hyperfine.sh
 
 # Comparison with NLTK
 bash scenarios/comparison/english_vs_punkt.sh

@@ -1,5 +1,7 @@
 #!/bin/bash
-# Simple performance benchmark using Brown Corpus (placeholder for Wikipedia)
+# Simple performance benchmark using Brown Corpus (basic version)
+# NOTE: For comprehensive Wikipedia performance benchmarking with Hyperfine,
+# use the enhanced scripts: english_wikipedia_hyperfine.sh, japanese_wikipedia_hyperfine.sh
 
 set -euo pipefail
 
