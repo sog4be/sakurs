@@ -37,7 +37,7 @@ pub fn run_nltk_punkt_benchmark(subset_size: Option<usize>) -> BenchmarkResult<B
 
     // Build Python command using environment detection
     let mut cmd = python_env::build_python_command().map_err(|e| BenchmarkError::Config {
-        message: format!("Python environment error: {}", e),
+        message: format!("Python environment error: {e}"),
     })?;
 
     // Add script path

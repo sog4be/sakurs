@@ -23,7 +23,7 @@ pub enum PythonEnvironment {
 /// Find the appropriate Python executable for the current environment
 pub fn find_python_executable() -> Result<String, String> {
     let benchmarks_root = crate::paths::benchmarks_root()
-        .map_err(|e| format!("Failed to get benchmarks root: {}", e))?;
+        .map_err(|e| format!("Failed to get benchmarks root: {e}"))?;
 
     // Check environment variable first
     if let Ok(python_path) = env::var("SAKURS_PYTHON_PATH") {
