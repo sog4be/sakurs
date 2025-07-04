@@ -49,6 +49,31 @@ cargo build --release --bin sakurs
 export PATH=$PATH:$(pwd)/target/release
 ```
 
+## Data Preparation
+
+Before running benchmarks, prepare the required datasets:
+
+```bash
+# From benchmarks directory
+cd benchmarks
+uv run python cli/scripts/prepare_data.py
+```
+
+This will:
+1. Download and prepare Wikipedia samples (500MB each for EN/JA)
+   - Uses June 2024 dumps (20240601) from Hugging Face
+   - Tracks version metadata and download timestamps
+2. Verify UD Treebanks are available (r2.16)
+   - UD English-EWT: ~25K sentences
+   - UD Japanese-BCCWJ: ~57K sentences  
+3. Check Brown Corpus availability
+4. Create CLI-formatted versions for benchmarking
+
+Dataset locations after preparation:
+- Wikipedia: `benchmarks/data/wikipedia/cache/`
+- UD Treebanks: `benchmarks/data/ud_*/cli_format/`
+- Brown Corpus: `benchmarks/data/brown_corpus/`
+
 ## Quick Start
 
 ```bash

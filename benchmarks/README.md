@@ -129,24 +129,80 @@ The benchmarks use custom Criterion configurations optimized for different scena
 3. Add benchmark entry to `core/Cargo.toml`
 4. Update this README
 
-## Brown Corpus Integration
+## Dataset Preparation
 
-The benchmarks can use the real Brown Corpus dataset for evaluation:
+The benchmarks use various corpora for evaluation. All datasets are managed through a unified preparation system:
 
-### Setup
+### Quick Setup
 ```bash
-# Download and process Brown Corpus
+# Prepare all benchmark datasets
+cd benchmarks
+uv run python cli/scripts/prepare_data.py
+
+# Force re-download (if needed)
+uv run python cli/scripts/prepare_data.py --force
+```
+
+### Available Datasets
+
+#### 1. Brown Corpus
+- **Size**: ~1M words of American English
+- **Usage**: Accuracy benchmarks, baseline comparisons
+
+```bash
 cd benchmarks/data/brown_corpus
 make download
 ```
 
-### Running Brown Corpus Benchmarks
+#### 2. Wikipedia Datasets
+- **Languages**: English and Japanese
+- **Size**: 500MB samples per language
+- **Version**: June 2024 dumps (20240601)
+- **Features**: Version tracking, metadata management
+
+The Wikipedia datasets are automatically downloaded from Hugging Face and include:
+- Automatic 500MB sample creation
+- Article boundary preservation
+- Metadata tracking (download date, article count, etc.)
+
+#### 3. UD Treebanks
+- **UD English-EWT**: r2.16 (~25K sentences)
+- **UD Japanese-BCCWJ**: r2.16 (~57K sentences)
+- **Usage**: Gold standard for accuracy evaluation
+
+Each UD dataset includes:
+- Automatic test set size extraction
+- Version verification (r2.16)
+- Split information (train/dev/test)
+
+### Dataset Statistics
+
+When running data preparation, you'll see statistics like:
+```
+UD English EWT prepared: /path/to/ewt_plain.txt
+  Version: 2.16
+  Total sentences: 25,112
+  Test set: 2,077 sentences, 25,148 words
+
+UD Japanese-BCCWJ prepared: /path/to/bccwj_plain.txt  
+  Version: 2.16
+  Total documents: 2,291
+  Total sentences: 57,147
+  Test set: 4,442 sentences, 105,834 characters
+```
+
+### Running Dataset-Specific Benchmarks
 ```bash
-# Run detailed Brown Corpus accuracy report
+# Brown Corpus accuracy report
 cargo run --example brown_corpus_report
 
-# Run benchmarks with Brown Corpus data
-cargo bench brown_corpus
+# Wikipedia throughput benchmarks
+cd benchmarks/cli
+uv run python scenarios/performance/wikipedia_throughput.py
+
+# UD Treebank accuracy evaluation
+cd benchmarks/cli
+uv run python scenarios/accuracy/ud_accuracy.py
 ```
 
 ## Comparing with Baselines
