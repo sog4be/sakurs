@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Prepare benchmark data for CLI benchmarks."""
+
+import sys
+import logging
+from pathlib import Path
+import click
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from data.ud_english_ewt import is_available as ewt_available, load_sample as load_ewt
+from data.brown_corpus import is_available as brown_available, load_subsets as load_brown
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+
+def prepare_ud_english_ewt():
+    """Prepare UD English EWT data."""
+    logger.info("Checking UD English EWT data...")
+    
+    if not ewt_available():
+        logger.error("UD English EWT data not available. Please run:")
+        logger.error("  cd ../../data/ud_english_ewt && python download.py")
+        return False
+        
+    # Create plain text versions for CLI benchmarking
+    output_dir = Path(__file__).parent.parent.parent / "data" / "ud_english_ewt" / "cli_format"
+    output_dir.mkdir(exist_ok=True)
+    
+    # Load and convert to plain text
+    data = load_ewt()
+    
+    # Save as plain text (all documents concatenated)
+    plain_text_path = output_dir / "ewt_plain.txt"
+    with open(plain_text_path, 'w', encoding='utf-8') as f:
+        for doc in data['documents']:
+            f.write(doc['text'] + '\n\n')
+            
+    # Save ground truth (one sentence per line)
+    sentences_path = output_dir / "ewt_sentences.txt"
+    with open(sentences_path, 'w', encoding='utf-8') as f:
+        for doc in data['documents']:
+            for sent in doc['sentences']:
+                f.write(sent + '\n')
+                
+    logger.info(f"UD English EWT prepared: {plain_text_path}")
+    return True
+
+
+def prepare_brown_corpus():
+    """Prepare Brown Corpus data."""
+    logger.info("Checking Brown Corpus data...")
+    
+    if not brown_available():
+        logger.error("Brown Corpus data not available. Please run:")
+        logger.error("  cd ../../data/brown_corpus && make download")
+        return False
+        
+    # Brown corpus is already in the right format
+    logger.info("Brown Corpus data available")
+    return True
+
+
+def prepare_wikipedia_samples():
+    """Prepare Wikipedia samples (placeholder)."""
+    logger.info("Wikipedia sample preparation not yet implemented")
+    logger.info("This will be added in Phase 3")
+    return True
+
+
+def prepare_japanese_data():
+    """Prepare Japanese data (placeholder)."""
+    logger.info("Japanese data preparation not yet implemented")
+    logger.info("This will be added in Phase 2")
+    return True
+
+
+@click.command()
+@click.option('--force', is_flag=True, help='Force data preparation even if exists')
+def main(force):
+    """Prepare all benchmark data."""
+    logger.info("Preparing benchmark data...")
+    
+    success = True
+    
+    # Prepare English data
+    if not prepare_ud_english_ewt():
+        success = False
+        
+    if not prepare_brown_corpus():
+        success = False
+        
+    # Prepare Wikipedia samples (Phase 3)
+    if not prepare_wikipedia_samples():
+        logger.warning("Wikipedia samples not ready (Phase 3)")
+        
+    # Prepare Japanese data (Phase 2)
+    if not prepare_japanese_data():
+        logger.warning("Japanese data not ready (Phase 2)")
+        
+    if success:
+        logger.info("Data preparation complete!")
+    else:
+        logger.error("Some data preparation failed")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
