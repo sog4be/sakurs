@@ -27,6 +27,47 @@ When asked to create PRs or commits, always reference these documents to ensure 
 - `cargo clippy` - Lint and catch common mistakes
 - `cargo check` - Fast compilation check
 
+## Development Environment Tools
+
+### Available System Tools
+These tools are commonly available and can be used for better code exploration and development:
+- `tree` - Display directory structure hierarchically (if installed)
+- `rg` (ripgrep) - Fast text search across files with better performance than grep
+- `fd` - Fast file search alternative to find
+- `bat` - Enhanced cat with syntax highlighting (if installed)
+- `gh` - GitHub CLI for PR operations
+
+### Recommended Tool Usage
+- **Directory structure**: Use `tree -L 3 -I 'target|__pycache__|*.pyc|.git'` for clean overview
+- **Code search**: Always prefer `rg` over `grep` for performance
+  - Example: `rg --type rust "pattern"` for Rust-specific searches
+- **File finding**: Use `fd` when available, fallback to `find`
+- **PR operations**: Use `gh pr create` with the template format
+
+### Tool Availability Check
+Before using optional tools, check availability:
+```bash
+command -v tree >/dev/null 2>&1 && echo "tree is available" || echo "tree not found, use ls -R"
+```
+
+## Project-Specific Tools and Scripts
+
+### Makefile Commands
+- `make coverage` - Generate test coverage report with summary
+- `make coverage-html` - Generate and open HTML coverage report
+- `make coverage-clean` - Clean coverage data
+
+### Benchmark Tools
+- `cargo bench` - Run performance benchmarks for Rust code
+- Python benchmarks in `benchmarks/` directory:
+  - Brown Corpus benchmark suite
+  - UD English EWT benchmark suite
+  - Performance comparison with NLTK baseline
+
+### Development Scripts
+- Benchmark runner: `python benchmarks/cli/run_benchmarks.py`
+- Data validation: Scripts in `benchmarks/data/` for corpus validation
+
 ## Code Style & Conventions
 - Follow standard Rust naming conventions
 - Use `thiserror` for error handling across crates
