@@ -1,5 +1,7 @@
 #!/bin/bash
-# Compare sakurs vs ja_sentence_segmenter on Japanese text
+# Compare sakurs vs ja_sentence_segmenter on Japanese text (basic version)
+# NOTE: For comprehensive comparison with Hyperfine and statistical analysis,
+# use japanese_vs_jaseg_hyperfine.sh instead.
 
 set -euo pipefail
 
