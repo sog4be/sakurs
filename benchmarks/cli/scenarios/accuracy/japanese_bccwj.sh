@@ -1,5 +1,7 @@
 #!/bin/bash
 # Benchmark accuracy on UD Japanese-BCCWJ dataset
+# NOTE: This is the basic version. For comprehensive benchmarking with Hyperfine,
+# use japanese_bccwj_hyperfine.sh instead.
 
 set -euo pipefail
 

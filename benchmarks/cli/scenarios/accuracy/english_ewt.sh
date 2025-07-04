@@ -1,5 +1,7 @@
 #!/bin/bash
 # Benchmark accuracy on UD English EWT dataset
+# NOTE: This is the basic version. For comprehensive benchmarking with Hyperfine,
+# use english_ewt_hyperfine.sh instead.
 
 set -euo pipefail
 
