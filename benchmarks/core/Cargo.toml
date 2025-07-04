@@ -33,6 +33,10 @@ harness = false
 name = "brown_corpus"
 harness = false
 
+[[bench]]
+name = "ud_english_ewt"
+harness = false
+
 # Comparison with baselines will be added later
 # [[bench]]
 # name = "comparison"
@@ -43,6 +47,9 @@ name = "brown_corpus_report"
 
 [[example]]
 name = "performance_scaling"
+
+[[example]]
+name = "ud_english_ewt_accuracy_report"
 
 [features]
 default = ["parallel"]
