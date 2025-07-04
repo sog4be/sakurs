@@ -19,9 +19,12 @@ cli/
 │   ├── performance/   # Performance measurement scripts
 │   └── comparison/    # Baseline comparison scripts
 ├── scripts/           # Helper scripts
-│   ├── prepare_data.py      # Data preparation utilities
+│   ├── prepare_data.py       # Data preparation utilities
+│   ├── metrics.py            # Unified metrics measurement
+│   ├── aggregate_results.py  # Results aggregation
 │   ├── evaluate_accuracy.py  # Accuracy evaluation
 │   └── format_results.py     # Result formatting
+├── run_experiments.sh  # Master experiment script
 └── results/           # Benchmark results (git-ignored)
 ```
 
@@ -75,6 +78,35 @@ Dataset locations after preparation:
 - Brown Corpus: `benchmarks/data/brown_corpus/`
 
 ## Quick Start
+
+### Using the Master Experiment Script (Recommended)
+
+```bash
+# From the cli directory
+cd cli
+
+# Run all experiments with default settings
+./run_experiments.sh
+
+# Prepare data and run experiments
+./run_experiments.sh --prepare-data
+
+# Run specific benchmarks
+./run_experiments.sh --skip-memory --skip-accuracy  # Only throughput
+./run_experiments.sh --threads 1,4,8 --test-runs 5  # Custom settings
+
+# View help
+./run_experiments.sh --help
+```
+
+The master script will:
+- Run throughput benchmarks with multiple thread counts (1, 2, 4, 8)
+- Measure memory usage for both single and multi-threaded execution
+- Evaluate accuracy on UD treebanks
+- Compare against baselines (NLTK, ja_sentence_segmenter)
+- Aggregate results into formatted tables
+
+### Traditional Scripts
 
 ```bash
 # From the benchmarks directory, prepare benchmark data
@@ -187,7 +219,32 @@ hyperfine --export-json results.json 'sakurs-cli segment --input data.txt'
 
 ## Output Format
 
-Results are saved in `results/` with timestamp:
+### Master Experiment Script Output
+
+When using `run_experiments.sh`, results are organized by timestamp:
+```
+results/
+├── 20250704_143000/
+│   ├── metadata.json                    # Experiment metadata
+│   ├── throughput_ja_sakurs_1t.json    # Individual result files
+│   ├── throughput_ja_sakurs_2t.json
+│   ├── throughput_ja_sakurs_4t.json
+│   ├── throughput_ja_sakurs_8t.json
+│   ├── memory_ja_sakurs_1t.json
+│   ├── memory_ja_sakurs_8t.json
+│   ├── accuracy_ja_sakurs.json
+│   ├── aggregated_results.json         # All results aggregated
+│   └── results_tables.md               # Formatted markdown tables
+```
+
+The `results_tables.md` file contains pre-formatted tables ready for academic papers:
+- Table 1: Throughput (MB/s) with multi-threading results
+- Table 2: Memory usage (MiB) for 1 and 8 threads
+- Table 3: Accuracy metrics (Precision, Recall, F1, Pk, WindowDiff)
+
+### Traditional Scripts Output
+
+Results from individual scenario scripts:
 ```
 results/
 ├── 2024-01-15_10-30-00_english_accuracy.json

@@ -61,12 +61,38 @@ command -v tree >/dev/null 2>&1 && echo "tree is available" || echo "tree not fo
 - `cargo bench` - Run performance benchmarks for Rust code
 - Python benchmarks in `benchmarks/` directory:
   - Brown Corpus benchmark suite
-  - UD English EWT benchmark suite
-  - Performance comparison with NLTK baseline
+  - UD English EWT benchmark suite (r2.16)
+  - UD Japanese BCCWJ benchmark suite (r2.16)
+  - Wikipedia throughput benchmarks (500MB samples)
+  - Performance comparison with NLTK and ja_sentence_segmenter baselines
 
 ### Development Scripts
 - Benchmark runner: `python benchmarks/cli/run_benchmarks.py`
+- Data preparation: `python benchmarks/cli/scripts/prepare_data.py`
+  - Downloads Wikipedia samples (June 2024 dumps)
+  - Verifies UD Treebank versions (r2.16)
+  - Extracts test set statistics
+  - Manages dataset versioning
 - Data validation: Scripts in `benchmarks/data/` for corpus validation
+
+### Master Experiment Script
+Run comprehensive benchmarks from `benchmarks/cli/`:
+```bash
+# Run all experiments with default settings
+./run_experiments.sh
+
+# Prepare data and run experiments
+./run_experiments.sh --prepare-data
+
+# Custom configurations
+./run_experiments.sh --threads 1,4,8 --test-runs 5
+./run_experiments.sh --skip-memory --skip-accuracy  # Only throughput
+
+# Results are saved to timestamped directories with:
+# - Individual JSON results for each test
+# - Aggregated results in JSON format
+# - Formatted markdown tables ready for papers
+```
 
 ## Code Style & Conventions
 - Follow standard Rust naming conventions
