@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from data.ud_english_ewt import is_available as ewt_available, load_sample as load_ewt
 from data.brown_corpus import is_available as brown_available, load_subsets as load_brown
+from data.ud_japanese_bccwj import is_available as bccwj_available, load_sample as load_bccwj
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -71,10 +72,55 @@ def prepare_wikipedia_samples():
 
 
 def prepare_japanese_data():
-    """Prepare Japanese data (placeholder)."""
-    logger.info("Japanese data preparation not yet implemented")
-    logger.info("This will be added in Phase 2")
-    return True
+    """Prepare Japanese data."""
+    logger.info("Checking UD Japanese-BCCWJ data...")
+    
+    if not bccwj_available():
+        logger.error("UD Japanese-BCCWJ data not available. Please run:")
+        logger.error("  cd ../../data/ud_japanese_bccwj && python download.py")
+        logger.info("Note: Original text may not be included due to licensing")
+        return False
+        
+    # Create plain text versions for CLI benchmarking
+    output_dir = Path(__file__).parent.parent.parent / "data" / "ud_japanese_bccwj" / "cli_format"
+    output_dir.mkdir(exist_ok=True)
+    
+    try:
+        # Load and convert to plain text
+        data = load_bccwj()
+        
+        # Save as plain text (all documents concatenated)
+        plain_text_path = output_dir / "bccwj_plain.txt"
+        with open(plain_text_path, 'w', encoding='utf-8') as f:
+            for doc in data['documents']:
+                # Note: text might be reconstructed from tokens
+                doc_text = doc.get('text', '')
+                if doc_text and doc_text != "[Text not included - see README]":
+                    f.write(doc_text + '\n\n')
+                else:
+                    # Reconstruct from sentences if available
+                    for sent in doc.get('sentences', []):
+                        sent_text = sent.get('text', '')
+                        if sent_text:
+                            f.write(sent_text)
+                    f.write('\n\n')
+                
+        # Save ground truth (one sentence per line)
+        sentences_path = output_dir / "bccwj_sentences.txt"
+        with open(sentences_path, 'w', encoding='utf-8') as f:
+            for doc in data['documents']:
+                for sent in doc.get('sentences', []):
+                    sent_text = sent.get('text', '')
+                    if sent_text and sent_text.strip():
+                        f.write(sent_text.strip() + '\n')
+                        
+        logger.info(f"UD Japanese-BCCWJ prepared: {plain_text_path}")
+        logger.warning("Note: Text may be reconstructed from tokens if original is not available")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to prepare Japanese data: {e}")
+        return False
 
 
 @click.command()
