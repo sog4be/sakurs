@@ -48,7 +48,9 @@ def extract_sentences_and_boundaries() -> Tuple[str, List[int]]:
         sent_text = " ".join(sent) + " "
         text_parts.append(sent_text)
         current_pos += len(sent_text)
-        boundaries.append(current_pos)
+        # Boundary should be at the end of sentence (before the trailing space)
+        # This matches sakurs' behavior which detects boundaries at punctuation
+        boundaries.append(current_pos - 1)
     
     # Combine all text
     full_text = "".join(text_parts)
