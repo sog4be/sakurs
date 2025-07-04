@@ -52,15 +52,16 @@ def extract_sentences_and_boundaries() -> Tuple[str, List[int]]:
         sent_text = " ".join(sent) + " "
         text_parts.append(sent_text)
         current_pos += len(sent_text)
-        # Boundary should be at the end of sentence (before the trailing space)
-        # This matches sakurs' behavior which detects boundaries at punctuation
+        # Boundary should be at the space after punctuation (not the next character)
+        # Sakurs detects boundaries at the space position, not the next character
         boundaries.append(current_pos - 1)
     
     # Combine all text
     full_text = "".join(text_parts)
     
     # Remove the last boundary (end of text)
-    if boundaries and boundaries[-1] == len(full_text):
+    # The last boundary points past the end of text, so remove it
+    if boundaries:
         boundaries.pop()
     
     return full_text, boundaries
