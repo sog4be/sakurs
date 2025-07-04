@@ -63,8 +63,11 @@ bash scenarios/performance/run_all_hyperfine.sh
 # Or run basic performance test
 bash scenarios/performance/run_all.sh
 
-# Generate comparison report
-python scenarios/comparison/generate_report.py
+# Run all baseline comparisons (Hyperfine-based)
+bash scenarios/comparison/run_all_comparisons.sh
+
+# Or run complete benchmark suite (accuracy + performance + comparison)
+bash scenarios/comparison/full_benchmark_suite.sh
 ```
 
 ## Benchmark Types
@@ -123,15 +126,21 @@ bash scenarios/performance/english_wikipedia_hyperfine.sh
 # Japanese performance (Wikipedia)
 bash scenarios/performance/japanese_wikipedia_hyperfine.sh
 
-# Comparison with NLTK
-bash scenarios/comparison/english_vs_punkt.sh
+# English vs NLTK Punkt comparison (comprehensive)
+bash scenarios/comparison/english_vs_punkt_hyperfine.sh
+
+# Japanese vs ja_sentence_segmenter comparison (comprehensive)
+bash scenarios/comparison/japanese_vs_jaseg_hyperfine.sh
 ```
 
 ### Batch Execution
 
 ```bash
-# Run all benchmarks and generate report
-make benchmark-all
+# Run complete benchmark suite (accuracy + performance + comparison)
+bash scenarios/comparison/full_benchmark_suite.sh
+
+# Run with advanced statistical analysis
+bash scenarios/comparison/full_benchmark_suite.sh --with-analysis
 ```
 
 ### Custom Hyperfine Parameters
