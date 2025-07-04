@@ -3,6 +3,7 @@
 //! This tool investigates why sakurs accuracy drops significantly
 //! as dataset size increases.
 
+use sakurs_benchmarks::config;
 use sakurs_benchmarks::data::brown_corpus;
 use sakurs_benchmarks::{calculate_complete_metrics, create_default_processor, extract_boundaries};
 use std::collections::HashMap;
@@ -153,7 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let processor = create_default_processor();
-    let subset_sizes = vec![100, 1000, 5000];
+    let subset_sizes = config::get_subset_sizes(false);
 
     for size in subset_sizes {
         println!("\n{}", "=".repeat(60));

@@ -4,6 +4,7 @@
 //! then generates a comprehensive comparison report.
 
 use sakurs_benchmarks::baselines::{is_nltk_available, run_nltk_punkt_benchmark};
+use sakurs_benchmarks::config;
 use sakurs_benchmarks::data::brown_corpus;
 use sakurs_benchmarks::{
     calculate_complete_metrics, create_default_processor, extract_boundaries, TestData,
@@ -26,7 +27,7 @@ fn benchmark_sakurs(test_data: &TestData) -> BenchmarkResult {
     let processor = create_default_processor();
 
     // Warmup runs
-    for _ in 0..3 {
+    for _ in 0..config::get_warmup_runs() {
         let _ = processor.process_text(&test_data.text);
     }
 
@@ -171,7 +172,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("   Then run: python -c \"import nltk; nltk.download('punkt')\"");
     }
 
-    let subset_sizes = vec![100, 1000, 5000];
+    let subset_sizes = config::get_subset_sizes(false);
     let mut all_results = Vec::new();
     let mut sakurs_results = Vec::new();
     let mut nltk_results = Vec::new();

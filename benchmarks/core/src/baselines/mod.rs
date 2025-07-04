@@ -1,8 +1,9 @@
 //! Baseline tool integration for benchmarking comparisons
 
+mod python_env;
+
 use crate::error::{BenchmarkError, BenchmarkResult};
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 
 /// Benchmark results from a baseline tool
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,20 +35,10 @@ pub struct BaselineMetrics {
 pub fn run_nltk_punkt_benchmark(subset_size: Option<usize>) -> BenchmarkResult<BaselineResult> {
     let benchmarks_root = crate::paths::benchmarks_root()?;
 
-    // Find Python executable (prefer venv if available)
-    let venv_python = benchmarks_root.join("venv/bin/python");
-    let python_cmd = if venv_python.exists() {
-        venv_python.to_string_lossy().to_string()
-    } else if Command::new("uv").arg("--version").output().is_ok() {
-        return Err(BenchmarkError::Config {
-            message: "Using uv, but need venv setup".to_string(),
-        });
-    } else {
-        "python3".to_string()
-    };
-
-    // Build command
-    let mut cmd = Command::new(&python_cmd);
+    // Build Python command using environment detection
+    let mut cmd = python_env::build_python_command().map_err(|e| BenchmarkError::Config {
+        message: format!("Python environment error: {}", e),
+    })?;
 
     // Add script path
     let script_path = benchmarks_root
@@ -98,29 +89,11 @@ except:
     print("not available")
 "#;
 
-    // Try venv first, then system python
-    let python_paths = vec![
-        crate::paths::benchmarks_root()
-            .ok()
-            .map(|p| p.join("venv/bin/python"))
-            .filter(|p| p.exists()),
-        Some(std::path::PathBuf::from("python3")),
-    ];
-
-    for python_path in python_paths.into_iter().flatten() {
-        let output = Command::new(&python_path)
-            .arg("-c")
-            .arg(check_script)
-            .output();
-
-        match output {
-            Ok(out) => {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                if stdout.trim() == "available" {
-                    return true;
-                }
-            }
-            Err(_) => continue,
+    // Use the environment detection module
+    if let Ok(mut cmd) = python_env::build_python_command() {
+        if let Ok(output) = cmd.arg("-c").arg(check_script).output() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            return stdout.trim() == "available";
         }
     }
 

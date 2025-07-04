@@ -4,6 +4,7 @@
 //! including accuracy metrics, test data generation, and comparison utilities.
 
 pub mod baselines;
+pub mod config;
 pub mod constants;
 pub mod data;
 pub mod error;

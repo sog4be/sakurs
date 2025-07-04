@@ -46,7 +46,9 @@ def calculate_metrics(predicted: list[int], actual: list[int], text_len: int) ->
     }
 
 
-def benchmark_punkt(subset_size: int = None, warmup_runs: int = 3) -> Dict[str, Any]:
+DEFAULT_WARMUP_RUNS = 3  # Should match Rust config
+
+def benchmark_punkt(subset_size: int = None, warmup_runs: int = DEFAULT_WARMUP_RUNS) -> Dict[str, Any]:
     """Run benchmark on NLTK Punkt with Brown Corpus data.
     
     Args:

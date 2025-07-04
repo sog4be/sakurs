@@ -20,10 +20,10 @@ fn bench_accuracy_comparison(c: &mut Criterion) {
     }
 
     let mut group = c.benchmark_group("accuracy_comparison");
-    let subset_sizes = vec![100, 1000];
+    let subset_sizes = sakurs_benchmarks::config::SMALL_SUBSET_SIZES;
 
     for size in subset_sizes {
-        let test_data = match brown_corpus::load_subset(size) {
+        let test_data = match brown_corpus::load_subset(*size) {
             Ok(data) => data,
             Err(e) => {
                 eprintln!("Error loading subset of {} sentences: {}", size, e);
@@ -102,8 +102,8 @@ fn print_comparison_summary() {
         println!("Running NLTK Punkt comparison...");
 
         // Run NLTK benchmarks for different sizes
-        for size in [100, 1000, 5000] {
-            match run_nltk_punkt_benchmark(Some(size)) {
+        for size in sakurs_benchmarks::config::STANDARD_SUBSET_SIZES {
+            match run_nltk_punkt_benchmark(Some(*size)) {
                 Ok(result) => {
                     println!("\nNLTK Punkt - {} sentences:", size);
                     println!("  Precision: {:.1}%", result.metrics.precision * 100.0);
