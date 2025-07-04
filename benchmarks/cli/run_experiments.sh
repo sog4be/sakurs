@@ -123,17 +123,17 @@ if [ "$PREPARE_DATA" = true ]; then
     print_success "Datasets prepared"
 fi
 
-# Check if sakurs-cli exists
-if ! command -v sakurs-cli &> /dev/null; then
-    print_error "sakurs-cli not found. Please build and install it first:"
+# Check if sakurs exists
+if ! command -v sakurs &> /dev/null; then
+    print_error "sakurs not found. Please build and install it first:"
     print_error "  cd ../.. && cargo build --release"
     print_error "  export PATH=\$PATH:$(pwd)/../../target/release"
     exit 1
 fi
 
 # Get sakurs version
-SAKURS_VERSION=$(sakurs-cli --version 2>/dev/null || echo "unknown")
-print_info "Using sakurs-cli version: $SAKURS_VERSION"
+SAKURS_VERSION=$(sakurs --version 2>/dev/null || echo "unknown")
+print_info "Using sakurs version: $SAKURS_VERSION"
 
 # Function to run throughput benchmarks
 run_throughput_benchmarks() {
@@ -149,7 +149,7 @@ run_throughput_benchmarks() {
             print_info "  Testing with $threads threads..."
             
             # Build command
-            cmd=(sakurs-cli segment --threads "$threads")
+            cmd=(sakurs process --input -)
             
             # Run benchmark
             uv run python -c "
@@ -160,7 +160,7 @@ from metrics import MetricsMeasurer, BenchmarkResult, ThroughputMetrics
 measurer = MetricsMeasurer()
 try:
     result = measurer.run_throughput_benchmark(
-        command=${cmd[@]@Q}.split(),
+        command=['sakurs', 'process', '--input', '-'],
         input_file='$input_file',
         num_threads=$threads,
         warmup_runs=$WARMUP_RUNS,
@@ -251,7 +251,7 @@ run_memory_benchmarks() {
             print_info "  Testing with $threads threads..."
             
             # Build command
-            cmd=(sakurs-cli segment --threads "$threads")
+            cmd=(sakurs process --input -)
             
             # Run benchmark
             uv run python -c "
@@ -262,7 +262,7 @@ from metrics import MetricsMeasurer, BenchmarkResult
 measurer = MetricsMeasurer()
 try:
     result = measurer.enhanced_measure_memory_peak(
-        command=${cmd[@]@Q}.split(),
+        command=['sakurs', 'process', '--input', '-'],
         input_file='$input_file'
     )
     

@@ -99,49 +99,45 @@ class ResultsAggregator:
         # Japanese results
         ja_tools = ["ja_sentence_segmenter", "Δ-Stack (Ours)"]
         for i, tool in enumerate(ja_tools):
-            if i == 0:
-                md_lines.append("| JA ", end="")
-            else:
-                md_lines.append("|  ", end="")
+            line = "| JA " if i == 0 else "|  "
 
             tool_key = "ja_seg" if tool == "ja_sentence_segmenter" else "sakurs"
-            md_lines.append(f"| {tool} ", end="")
+            line += f"| {tool} "
 
             for threads in [1, 2, 4, 8]:
                 key = ("ja", tool_key, threads)
                 if key in aggregated["throughput"]:
                     value = aggregated["throughput"][key]
-                    md_lines.append(f"| {value:.1f} ", end="")
+                    line += f"| {value:.1f} "
                 elif threads == 1 or tool_key == "sakurs":
-                    md_lines.append("| ___ ", end="")
+                    line += "| ___ "
                 else:
-                    md_lines.append("| — ", end="")
-            md_lines.append("|")
+                    line += "| — "
+            line += "|"
+            md_lines.append(line)
 
         # English results
         en_tools = ["NLTK Punkt", "Δ-Stack (Ours)"]
         for i, tool in enumerate(en_tools):
-            if i == 0:
-                md_lines.append("| EN ", end="")
-            else:
-                md_lines.append("|  ", end="")
+            line = "| EN " if i == 0 else "|  "
 
             tool_key = "nltk" if tool == "NLTK Punkt" else "sakurs"
-            md_lines.append(f"| {tool} ", end="")
+            line += f"| {tool} "
 
             for threads in [1, 2, 4, 8]:
                 key = ("en", tool_key, threads)
                 if key in aggregated["throughput"]:
                     value = aggregated["throughput"][key]
                     if tool_key == "sakurs":
-                        md_lines.append(f"| **{value:.1f}** ", end="")
+                        line += f"| **{value:.1f}** "
                     else:
-                        md_lines.append(f"| {value:.1f} ", end="")
+                        line += f"| {value:.1f} "
                 elif threads == 1 or tool_key == "sakurs":
-                    md_lines.append("| ___ ", end="")
+                    line += "| ___ "
                 else:
-                    md_lines.append("| — ", end="")
-            md_lines.append("|")
+                    line += "| — "
+            line += "|"
+            md_lines.append(line)
 
         # Table 2: Memory
         md_lines.append("\n### Table 2: Peak Resident Memory (MiB) on 500 MiB Wikipedia\n")
@@ -150,51 +146,47 @@ class ResultsAggregator:
 
         # Japanese memory results
         for i, tool in enumerate(ja_tools):
-            if i == 0:
-                md_lines.append("| JA ", end="")
-            else:
-                md_lines.append("|  ", end="")
+            line = "| JA " if i == 0 else "|  "
 
             tool_key = "ja_seg" if tool == "ja_sentence_segmenter" else "sakurs"
-            md_lines.append(f"| {tool} ", end="")
+            line += f"| {tool} "
 
             for threads in [1, 8]:
                 key = ("ja", tool_key, threads)
                 if key in aggregated["memory"]:
                     value = aggregated["memory"][key]
                     if tool_key == "sakurs":
-                        md_lines.append(f"| **{value:.0f}** ", end="")
+                        line += f"| **{value:.0f}** "
                     else:
-                        md_lines.append(f"| {value:.0f} ", end="")
+                        line += f"| {value:.0f} "
                 elif threads == 1 or (threads == 8 and tool_key == "sakurs"):
-                    md_lines.append("| ___ ", end="")
+                    line += "| ___ "
                 else:
-                    md_lines.append("| — ", end="")
-            md_lines.append("|")
+                    line += "| — "
+            line += "|"
+            md_lines.append(line)
 
         # English memory results
         for i, tool in enumerate(en_tools):
-            if i == 0:
-                md_lines.append("| EN ", end="")
-            else:
-                md_lines.append("|  ", end="")
+            line = "| EN " if i == 0 else "|  "
 
             tool_key = "nltk" if tool == "NLTK Punkt" else "sakurs"
-            md_lines.append(f"| {tool} ", end="")
+            line += f"| {tool} "
 
             for threads in [1, 8]:
                 key = ("en", tool_key, threads)
                 if key in aggregated["memory"]:
                     value = aggregated["memory"][key]
                     if tool_key == "sakurs":
-                        md_lines.append(f"| **{value:.0f}** ", end="")
+                        line += f"| **{value:.0f}** "
                     else:
-                        md_lines.append(f"| {value:.0f} ", end="")
+                        line += f"| {value:.0f} "
                 elif threads == 1 or (threads == 8 and tool_key == "sakurs"):
-                    md_lines.append("| ___ ", end="")
+                    line += "| ___ "
                 else:
-                    md_lines.append("| — ", end="")
-            md_lines.append("|")
+                    line += "| — "
+            line += "|"
+            md_lines.append(line)
 
         # Table 3: Accuracy
         md_lines.append(
@@ -205,75 +197,59 @@ class ResultsAggregator:
 
         # Japanese accuracy results
         for i, tool in enumerate(ja_tools):
-            if i == 0:
-                md_lines.append("| JA ", end="")
-            else:
-                md_lines.append("|  ", end="")
+            line = "| JA " if i == 0 else "|  "
 
             tool_key = "ja_seg" if tool == "ja_sentence_segmenter" else "sakurs"
-            md_lines.append(f"| {tool} ", end="")
+            line += f"| {tool} "
 
             key = ("ja", tool_key)
             if key in aggregated["accuracy"]:
                 acc = aggregated["accuracy"][key]
                 if tool_key == "sakurs":
-                    md_lines.append(
-                        f"| **{acc['precision']*100:.1f}** | **{acc['recall']*100:.1f}** | **{acc['f1']*100:.1f}** ",
-                        end="",
-                    )
+                    line += f"| **{acc['precision']*100:.1f}** | **{acc['recall']*100:.1f}** | **{acc['f1']*100:.1f}** "
                 else:
-                    md_lines.append(
-                        f"| {acc['precision']*100:.1f} | {acc['recall']*100:.1f} | {acc['f1']*100:.1f} ",
-                        end="",
-                    )
+                    line += f"| {acc['precision']*100:.1f} | {acc['recall']*100:.1f} | {acc['f1']*100:.1f} "
 
                 if acc["pk"] is not None:
-                    md_lines.append(f"| {acc['pk']:.3f} ", end="")
+                    line += f"| {acc['pk']:.3f} "
                 else:
-                    md_lines.append("| ___ ", end="")
+                    line += "| ___ "
 
                 if acc["window_diff"] is not None:
-                    md_lines.append(f"| {acc['window_diff']:.3f} |")
+                    line += f"| {acc['window_diff']:.3f} |"
                 else:
-                    md_lines.append("| ___ |")
+                    line += "| ___ |"
             else:
-                md_lines.append("| ___ | ___ | ___ | ___ | ___ |")
+                line += "| ___ | ___ | ___ | ___ | ___ |"
+            md_lines.append(line)
 
         # English accuracy results
         for i, tool in enumerate(en_tools):
-            if i == 0:
-                md_lines.append("| EN ", end="")
-            else:
-                md_lines.append("|  ", end="")
+            line = "| EN " if i == 0 else "|  "
 
             tool_key = "nltk" if tool == "NLTK Punkt" else "sakurs"
-            md_lines.append(f"| {tool} ", end="")
+            line += f"| {tool} "
 
             key = ("en", tool_key)
             if key in aggregated["accuracy"]:
                 acc = aggregated["accuracy"][key]
                 if tool_key == "sakurs":
-                    md_lines.append(
-                        f"| **{acc['precision']*100:.1f}** | **{acc['recall']*100:.1f}** | **{acc['f1']*100:.1f}** ",
-                        end="",
-                    )
+                    line += f"| **{acc['precision']*100:.1f}** | **{acc['recall']*100:.1f}** | **{acc['f1']*100:.1f}** "
                 else:
-                    md_lines.append(
-                        f"| {acc['precision']*100:.1f} | {acc['recall']*100:.1f} | {acc['f1']*100:.1f} ",
-                        end="",
-                    )
+                    line += f"| {acc['precision']*100:.1f} | {acc['recall']*100:.1f} | {acc['f1']*100:.1f} "
 
                 if acc["pk"] is not None:
-                    md_lines.append(f"| {acc['pk']:.3f} ", end="")
+                    line += f"| {acc['pk']:.3f} "
                 else:
-                    md_lines.append("| ___ ", end="")
+                    line += "| ___ "
 
                 if acc["window_diff"] is not None:
-                    md_lines.append(f"| {acc['window_diff']:.3f} |")
+                    line += f"| {acc['window_diff']:.3f} |"
                 else:
-                    md_lines.append("| ___ |")
+                    line += "| ___ |"
             else:
-                md_lines.append("| ___ | ___ | ___ | ___ | ___ |")
+                line += "| ___ | ___ | ___ | ___ | ___ |"
+            md_lines.append(line)
 
         return "\n".join(md_lines)
 
