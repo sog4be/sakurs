@@ -24,6 +24,7 @@ pub struct EnglishLanguageRules {
     capitalization_rule: EnglishCapitalizationRule,
     number_rule: EnglishNumberRule,
     quotation_rule: EnglishQuotationRule,
+    web_text_rule: EnglishWebTextRule,
 }
 
 impl EnglishLanguageRules {
@@ -34,6 +35,7 @@ impl EnglishLanguageRules {
             capitalization_rule: EnglishCapitalizationRule::new(),
             number_rule: EnglishNumberRule::new(),
             quotation_rule: EnglishQuotationRule::new(),
+            web_text_rule: EnglishWebTextRule::new(),
         }
     }
 
@@ -44,6 +46,7 @@ impl EnglishLanguageRules {
             capitalization_rule: EnglishCapitalizationRule::new(),
             number_rule: EnglishNumberRule::new(),
             quotation_rule: EnglishQuotationRule::new(),
+            web_text_rule: EnglishWebTextRule::new(),
         }
     }
 }
@@ -122,6 +125,34 @@ impl LanguageRules for EnglishLanguageRules {
         // Check if this is a sentence-ending punctuation
         if !matches!(context.boundary_char, '.' | '!' | '?') {
             return BoundaryDecision::NotBoundary;
+        }
+
+        // Web text processing: Check for URLs and ellipsis first
+        if context.boundary_char == '.' {
+            // Check if this period is part of a URL
+            if self
+                .web_text_rule
+                .is_url_period(&context.text, context.position)
+            {
+                return BoundaryDecision::NotBoundary;
+            }
+
+            // Check if this is part of an ellipsis
+            if self
+                .web_text_rule
+                .is_ellipsis(&context.text, context.position)
+            {
+                return BoundaryDecision::NotBoundary;
+            }
+
+            // Check for parenthetical period patterns like ") ."
+            if self.web_text_rule.is_parenthetical_period(
+                &context.text,
+                context.position,
+                &context.following_context,
+            ) {
+                return BoundaryDecision::NotBoundary;
+            }
         }
 
         // Check for abbreviations first
@@ -428,6 +459,84 @@ impl EnglishAbbreviationRule {
         abbreviations.insert("Sat".to_string());
         abbreviations.insert("Sun".to_string());
 
+        // Web-specific abbreviations and file extensions
+        abbreviations.insert("com".to_string());
+        abbreviations.insert("org".to_string());
+        abbreviations.insert("net".to_string());
+        abbreviations.insert("edu".to_string());
+        abbreviations.insert("gov".to_string());
+        abbreviations.insert("mil".to_string());
+        abbreviations.insert("int".to_string());
+        abbreviations.insert("io".to_string());
+        abbreviations.insert("co".to_string());
+        abbreviations.insert("uk".to_string());
+        abbreviations.insert("us".to_string());
+        abbreviations.insert("ca".to_string());
+        abbreviations.insert("au".to_string());
+        abbreviations.insert("de".to_string());
+        abbreviations.insert("fr".to_string());
+        abbreviations.insert("jp".to_string());
+        abbreviations.insert("cn".to_string());
+        abbreviations.insert("ru".to_string());
+        abbreviations.insert("br".to_string());
+        abbreviations.insert("in".to_string());
+
+        // File extensions
+        abbreviations.insert("html".to_string());
+        abbreviations.insert("htm".to_string());
+        abbreviations.insert("pdf".to_string());
+        abbreviations.insert("doc".to_string());
+        abbreviations.insert("docx".to_string());
+        abbreviations.insert("txt".to_string());
+        abbreviations.insert("xml".to_string());
+        abbreviations.insert("json".to_string());
+        abbreviations.insert("csv".to_string());
+        abbreviations.insert("jpg".to_string());
+        abbreviations.insert("jpeg".to_string());
+        abbreviations.insert("png".to_string());
+        abbreviations.insert("gif".to_string());
+        abbreviations.insert("mp3".to_string());
+        abbreviations.insert("mp4".to_string());
+        abbreviations.insert("zip".to_string());
+        abbreviations.insert("tar".to_string());
+        abbreviations.insert("gz".to_string());
+        abbreviations.insert("exe".to_string());
+        abbreviations.insert("app".to_string());
+        abbreviations.insert("pkg".to_string());
+        abbreviations.insert("dmg".to_string());
+        abbreviations.insert("iso".to_string());
+        abbreviations.insert("js".to_string());
+        abbreviations.insert("css".to_string());
+        abbreviations.insert("py".to_string());
+        abbreviations.insert("java".to_string());
+        abbreviations.insert("cpp".to_string());
+        abbreviations.insert("h".to_string());
+        abbreviations.insert("c".to_string());
+        abbreviations.insert("rs".to_string());
+        abbreviations.insert("go".to_string());
+        abbreviations.insert("php".to_string());
+        abbreviations.insert("rb".to_string());
+        abbreviations.insert("swift".to_string());
+        abbreviations.insert("kt".to_string());
+        abbreviations.insert("scala".to_string());
+        abbreviations.insert("sh".to_string());
+        abbreviations.insert("bash".to_string());
+        abbreviations.insert("sql".to_string());
+        abbreviations.insert("yml".to_string());
+        abbreviations.insert("yaml".to_string());
+        abbreviations.insert("toml".to_string());
+        abbreviations.insert("ini".to_string());
+        abbreviations.insert("cfg".to_string());
+        abbreviations.insert("conf".to_string());
+        abbreviations.insert("log".to_string());
+        abbreviations.insert("bak".to_string());
+        abbreviations.insert("tmp".to_string());
+        abbreviations.insert("temp".to_string());
+        abbreviations.insert("old".to_string());
+        abbreviations.insert("new".to_string());
+        abbreviations.insert("orig".to_string());
+        abbreviations.insert("backup".to_string());
+
         Self {
             abbreviations,
             confidence_threshold: 0.8,
@@ -578,8 +687,11 @@ impl EnglishCapitalizationRule {
 
         let first_char = trimmed.chars().next().unwrap();
 
-        // Check for quoted speech
-        if matches!(first_char, '"' | '\'') {
+        // Check for quoted speech (including curly quotes)
+        if matches!(
+            first_char,
+            '"' | '\'' | '\u{201C}' | '\u{201D}' | '\u{2018}' | '\u{2019}'
+        ) {
             let after_quote = &trimmed[first_char.len_utf8()..];
             let after_quote_trimmed = after_quote.trim_start();
             if let Some(char_after_quote) = after_quote_trimmed.chars().next() {
@@ -733,6 +845,232 @@ impl EnglishQuotationRule {
         }
 
         QuotationDecision::Regular
+    }
+}
+
+/// Web text processing rules for handling URLs, ellipses, and web-specific patterns
+#[derive(Debug, Clone)]
+pub struct EnglishWebTextRule {
+    /// URL protocol patterns
+    url_protocols: Vec<&'static str>,
+    /// Common domain extensions (TLDs)
+    domain_extensions: HashSet<String>,
+}
+
+impl Default for EnglishWebTextRule {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EnglishWebTextRule {
+    pub fn new() -> Self {
+        let mut domain_extensions = HashSet::new();
+
+        // Common TLDs
+        for tld in &[
+            "com", "org", "net", "edu", "gov", "mil", "int", "io", "co", "uk", "us", "ca", "au",
+            "de", "fr", "jp", "cn", "ru", "br", "in", "it", "es", "nl", "se", "no", "dk", "fi",
+            "pl", "ch", "at", "be", "mx", "ar", "cl", "pe", "ve", "za", "ng", "eg", "il", "ae",
+            "sa", "kr", "tw", "hk", "sg", "my", "th", "vn", "id", "ph", "nz", "ie", "cz", "hu",
+            "ro", "gr", "pt", "tr", "ua", "info", "biz", "name", "pro", "museum", "coop", "aero",
+            "xxx", "idv", "mobi", "asia", "tel", "travel", "jobs", "tv", "cc", "ws", "me", "tk",
+            "ml", "ga", "cf",
+        ] {
+            domain_extensions.insert(tld.to_string());
+        }
+
+        Self {
+            url_protocols: vec![
+                "http://", "https://", "ftp://", "sftp://", "ssh://", "git://", "svn://",
+                "file://", "mailto:", "tel:", "ws://", "wss://", "irc://", "ircs://", "news://",
+                "nntp://", "rtsp://", "rtmp://", "magnet:", "bitcoin:",
+            ],
+            domain_extensions,
+        }
+    }
+
+    /// Check if a period at the given position is part of a URL
+    pub fn is_url_period(&self, text: &str, position: usize) -> bool {
+        // Look backward from the period to find potential URL start
+        let mut search_start = position.saturating_sub(100); // Look back up to 100 chars
+
+        // Ensure search_start is at a char boundary
+        while search_start > 0 && !text.is_char_boundary(search_start) {
+            search_start -= 1;
+        }
+
+        // Ensure position is valid
+        if position >= text.len()
+            || !text.is_char_boundary(position)
+            || !text.is_char_boundary(position + 1)
+        {
+            return false;
+        }
+
+        let search_text = &text[search_start..=position];
+
+        // Check for protocol patterns
+        for protocol in &self.url_protocols {
+            if search_text.contains(protocol) {
+                // Found a protocol, check if we're still within the URL
+                if let Some(protocol_pos) = search_text.rfind(protocol) {
+                    let after_protocol = &search_text[protocol_pos + protocol.len()..];
+                    // Check if there's no whitespace between protocol and current position
+                    if !after_protocol.contains(char::is_whitespace) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Check for domain pattern (word.word pattern where second word is a TLD)
+        if position > 0 && position + 1 < text.len() {
+            // Get the word after the period
+            let after_dot = &text[position + 1..];
+            let word_after: String = after_dot
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '-')
+                .collect();
+
+            if self.domain_extensions.contains(&word_after.to_lowercase()) {
+                // Check if the character before the period is alphanumeric
+                if let Some(before_char) = text[..position].chars().last() {
+                    if before_char.is_alphanumeric() || before_char == '-' {
+                        return true;
+                    }
+                }
+            }
+
+            // Special check for www. pattern
+            if position >= 3 {
+                let mut start = position.saturating_sub(3);
+                // Ensure start is at a char boundary
+                while start > 0 && !text.is_char_boundary(start) {
+                    start -= 1;
+                }
+                if start < position {
+                    let before_text = &text[start..position];
+                    if before_text == "www" || before_text.ends_with("www") {
+                        // Check if word after period looks like a domain
+                        if word_after.len() >= 2
+                            && word_after.chars().all(|c| c.is_alphanumeric() || c == '-')
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            // Check for file extension pattern (common in URLs)
+            let common_url_extensions = [
+                "html", "htm", "php", "asp", "aspx", "jsp", "cgi", "pl", "cfm", "xml", "json",
+            ];
+            if common_url_extensions.contains(&word_after.to_lowercase().as_str()) {
+                // Check if this looks like a path (has / before)
+                if search_start < position {
+                    let before_text = &text[search_start..position];
+                    if before_text.contains('/') {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Check if a period is part of an ellipsis (...)
+    pub fn is_ellipsis(&self, text: &str, position: usize) -> bool {
+        // First, verify that the current position is actually a period
+        if position >= text.len() || !text.is_char_boundary(position) {
+            return false;
+        }
+
+        // Check if character at position is a period
+        if let Some(ch) = text[position..].chars().next() {
+            if ch != '.' {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        // Check for consecutive dots pattern
+        let mut dots_before = 0;
+        let mut dots_after = 0;
+
+        // Count dots before current position
+        if position > 0 {
+            let before_chars: Vec<char> = text[..position].chars().rev().take(2).collect();
+            for ch in before_chars {
+                if ch == '.' {
+                    dots_before += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Count dots immediately after current position (no gaps)
+        if position + 1 < text.len() {
+            let mut check_pos = position + 1;
+            while check_pos < text.len() && check_pos < position + 3 {
+                // Ensure we're at a valid char boundary
+                if !text.is_char_boundary(check_pos) {
+                    check_pos += 1;
+                    continue;
+                }
+
+                if let Some(ch) = text[check_pos..].chars().next() {
+                    if ch == '.' {
+                        dots_after += 1;
+                        check_pos += ch.len_utf8();
+                    } else {
+                        // Stop if we encounter any non-dot character
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // If we have at least one dot before or after, this is part of ellipsis
+        dots_before > 0 || dots_after > 0
+    }
+
+    /// Check for parenthetical period patterns like ") ." or "] ."
+    pub fn is_parenthetical_period(
+        &self,
+        text: &str,
+        position: usize,
+        following_context: &str,
+    ) -> bool {
+        // Check if the period is preceded by closing parenthetical punctuation
+        if position > 0 {
+            if let Some(before_char) = text[..position].chars().last() {
+                if matches!(before_char, ')' | ']' | '}') {
+                    // Check if the following context starts with space
+                    if following_context.starts_with(' ') {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Also check for pattern where there's a space before the period after parenthesis
+        if position >= 2 {
+            let two_before: Vec<char> = text[..position].chars().rev().take(2).collect();
+            if two_before.len() == 2
+                && two_before[0] == ' '
+                && matches!(two_before[1], ')' | ']' | '}')
+            {
+                return true;
+            }
+        }
+
+        false
     }
 }
 
@@ -1038,6 +1376,112 @@ mod tests {
             following_context: "99 today.".to_string(),
         };
 
+        assert_eq!(
+            rules.detect_sentence_boundary(&context),
+            BoundaryDecision::NotBoundary
+        );
+    }
+
+    #[test]
+    fn test_web_text_url_detection() {
+        let web_rule = EnglishWebTextRule::new();
+
+        // Test URL with protocol
+        assert!(web_rule.is_url_period("Visit http://www.example.com for info", 16));
+        assert!(web_rule.is_url_period("Visit http://www.example.com for info", 24));
+        assert!(web_rule.is_url_period("Check https://github.com/user/repo", 15));
+
+        // Test domain without protocol
+        assert!(web_rule.is_url_period("Visit www.example.com for info", 9));
+        assert!(web_rule.is_url_period("Visit www.example.com for info", 17));
+
+        // Test various TLDs
+        assert!(web_rule.is_url_period("site.org is good", 4));
+        assert!(web_rule.is_url_period("site.io is modern", 4));
+        assert!(web_rule.is_url_period("site.edu for education", 4));
+
+        // Test file paths in URLs
+        assert!(web_rule.is_url_period("http://site.com/page.html is broken", 15));
+        assert!(web_rule.is_url_period("http://site.com/page.html is broken", 20));
+
+        // Test non-URLs
+        assert!(!web_rule.is_url_period("This is a sentence. Next one.", 18));
+        assert!(!web_rule.is_url_period("Dr. Smith is here.", 2));
+    }
+
+    #[test]
+    fn test_web_text_ellipsis_detection() {
+        let web_rule = EnglishWebTextRule::new();
+
+        // Test various ellipsis patterns
+        assert!(web_rule.is_ellipsis("Wait...", 4));
+        assert!(web_rule.is_ellipsis("Wait...", 5));
+        assert!(web_rule.is_ellipsis("Wait...", 6));
+        assert!(web_rule.is_ellipsis("And then... nothing", 8));
+        assert!(web_rule.is_ellipsis("And then... nothing", 9));
+        assert!(web_rule.is_ellipsis("And then... nothing", 10));
+
+        // Test single period (not ellipsis)
+        assert!(!web_rule.is_ellipsis("End. Start", 3));
+        assert!(!web_rule.is_ellipsis("Dr. Smith", 2));
+    }
+
+    #[test]
+    fn test_web_text_parenthetical_period() {
+        let web_rule = EnglishWebTextRule::new();
+
+        // Test parenthetical patterns
+        assert!(web_rule.is_parenthetical_period("(see note) . Next", 11, " Next"));
+        assert!(web_rule.is_parenthetical_period("[ref] . Continue", 6, " Continue"));
+        assert!(web_rule.is_parenthetical_period("{data} . More", 7, " More"));
+
+        // Test direct attachment
+        assert!(web_rule.is_parenthetical_period("(note). Next", 6, " Next"));
+        assert!(web_rule.is_parenthetical_period("[ref]. Continue", 5, " Continue"));
+
+        // Test non-parenthetical
+        assert!(!web_rule.is_parenthetical_period("word. Next", 4, " Next"));
+        assert!(!web_rule.is_parenthetical_period("test) not. Next", 9, " Next"));
+    }
+
+    #[test]
+    fn test_web_text_integration() {
+        let rules = EnglishLanguageRules::new();
+
+        // Test URL handling in sentence detection
+        let context = BoundaryContext {
+            text: "Visit http://www.example.com for info.".to_string(),
+            position: 16, // First dot in www.
+            boundary_char: '.',
+            preceding_context: "Visit http://www".to_string(),
+            following_context: "example.com for info.".to_string(),
+        };
+        assert_eq!(
+            rules.detect_sentence_boundary(&context),
+            BoundaryDecision::NotBoundary
+        );
+
+        // Test ellipsis handling
+        let context = BoundaryContext {
+            text: "Wait... what happened?".to_string(),
+            position: 4, // First dot
+            boundary_char: '.',
+            preceding_context: "Wait".to_string(),
+            following_context: ".. what happened?".to_string(),
+        };
+        assert_eq!(
+            rules.detect_sentence_boundary(&context),
+            BoundaryDecision::NotBoundary
+        );
+
+        // Test parenthetical period
+        let context = BoundaryContext {
+            text: "End of quote ) . Next sentence.".to_string(),
+            position: 15,
+            boundary_char: '.',
+            preceding_context: "End of quote ) ".to_string(),
+            following_context: " Next sentence.".to_string(),
+        };
         assert_eq!(
             rules.detect_sentence_boundary(&context),
             BoundaryDecision::NotBoundary
