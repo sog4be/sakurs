@@ -20,7 +20,7 @@ markdown>=3.4.0
 
 # Baseline systems
 nltk>=3.8.0
-ja-sentence-segmenter>=0.0.1
+ja-sentence-segmenter>=0.0.2
 
 # Testing
 pytest>=7.4.0
