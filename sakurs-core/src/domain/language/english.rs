@@ -54,6 +54,69 @@ impl Default for EnglishLanguageRules {
     }
 }
 
+impl EnglishLanguageRules {
+    /// Check if this looks like a title followed by a name pattern
+    fn is_likely_title_name_pattern(
+        &self,
+        text: &str,
+        position: usize,
+        following_context: &str,
+    ) -> bool {
+        // Get the word before the period
+        if position == 0 {
+            return false;
+        }
+
+        let word_start = text[..position]
+            .rfind(|c: char| c.is_whitespace())
+            .map(|p| p + 1)
+            .unwrap_or(0);
+
+        if word_start >= position {
+            return false;
+        }
+
+        let word_before = &text[word_start..position];
+
+        // Check if it's a known title abbreviation
+        let is_title = matches!(
+            word_before.to_lowercase().as_str(),
+            "mr" | "mrs"
+                | "ms"
+                | "dr"
+                | "prof"
+                | "rev"
+                | "fr"
+                | "gov"
+                | "lt"
+                | "sen"
+                | "rep"
+                | "hon"
+                | "pres"
+                | "gen"
+                | "col"
+                | "maj"
+                | "capt"
+                | "sgt"
+                | "atty"
+                | "esq"
+                | "supt"
+        );
+
+        if !is_title {
+            return false;
+        }
+
+        // Check if the following text starts with a capital letter (likely a name)
+        let trimmed_following = following_context.trim_start();
+        if let Some(first_char) = trimmed_following.chars().next() {
+            return first_char.is_uppercase() && first_char.is_alphabetic();
+        }
+
+        false
+    }
+}
+
 impl LanguageRules for EnglishLanguageRules {
     fn detect_sentence_boundary(&self, context: &BoundaryContext) -> BoundaryDecision {
         // Check if this is a sentence-ending punctuation
@@ -66,6 +129,15 @@ impl LanguageRules for EnglishLanguageRules {
             .abbreviation_rule
             .detect_abbreviation(&context.text, context.position);
         if abbrev_result.is_abbreviation && abbrev_result.confidence > 0.8 {
+            // Enhanced context check for title + name patterns
+            if self.is_likely_title_name_pattern(
+                &context.text,
+                context.position,
+                &context.following_context,
+            ) {
+                return BoundaryDecision::NotBoundary;
+            }
+            // For high-confidence abbreviations, generally not a boundary
             return BoundaryDecision::NotBoundary;
         }
 
@@ -105,8 +177,17 @@ impl LanguageRules for EnglishLanguageRules {
                     // End of text
                     BoundaryDecision::Boundary(BoundaryFlags::WEAK)
                 } else if cap_analysis.starts_with_capital {
-                    // Next sentence starts with capital
-                    BoundaryDecision::Boundary(BoundaryFlags::WEAK)
+                    // Additional check for title + name pattern even without abbreviation detection
+                    if self.is_likely_title_name_pattern(
+                        &context.text,
+                        context.position,
+                        &context.following_context,
+                    ) {
+                        BoundaryDecision::NotBoundary
+                    } else {
+                        // Next sentence starts with capital
+                        BoundaryDecision::Boundary(BoundaryFlags::WEAK)
+                    }
                 } else if cap_analysis.starts_with_quote_and_capital {
                     // Quoted speech starting with capital
                     BoundaryDecision::Boundary(BoundaryFlags::WEAK)
@@ -242,6 +323,28 @@ impl EnglishAbbreviationRule {
         abbreviations.insert("Rev".to_string());
         abbreviations.insert("Fr".to_string());
 
+        // Government/Political titles (from Brown Corpus analysis)
+        abbreviations.insert("Gov".to_string());
+        abbreviations.insert("Lt".to_string());
+        abbreviations.insert("Sen".to_string());
+        abbreviations.insert("Rep".to_string());
+        abbreviations.insert("Hon".to_string());
+        abbreviations.insert("Pres".to_string());
+
+        // Military ranks
+        abbreviations.insert("Gen".to_string());
+        abbreviations.insert("Col".to_string());
+        abbreviations.insert("Maj".to_string());
+        abbreviations.insert("Capt".to_string());
+        abbreviations.insert("Sgt".to_string());
+        abbreviations.insert("Cpl".to_string());
+        abbreviations.insert("Pvt".to_string());
+
+        // Legal/Professional
+        abbreviations.insert("Atty".to_string());
+        abbreviations.insert("Esq".to_string());
+        abbreviations.insert("Supt".to_string());
+
         // Geographic abbreviations
         abbreviations.insert("St".to_string()); // Street/Saint
         abbreviations.insert("Ave".to_string()); // Avenue
@@ -253,6 +356,16 @@ impl EnglishAbbreviationRule {
         abbreviations.insert("Fl".to_string()); // Floor
         abbreviations.insert("U".to_string()); // U.S., U.K., etc.
         abbreviations.insert("S".to_string()); // U.S. (also B.S., M.S.)
+
+        // State abbreviations commonly found in Brown Corpus
+        abbreviations.insert("Ill".to_string());
+        abbreviations.insert("Ind".to_string());
+        abbreviations.insert("Kan".to_string());
+        abbreviations.insert("Mass".to_string());
+        abbreviations.insert("Ore".to_string());
+        abbreviations.insert("Tex".to_string());
+        abbreviations.insert("Conn".to_string());
+        abbreviations.insert("Calif".to_string());
 
         // Business/Organization
         abbreviations.insert("Corp".to_string());
@@ -275,6 +388,26 @@ impl EnglishAbbreviationRule {
         abbreviations.insert("viz".to_string());
         abbreviations.insert("approx".to_string());
         abbreviations.insert("est".to_string());
+
+        // Add missing single-letter abbreviations commonly used as initials
+        // (Some are already defined above for academic titles)
+        abbreviations.insert("F".to_string());
+        abbreviations.insert("G".to_string());
+        abbreviations.insert("H".to_string());
+        abbreviations.insert("I".to_string());
+        abbreviations.insert("J".to_string());
+        abbreviations.insert("K".to_string());
+        abbreviations.insert("L".to_string());
+        abbreviations.insert("N".to_string());
+        abbreviations.insert("P".to_string());
+        abbreviations.insert("Q".to_string());
+        abbreviations.insert("R".to_string());
+        abbreviations.insert("T".to_string());
+        abbreviations.insert("V".to_string());
+        abbreviations.insert("W".to_string());
+        abbreviations.insert("X".to_string());
+        abbreviations.insert("Y".to_string());
+        abbreviations.insert("Z".to_string());
 
         // Time/Date
         abbreviations.insert("Jan".to_string());
