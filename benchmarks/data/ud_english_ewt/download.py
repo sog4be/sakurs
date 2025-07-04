@@ -2,10 +2,8 @@
 """Download and process UD English EWT data for sakurs benchmarks."""
 
 import json
-import os
 import sys
 import tempfile
-import zipfile
 from pathlib import Path
 from typing import List, Tuple
 
@@ -26,6 +24,10 @@ def download_ud_release(version: str = "2.16") -> Path:
         
     Returns:
         Path to extracted UD_English-EWT directory
+        
+    Note:
+        If download fails, you can also clone from GitHub:
+        git clone https://github.com/UniversalDependencies/UD_English-EWT.git
     """
     # UD 2.16 download URL
     if version == "2.16":

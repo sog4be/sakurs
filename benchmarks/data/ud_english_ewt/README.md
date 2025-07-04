@@ -64,7 +64,7 @@ ud_english_ewt/
 
 The processing pipeline:
 
-1. **Download**: Fetches UD r2.16 release archive (~200MB)
+1. **Download**: Fetches UD r2.16 release archive (~625MB)
 2. **Extract**: Extracts UD_English-EWT treebank
 3. **Parse**: Processes CoNLL-U files (train/dev/test splits)
 4. **Combine**: Merges all splits into single dataset
@@ -103,7 +103,19 @@ This provides more informal, conversational text compared to Brown Corpus news a
 
 ## Notes
 
-- First download may take several minutes (downloading ~200MB archive)
+- First download may take several minutes (downloading ~625MB archive)
 - Processed data is cached for subsequent use
 - Temporary files are automatically cleaned up
 - Compatible with sakurs benchmark infrastructure
+
+## Alternative Download Method
+
+If the automatic download fails, you can manually process data from GitHub:
+
+```bash
+# Clone the GitHub repository
+git clone https://github.com/UniversalDependencies/UD_English-EWT.git
+
+# Process the cloned data
+# (This functionality can be added in future updates)
+```
