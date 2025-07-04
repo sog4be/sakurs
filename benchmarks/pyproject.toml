@@ -16,6 +16,8 @@ dependencies = [
     # Testing and benchmarking
     "pytest>=7.0.0",       # Testing framework
     "pytest-benchmark>=4.0.0",  # Benchmarking with pytest
+    # Baseline comparisons
+    "nltk[punkt]>=3.8",    # NLTK with Punkt tokenizer
 ]
 
 [project.optional-dependencies]

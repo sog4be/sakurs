@@ -3,6 +3,7 @@
 //! This crate provides common functionality for benchmarking sakurs,
 //! including accuracy metrics, test data generation, and comparison utilities.
 
+pub mod baselines;
 pub mod constants;
 pub mod data;
 pub mod error;
