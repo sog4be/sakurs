@@ -249,6 +249,7 @@ $RECYCLE.BIN/
 
 # Benchmarking results
 /benchmarks/results/
+/benchmarks/cache/
 *.prof
 
 # Documentation build
