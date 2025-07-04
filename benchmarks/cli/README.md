@@ -106,6 +106,19 @@ The master script will:
 - Compare against baselines (NLTK, ja_sentence_segmenter)
 - Aggregate results into formatted tables
 
+#### Master Script Options
+
+| Option | Description | Default |
+|--------|-------------|---------|  
+| `-o, --output-dir` | Output directory for results | `results/YYYYMMDD_HHMMSS` |
+| `-t, --threads` | Comma-separated list of thread counts | `1,2,4,8` |
+| `-w, --warmup-runs` | Number of warmup runs | `1` |
+| `-r, --test-runs` | Number of test runs to average | `3` |
+| `-p, --prepare-data` | Prepare/download datasets before running | `false` |
+| `--skip-throughput` | Skip throughput benchmarks | `false` |
+| `--skip-memory` | Skip memory benchmarks | `false` |
+| `--skip-accuracy` | Skip accuracy benchmarks | `false` |
+
 ### Traditional Scripts
 
 ```bash
@@ -145,10 +158,13 @@ Metrics: Precision, Recall, F1, Pk, WindowDiff
 ### 2. Performance Benchmarks
 
 Measure throughput and latency using large text samples:
-- **English**: Wikipedia (500MB sample, HF dataset 20231101.en)
-- **Japanese**: Wikipedia (500MB sample, HF dataset 20231101.ja)
+- **English**: Wikipedia (500MB sample, HF dataset 20240601.en)
+- **Japanese**: Wikipedia (500MB sample, HF dataset 20240601.ja)
 
-Metrics: Throughput (MB/s), Latency, Memory usage
+Metrics:
+- **Throughput**: MB/s processed with various thread counts
+- **Memory**: Peak RSS (Resident Set Size) in MiB
+- **Latency**: Processing time for different file sizes
 
 ### 3. Comparison Benchmarks
 
@@ -230,17 +246,33 @@ results/
 │   ├── throughput_ja_sakurs_2t.json
 │   ├── throughput_ja_sakurs_4t.json
 │   ├── throughput_ja_sakurs_8t.json
+│   ├── throughput_ja_jaseg.json        # Baseline comparisons
+│   ├── throughput_en_nltk.json
 │   ├── memory_ja_sakurs_1t.json
 │   ├── memory_ja_sakurs_8t.json
 │   ├── accuracy_ja_sakurs.json
+│   ├── accuracy_en_sakurs.json
 │   ├── aggregated_results.json         # All results aggregated
 │   └── results_tables.md               # Formatted markdown tables
 ```
 
 The `results_tables.md` file contains pre-formatted tables ready for academic papers:
-- Table 1: Throughput (MB/s) with multi-threading results
-- Table 2: Memory usage (MiB) for 1 and 8 threads
-- Table 3: Accuracy metrics (Precision, Recall, F1, Pk, WindowDiff)
+- **Table 1**: Throughput (MB/s) comparison across tools and thread counts
+- **Table 2**: Memory usage (MiB) for single and multi-threaded execution  
+- **Table 3**: Accuracy metrics (Precision, Recall, F1, Pk, WindowDiff)
+
+#### Example Results Table Format
+
+```markdown
+### Table 1: Throughput on 500 MiB Wikipedia (MB/s)
+
+| Lang | Tool | 1 T | 2 T | 4 T | 8 T |
+|------|------|-----|-----|-----|-----|
+| JA | ja_sentence_segmenter | 45.2 | — | — | — |
+| | **Δ-Stack (Ours)** | **120.5** | **235.8** | **412.3** | **485.7** |
+| EN | NLTK Punkt | 38.9 | — | — | — |
+| | **Δ-Stack (Ours)** | **145.3** | **282.1** | **498.2** | **567.9** |
+```
 
 ### Traditional Scripts Output
 
@@ -256,16 +288,34 @@ results/
 
 For academic reproducibility:
 
-1. **Environment**: Document system specs in results
-2. **Data**: Use versioned corpora (UD r2.16, Wikipedia 20231101)
-3. **Seeds**: Set random seeds where applicable
+1. **Environment**: System specs are automatically captured in `metadata.json`
+2. **Data**: Use versioned corpora
+   - UD Treebanks: r2.16 (verified during data preparation)
+   - Wikipedia: 20240601 dumps with tracked metadata
+3. **Seeds**: Deterministic processing (no randomness)
 4. **Isolation**: Run with minimal background processes
+5. **Version tracking**: All dataset versions and timestamps recorded
 
-Wikipedia samples use Hugging Face's `wikimedia/wikipedia` dataset with fixed dates (e.g., 20231101) to ensure reproducible results.
+The experiment system automatically captures:
+- Dataset versions and download timestamps
+- Tool versions (sakurs, NLTK, ja_sentence_segmenter)
+- System specifications (CPU, memory, OS)
+- Exact command-line arguments used
+- Number of warmup and test runs
 
 ## Integration with Paper
 
-Results can be formatted for academic papers:
+Results are automatically formatted for academic papers:
+
+### Using Master Script Results
+
+The `run_experiments.sh` script generates `results_tables.md` with:
+- Pre-formatted markdown tables
+- Statistical summaries (mean, std dev)
+- Baseline comparisons
+- Ready-to-copy format for papers
+
+### Manual Formatting
 
 ```bash
 # Generate LaTeX tables (from benchmarks/ directory)
@@ -274,7 +324,20 @@ uv run python cli/scripts/format_results.py --format latex --results-dir cli/res
 
 # Generate plots
 uv run python cli/scripts/format_results.py --format plots --results-dir cli/results
+
+# Aggregate multiple experiments
+uv run python cli/scripts/aggregate_results.py \
+  --input-dir cli/results/20250704_143000 \
+  --output results_summary.json
 ```
+
+### Academic Paper Template Integration
+
+The results match the Δ-Stack Monoid paper template:
+- Hardware/Software specifications table
+- Dataset information with versions
+- Three main results tables (throughput, memory, accuracy)
+- Baseline comparison format
 
 ## Troubleshooting
 

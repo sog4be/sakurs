@@ -66,6 +66,23 @@ command -v tree >/dev/null 2>&1 && echo "tree is available" || echo "tree not fo
   - Wikipedia throughput benchmarks (500MB samples)
   - Performance comparison with NLTK and ja_sentence_segmenter baselines
 
+#### Quick Benchmark Commands
+```bash
+# Run all experiments (recommended)
+cd benchmarks/cli && ./run_experiments.sh
+
+# Prepare benchmark data
+cd benchmarks && uv run python cli/scripts/prepare_data.py
+
+# Run specific benchmark types
+cd benchmarks/cli
+./run_experiments.sh --skip-memory --skip-accuracy  # Throughput only
+./run_experiments.sh --threads 1,8 --test-runs 10   # Custom config
+
+# View results
+cat results/latest/results_tables.md
+```
+
 ### Development Scripts
 - Benchmark runner: `python benchmarks/cli/run_benchmarks.py`
 - Data preparation: `python benchmarks/cli/scripts/prepare_data.py`
@@ -74,6 +91,9 @@ command -v tree >/dev/null 2>&1 && echo "tree is available" || echo "tree not fo
   - Extracts test set statistics
   - Manages dataset versioning
 - Data validation: Scripts in `benchmarks/data/` for corpus validation
+- Result aggregation: `python benchmarks/cli/scripts/aggregate_results.py`
+- Metrics calculation: `python benchmarks/cli/scripts/metrics.py`
+- Accuracy evaluation: `python benchmarks/cli/scripts/evaluate_accuracy.py`
 
 ### Master Experiment Script
 Run comprehensive benchmarks from `benchmarks/cli/`:
@@ -92,6 +112,27 @@ Run comprehensive benchmarks from `benchmarks/cli/`:
 # - Individual JSON results for each test
 # - Aggregated results in JSON format
 # - Formatted markdown tables ready for papers
+```
+
+#### Experiment Script Options
+- `-o, --output-dir DIR`: Output directory (default: results/YYYYMMDD_HHMMSS)
+- `-t, --threads LIST`: Thread counts to test (default: 1,2,4,8)
+- `-w, --warmup-runs NUM`: Number of warmup runs (default: 1)
+- `-r, --test-runs NUM`: Number of test runs (default: 3)
+- `-p, --prepare-data`: Download/prepare datasets before running
+- `--skip-throughput`: Skip throughput benchmarks
+- `--skip-memory`: Skip memory benchmarks
+- `--skip-accuracy`: Skip accuracy benchmarks
+
+#### Experiment Output Structure
+```
+results/20250704_143000/
+├── metadata.json              # System specs, versions, parameters
+├── throughput_*.json          # Individual throughput results
+├── memory_*.json              # Memory usage measurements
+├── accuracy_*.json            # Accuracy evaluation results
+├── aggregated_results.json    # All results combined
+└── results_tables.md          # Formatted tables for papers
 ```
 
 ## Code Style & Conventions

@@ -34,6 +34,32 @@ uv run python <script.py>
 
 ## Quick Start
 
+### Running All Experiments
+
+The easiest way to run comprehensive benchmarks is using the integrated experiment script:
+
+```bash
+cd benchmarks/cli
+
+# Run all experiments (throughput, memory, accuracy)
+./run_experiments.sh
+
+# Prepare data and run experiments
+./run_experiments.sh --prepare-data
+
+# Custom thread configurations
+./run_experiments.sh --threads 1,4,8 --test-runs 5
+
+# Run specific benchmark types
+./run_experiments.sh --skip-memory --skip-accuracy  # Only throughput
+./run_experiments.sh --skip-throughput --skip-memory  # Only accuracy
+```
+
+Results are saved to timestamped directories with:
+- Individual JSON results for each test
+- Aggregated results in JSON format
+- Formatted markdown tables ready for papers
+
 ### Running Core Benchmarks
 
 ```bash
@@ -57,7 +83,8 @@ CRITERION_FAST=1 cargo bench
 ### Viewing Results
 
 Benchmark results are saved in:
-- HTML reports: `benchmarks/core/target/criterion/`
+- Integrated experiments: `benchmarks/cli/results/<timestamp>/`
+- Core benchmarks: `benchmarks/core/target/criterion/`
 - Raw data: `benchmarks/core/target/criterion/*/base/`
 
 Open the HTML reports in your browser:
@@ -189,9 +216,21 @@ UD Japanese-BCCWJ prepared: /path/to/bccwj_plain.txt
   Total documents: 2,291
   Total sentences: 57,147
   Test set: 4,442 sentences, 105,834 characters
+
+Wikipedia-EN prepared: /path/to/wikipedia_sample_en.txt
+  Version: 20240601 dump
+  Size: 500.0 MB
+  Articles: ~3,000
+  
+Wikipedia-JA prepared: /path/to/wikipedia_sample_ja.txt
+  Version: 20240601 dump  
+  Size: 500.0 MB
+  Articles: ~8,000
 ```
 
 ### Running Dataset-Specific Benchmarks
+
+#### Individual Benchmark Scripts
 ```bash
 # Brown Corpus accuracy report
 cargo run --example brown_corpus_report
@@ -205,13 +244,50 @@ cd benchmarks/cli
 uv run python scenarios/accuracy/ud_accuracy.py
 ```
 
+#### Integrated Experiment Results
+
+The `run_experiments.sh` script automatically generates formatted tables suitable for academic papers:
+
+```bash
+# Example output structure
+results/20250704_120000/
+├── wikipedia_ja_throughput_1t.json
+├── wikipedia_ja_throughput_8t.json
+├── memory_usage_results.json
+├── ud_accuracy_results.json
+├── aggregated_results.json
+└── experiment_tables.md  # Ready-to-use tables
+```
+
 ## Comparing with Baselines
 
-NLTK Punkt comparison will be added in a future PR. The infrastructure is designed to support:
+The benchmark suite includes comparisons with established baselines:
 
-1. Unified interface for different segmenters
-2. Fair comparison with same test data
-3. Statistical significance testing
+### English: NLTK Punkt
+- Data-driven sentence segmenter
+- Single-threaded implementation
+- Requires pre-trained models
+
+### Japanese: ja_sentence_segmenter
+- Regex-based segmenter
+- Single-threaded implementation
+- Optimized for Japanese text
+
+### Running Comparisons
+```bash
+# Run all comparisons (included in run_experiments.sh)
+cd benchmarks/cli
+./run_experiments.sh
+
+# Individual comparison scripts
+uv run python scenarios/comparison/baseline_comparison.py
+```
+
+The integrated experiment system automatically:
+1. Runs baselines with identical test data
+2. Measures throughput, memory, and accuracy
+3. Generates comparative tables
+4. Calculates statistical significance
 
 ## Performance Targets
 
