@@ -210,6 +210,9 @@ pub mod generators {
 /// Brown Corpus data loading
 pub mod brown_corpus;
 
+/// UD English EWT data loading
+pub mod ud_english_ewt;
+
 #[cfg(test)]
 mod tests {
     use super::*;
