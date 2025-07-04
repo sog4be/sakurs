@@ -18,11 +18,11 @@ install:
 		echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"; \
 		exit 1; \
 	fi
-	uv pip install -e ".[dev]"
+	cd ../../ && uv sync
 
 download: install
 	@echo "📥 Downloading Brown Corpus..."
-	uv run python download.py
+	cd ../../ && uv run python -m data.brown_corpus.download
 
 clean:
 	@echo "🧹 Cleaning cache..."
@@ -33,13 +33,13 @@ clean:
 
 format:
 	@echo "🎨 Formatting Python code..."
-	uv run ruff format .
-	uv run ruff check --fix .
+	cd ../../ && uv run ruff format benchmarks/
+	cd ../../ && uv run ruff check --fix benchmarks/
 
 lint:
 	@echo "🔍 Linting Python code..."
-	uv run ruff check .
-	uv run mypy . || true
+	cd ../../ && uv run ruff check benchmarks/
+	cd ../../ && uv run mypy benchmarks/ || true
 
 test:
 	@echo "🧪 Running tests..."
