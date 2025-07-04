@@ -3,6 +3,7 @@
 import logging
 import sys
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,14 +13,17 @@ from datasets import IterableDataset, load_dataset
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from base_loader import CorpusLoader
 
+from .version_manager import WikipediaVersionManager
+
 logger = logging.getLogger(__name__)
 
 
 class WikipediaLoader(CorpusLoader):
     """Loader for Wikipedia data from Hugging Face."""
 
-    # Default to November 2023 snapshot for reproducibility
-    DEFAULT_DATE = "20231101"
+    # Default to June 2024 snapshot for reproducibility
+    # Available dates can be found at: https://huggingface.co/datasets/wikimedia/wikipedia
+    DEFAULT_DATE = "20240601"
 
     def __init__(
         self,
@@ -34,14 +38,15 @@ class WikipediaLoader(CorpusLoader):
             language: Language code ('en', 'ja', etc.)
             size_mb: Target sample size in MB
             cache_dir: Cache directory for samples
-            date: Wikipedia dump date (default: 20231101)
+            date: Wikipedia dump date (default: 20240601)
         """
         super().__init__(cache_dir)
         self.language = language
         self.size_mb = size_mb
         self.date = date or self.DEFAULT_DATE
         self.dataset_name = f"{self.date}.{language}"
-        self.sample_file = self.cache_dir / f"wikipedia_{language}_{size_mb}mb.txt"
+        self.sample_file = self.cache_dir / f"wikipedia_{language}_{size_mb}mb_{self.date}.txt"
+        self.version_manager = WikipediaVersionManager(self.cache_dir)
 
     def is_cached(self) -> bool:
         """Check if sample is already cached."""
@@ -116,6 +121,20 @@ class WikipediaLoader(CorpusLoader):
 
         actual_size_mb = current_size / 1024 / 1024
         logger.info(f"Created sample: {article_count} articles, {actual_size_mb:.1f}MB")
+        
+        # Save metadata
+        self.version_manager.save_metadata(
+            language=self.language,
+            size_mb=self.size_mb,
+            date=self.date,
+            article_count=article_count,
+            actual_size_mb=actual_size_mb,
+            download_timestamp=datetime.now(),
+            additional_info={
+                "dataset_source": "Hugging Face wikimedia/wikipedia",
+                "sample_file": str(self.sample_file.name),
+            }
+        )
 
     def load(self) -> dict[str, Any]:
         """Load the Wikipedia sample.
@@ -148,6 +167,11 @@ class WikipediaLoader(CorpusLoader):
         if current_article["text"]:
             articles.append(current_article)
 
+        # Load version metadata if available
+        version_metadata = self.version_manager.load_metadata(
+            self.language, self.size_mb, self.date
+        )
+
         return {
             "metadata": {
                 "corpus": f"Wikipedia-{self.language.upper()}",
@@ -156,6 +180,7 @@ class WikipediaLoader(CorpusLoader):
                 "articles": len(articles),
                 "date": self.date,
                 "source": "Hugging Face wikimedia/wikipedia",
+                "version_info": version_metadata,
             },
             "articles": articles,
         }

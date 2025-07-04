@@ -37,11 +37,19 @@ def prepare_ud_english_ewt():
     # Load and convert to plain text
     data = load_ewt()
 
+    # Count test set sentences
+    test_sentence_count = 0
+    test_word_count = 0
+    
     # Save as plain text (all documents concatenated)
     plain_text_path = output_dir / "ewt_plain.txt"
     with open(plain_text_path, "w", encoding="utf-8") as f:
         for doc in data["documents"]:
             f.write(doc["text"] + "\n\n")
+            # Count test set statistics
+            if doc.get("split") == "test" or "test" in doc.get("id", "").lower():
+                test_sentence_count += len(doc.get("sentences", []))
+                test_word_count += len(doc["text"].split())
 
     # Save ground truth (one sentence per line)
     sentences_path = output_dir / "ewt_sentences.txt"
@@ -50,7 +58,20 @@ def prepare_ud_english_ewt():
             for sent in doc["sentences"]:
                 f.write(sent + "\n")
 
+    # Display dataset statistics
     logger.info(f"UD English EWT prepared: {plain_text_path}")
+    if data.get("metadata"):
+        logger.info(f"  Version: {data['metadata'].get('version', 'Unknown')}")
+        logger.info(f"  Total sentences: {data['metadata'].get('sentences', 'Unknown')}")
+        
+    # If we couldn't get test set info from documents, try from metadata
+    if test_sentence_count == 0 and "metadata" in data:
+        # For simple loader, we might not have split information
+        # Display total stats instead
+        logger.info(f"  Dataset info: {data['metadata'].get('sentences', 'Unknown')} sentences")
+    else:
+        logger.info(f"  Test set: {test_sentence_count} sentences, {test_word_count} words")
+    
     return True
 
 
@@ -73,7 +94,7 @@ def prepare_wikipedia_samples():
     logger.info("Preparing Wikipedia samples...")
 
     success = True
-    date = "20231101"  # Fixed date for reproducibility
+    date = "20240601"  # Updated to June 2024 dump for more recent data
 
     # Prepare English Wikipedia
     try:
@@ -132,6 +153,11 @@ def prepare_japanese_data():
         # Load and convert to plain text
         data = load_bccwj()
 
+        # Count test set sentences
+        test_sentence_count = 0
+        test_char_count = 0
+        total_sentence_count = 0
+
         # Save as plain text (all documents concatenated)
         plain_text_path = output_dir / "bccwj_plain.txt"
         with open(plain_text_path, "w", encoding="utf-8") as f:
@@ -147,6 +173,16 @@ def prepare_japanese_data():
                         if sent_text:
                             f.write(sent_text)
                     f.write("\n\n")
+                
+                # Count statistics
+                sentences = doc.get("sentences", [])
+                total_sentence_count += len(sentences)
+                if doc.get("split") == "test":
+                    test_sentence_count += len(sentences)
+                    for sent in sentences:
+                        sent_text = sent.get("text", "")
+                        if sent_text and sent_text != "[Text not included - see README]":
+                            test_char_count += len(sent_text)
 
         # Save ground truth (one sentence per line)
         sentences_path = output_dir / "bccwj_sentences.txt"
@@ -158,6 +194,14 @@ def prepare_japanese_data():
                         f.write(sent_text.strip() + "\n")
 
         logger.info(f"UD Japanese-BCCWJ prepared: {plain_text_path}")
+        if data.get("metadata"):
+            logger.info(f"  Version: {data['metadata'].get('version', 'Unknown')}")
+            logger.info(f"  Total documents: {len(data.get('documents', []))}")
+            logger.info(f"  Total sentences: {total_sentence_count}")
+        
+        if test_sentence_count > 0:
+            logger.info(f"  Test set: {test_sentence_count} sentences, {test_char_count} characters")
+        
         logger.warning("Note: Text may be reconstructed from tokens if original is not available")
         return True
 
