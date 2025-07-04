@@ -252,6 +252,10 @@ $RECYCLE.BIN/
 /benchmarks/cache/
 *.prof
 
+# Brown Corpus data files (large dataset)
+/benchmarks/data/brown_corpus/data/
+/benchmarks/data/brown_corpus/cache/
+
 # Documentation build
 /book/
 /mdbook-output/
