@@ -50,7 +50,7 @@ check_prerequisites() {
     print_status "Checking prerequisites..."
     
     # Check for required commands
-    for cmd in sakurs hyperfine python3 bc; do
+    for cmd in sakurs hyperfine uv bc; do
         if ! command -v "$cmd" &> /dev/null; then
             print_error "$cmd not found"
             has_errors=1
@@ -140,7 +140,7 @@ run_benchmark() {
 generate_performance_summary() {
     print_header "Generating Performance Summary Report"
     
-    python3 - <<'EOF'
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<'EOF'
 import json
 import os
 import sys
@@ -298,7 +298,7 @@ generate_comparison_plots() {
         print_status "Generating performance plots..."
         
         cd "$ROOT_DIR/benchmarks/cli/scripts"
-        python3 analyze_results.py \
+        cd "$ROOT_DIR/benchmarks" && uv run python cli/scenarios/performance/analyze_results.py \
             -i "$SUMMARY_DIR"/*_results.json \
             -o "$SUMMARY_DIR" \
             -f plots || print_warning "Plot generation failed (optional)"

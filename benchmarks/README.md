@@ -9,9 +9,27 @@ benchmarks/
 ├── core/          # Core library benchmarks (Rust/Criterion)
 ├── cli/           # CLI benchmarks (Hyperfine)
 ├── python/        # Python binding benchmarks (pytest-benchmark)
-├── baselines/     # Comparison systems (NLTK Punkt, etc.)
-├── data/          # Shared test data and Brown Corpus
-└── results/       # Benchmark results and reports
+├── baselines/     # Comparison systems (NLTK Punkt, ja_sentence_segmenter)
+├── data/          # Shared test data and corpora
+├── results/       # Benchmark results and reports
+├── pyproject.toml # Python dependencies (managed with uv)
+└── uv.lock        # Locked Python dependencies
+```
+
+## Python Environment Setup
+
+All Python benchmarks and tools use Python 3.12 and are managed with `uv`:
+
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install all dependencies (including optional)
+cd benchmarks
+uv sync --all-extras
+
+# Run any Python script
+uv run python <script.py>
 ```
 
 ## Quick Start

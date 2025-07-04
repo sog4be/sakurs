@@ -10,13 +10,13 @@ all: download
 # Download the corpus
 download:
 	@echo "Downloading UD Japanese-BCCWJ r2.16..."
-	@python download.py
+	@cd "$${PWD%/benchmarks/data/ud_japanese_bccwj}/benchmarks" && uv run python data/ud_japanese_bccwj/download.py
 	@echo "Download complete!"
 
 # Force re-download
 download-force:
 	@echo "Force re-downloading UD Japanese-BCCWJ r2.16..."
-	@python download.py --force
+	@cd "$${PWD%/benchmarks/data/ud_japanese_bccwj}/benchmarks" && uv run python data/ud_japanese_bccwj/download.py --force
 	@echo "Download complete!"
 
 # Show corpus information
@@ -24,7 +24,7 @@ info:
 	@if [ -f "$(CACHE_DIR)/ud_japanese_bccwj.json" ]; then \
 		echo "UD Japanese-BCCWJ corpus information:"; \
 		echo "==================================="; \
-		python -c "import json; \
+		cd "$${PWD%/benchmarks/data/ud_japanese_bccwj}/benchmarks" && uv run python -c "import json; \
 		data = json.load(open('$(CACHE_DIR)/ud_japanese_bccwj.json', 'r')); \
 		print(f\"Version: {data['metadata']['version']}\"); \
 		print(f\"Documents: {len(data['documents'])}\"); \

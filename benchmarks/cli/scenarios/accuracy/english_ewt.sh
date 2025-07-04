@@ -42,7 +42,7 @@ sakurs process \
 
 # Evaluate accuracy
 echo "Evaluating accuracy..."
-python "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/ewt_predicted_${TIMESTAMP}.txt" \
     --reference "$DATA_DIR/ewt_sentences.txt" \
     --output "$RESULTS_DIR/english_ewt_accuracy_${TIMESTAMP}.json" \
@@ -53,7 +53,7 @@ echo ""
 echo "Results saved to: $RESULTS_DIR/english_ewt_accuracy_${TIMESTAMP}.json"
 echo ""
 echo "Summary:"
-python "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/ewt_predicted_${TIMESTAMP}.txt" \
     --reference "$DATA_DIR/ewt_sentences.txt" \
     --format text

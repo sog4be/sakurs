@@ -3,28 +3,45 @@ name = "sakurs-benchmarks"
 version = "0.1.0"
 description = "Benchmarking tools and data processors for sakurs"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     # Data processing
-    "nltk>=3.8",           # For Brown Corpus and other NLP corpora
-    "tqdm>=4.65.0",        # Progress bars for data processing
-    "click>=8.1.0",        # CLI for data download scripts
-    # Analysis and visualization
-    "pandas>=2.0.0",       # Data analysis
-    "matplotlib>=3.6.0",   # Plotting results
-    "seaborn>=0.12.0",     # Statistical visualizations
+    "nltk>=3.8",                    # For Brown Corpus and other NLP corpora
+    "nltk[punkt]>=3.8",             # NLTK with Punkt tokenizer
+    "tqdm>=4.65.0",                 # Progress bars for data processing
+    "click>=8.1.0",                 # CLI for data download scripts
+    "requests>=2.31.0",             # For HTTP downloads
+    "datasets>=2.14.0",             # For Hugging Face Wikipedia dataset
+    
+    # Numerical and analysis
+    "numpy>=1.24.0",                # For numerical operations
+    "scipy>=1.10.0",                # For statistical analysis and confidence intervals
+    "scikit-learn>=1.3.0",          # For evaluation metrics
+    "pandas>=2.0.0",                # Data analysis
+    
+    # Visualization and reporting
+    "matplotlib>=3.7.0",            # Plotting results
+    "seaborn>=0.12.0",              # Statistical visualizations
+    "jinja2>=3.1.0",                # Report generation templates
+    "markdown>=3.4.0",              # Markdown report generation
+    
     # Testing and benchmarking
-    "pytest>=7.0.0",       # Testing framework
-    "pytest-benchmark>=4.0.0",  # Benchmarking with pytest
-    # Baseline comparisons
-    "nltk[punkt]>=3.8",    # NLTK with Punkt tokenizer
+    "pytest>=7.4.0",                # Testing framework
+    "pytest-benchmark>=4.0.0",      # Benchmarking with pytest
+    "pytest-cov>=4.1.0",            # Coverage reporting
+    
+    # Memory profiling
+    "psutil>=5.9.0",                # System and process utilities
 ]
 
 [project.optional-dependencies]
 dev = [
-    "ruff>=0.1.0",         # Linting and formatting
-    "mypy>=1.0.0",         # Type checking
-    "pytest-cov>=4.0.0",   # Coverage reporting
+    "ruff>=0.1.0",                  # Linting and formatting
+    "mypy>=1.0.0",                  # Type checking
+]
+
+baselines = [
+    "ja-sentence-segmenter>=0.0.2", # Japanese baseline segmenter
 ]
 
 [project.scripts]
@@ -33,14 +50,14 @@ download-brown-corpus = "data.brown_corpus.download:main"
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = ["E501"]  # Line too long - handled by formatter
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -56,5 +73,16 @@ requires = ["setuptools>=65.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["data", "data.brown_corpus"]
+packages = [
+    "data",
+    "data.brown_corpus",
+    "data.ud_english_ewt",
+    "data.ud_japanese_bccwj",
+    "data.wikipedia",
+    "baselines",
+    "baselines.ja_sentence_segmenter",
+    "baselines.nltk_punkt",
+    "cli",
+    "cli.scripts",
+]
 py-modules = []

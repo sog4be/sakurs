@@ -67,12 +67,13 @@ check_prerequisites() {
     fi
     
     # Check if Python and ja_sentence_segmenter are available
-    if ! command -v python3 &> /dev/null; then
-        print_error "Python 3 not found"
+    if ! command -v uv &> /dev/null; then
+        print_error "uv not found"
+        echo "Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
         missing=1
     fi
     
-    if ! python3 -c "import ja_sentence_segmenter" 2>/dev/null; then
+    if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import ja_sentence_segmenter") 2>/dev/null; then
         print_error "ja_sentence_segmenter not installed"
         echo "Install with: pip install ja-sentence-segmenter"
         missing=1
@@ -90,7 +91,7 @@ check_datasets() {
     local ud_dir="$ROOT_DIR/benchmarks/data/ud_japanese_bccwj/cli_format"
     if [ ! -f "$ud_dir/bccwj_plain.txt" ] || [ ! -f "$ud_dir/bccwj_sentences.txt" ]; then
         print_error "UD Japanese-BCCWJ data not found in $ud_dir"
-        echo "Please run: python $ROOT_DIR/benchmarks/scripts/prepare_data.py"
+        echo "Please run: cd $ROOT_DIR/benchmarks && uv run python cli/scripts/prepare_data.py"
         missing=1
     else
         print_status "✓ UD Japanese-BCCWJ data available"
@@ -114,7 +115,7 @@ analyze_japanese_text() {
     
     print_status "Analyzing Japanese text characteristics for $dataset_name..."
     
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 def analyze_file(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
         text = f.read()
@@ -177,7 +178,7 @@ run_accuracy_comparison() {
     
     # Run ja_sentence_segmenter
     print_status "Running ja_sentence_segmenter..."
-    python3 "$ROOT_DIR/benchmarks/baselines/ja_sentence_segmenter/benchmark.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "baselines/ja_sentence_segmenter/benchmark.py" \
         "$input_file" \
         --output "$jaseg_output" \
         --format lines
@@ -186,14 +187,14 @@ run_accuracy_comparison() {
     print_status "Evaluating accuracy..."
     
     # Sakurs accuracy
-    python3 "$ROOT_DIR/benchmarks/cli/scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$sakurs_output" \
         --reference "$reference_file" \
         --output "$RESULTS_DIR/accuracy_sakurs_${dataset_name}_${TIMESTAMP}.json" \
         --format json
     
     # ja_sentence_segmenter accuracy
-    python3 "$ROOT_DIR/benchmarks/cli/scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$jaseg_output" \
         --reference "$reference_file" \
         --output "$RESULTS_DIR/accuracy_jaseg_${dataset_name}_${TIMESTAMP}.json" \
@@ -205,14 +206,14 @@ run_accuracy_comparison() {
     echo "=================================="
     echo ""
     echo "Sakurs:"
-    python3 "$ROOT_DIR/benchmarks/cli/scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$sakurs_output" \
         --reference "$reference_file" \
         --format text
     
     echo ""
     echo "ja_sentence_segmenter:"
-    python3 "$ROOT_DIR/benchmarks/cli/scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$jaseg_output" \
         --reference "$reference_file" \
         --format text
@@ -259,12 +260,12 @@ run_performance_comparison() {
         --command-name "sakurs" \
         --command-name "ja_sentence_segmenter" \
         "sakurs process --input '$input_file' --output '$temp_sakurs' --format sentences --language japanese" \
-        "python3 '$ROOT_DIR/benchmarks/baselines/ja_sentence_segmenter/benchmark.py' '$input_file' --output '$temp_jaseg' --format lines"
+        "cd '$ROOT_DIR/benchmarks' && uv run python 'baselines/ja_sentence_segmenter/benchmark.py' '$input_file' --output '$temp_jaseg' --format lines"
     
     # Analyze performance results with character-based metrics
     print_status "Analyzing performance results..."
     
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import json
 
 # Load performance results
@@ -403,10 +404,10 @@ run_memory_comparison() {
     print_status "Profiling ja_sentence_segmenter memory usage..."
     local jaseg_mem="$RESULTS_DIR/memory_jaseg_${dataset_name}_${TIMESTAMP}.txt"
     
-    $time_cmd -v python3 "$ROOT_DIR/benchmarks/baselines/ja_sentence_segmenter/benchmark.py" \
-        "$input_file" \
-        --output "$temp_output" \
-        --format lines \
+    $time_cmd -v sh -c "cd '$ROOT_DIR/benchmarks' && uv run python 'baselines/ja_sentence_segmenter/benchmark.py' \
+        '$input_file' \
+        --output '$temp_output' \
+        --format lines" \
         2>&1 | tee "$jaseg_mem" | grep -E "(Maximum resident|User time|System time)" || true
     
     # Compare memory usage

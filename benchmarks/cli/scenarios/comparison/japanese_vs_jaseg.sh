@@ -27,7 +27,7 @@ if ! command -v sakurs &> /dev/null; then
     exit 1
 fi
 
-if ! python -c "import ja_sentence_segmenter" 2>/dev/null; then
+if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import ja_sentence_segmenter") 2>/dev/null; then
     echo "Error: ja_sentence_segmenter not installed"
     echo "Install with: pip install ja-sentence-segmenter"
     exit 1
@@ -48,7 +48,7 @@ hyperfine \
     --runs 5 \
     --export-json "$RESULTS_DIR/japanese_comparison_${TIMESTAMP}.json" \
     "sakurs process --input '$DATA_DIR/bccwj_plain.txt' --output /dev/null --format text --language japanese" \
-    "python '$ROOT_DIR/benchmarks/baselines/ja_sentence_segmenter/benchmark.py' '$DATA_DIR/bccwj_plain.txt' --output /dev/null"
+    "cd '$ROOT_DIR/benchmarks' && uv run python 'baselines/ja_sentence_segmenter/benchmark.py' '$DATA_DIR/bccwj_plain.txt' --output /dev/null"
 
 # Extract and display results
 echo ""
@@ -90,20 +90,20 @@ sakurs process \
     --format text \
     --language japanese
 
-python "$ROOT_DIR/benchmarks/baselines/ja_sentence_segmenter/benchmark.py" \
+cd "$ROOT_DIR/benchmarks" && uv run python "baselines/ja_sentence_segmenter/benchmark.py" \
     "$DATA_DIR/bccwj_plain.txt" \
     --output "$RESULTS_DIR/comp_jaseg_${TIMESTAMP}.txt" \
     --format lines
 
 # Evaluate accuracy for both
 echo "Evaluating accuracy..."
-python "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/comp_sakurs_${TIMESTAMP}.txt" \
     --reference "$DATA_DIR/bccwj_sentences.txt" \
     --output "$RESULTS_DIR/comp_sakurs_accuracy_${TIMESTAMP}.json" \
     --format json
 
-python "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/comp_jaseg_${TIMESTAMP}.txt" \
     --reference "$DATA_DIR/bccwj_sentences.txt" \
     --output "$RESULTS_DIR/comp_jaseg_accuracy_${TIMESTAMP}.json" \
@@ -115,14 +115,14 @@ echo "Accuracy Comparison:"
 echo "==================="
 echo ""
 echo "Sakurs:"
-python "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/comp_sakurs_${TIMESTAMP}.txt" \
     --reference "$DATA_DIR/bccwj_sentences.txt" \
     --format text
 
 echo ""
 echo "ja_sentence_segmenter:"
-python "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/comp_jaseg_${TIMESTAMP}.txt" \
     --reference "$DATA_DIR/bccwj_sentences.txt" \
     --format text

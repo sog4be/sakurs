@@ -49,7 +49,7 @@ check_prerequisites() {
     print_status "Checking prerequisites..."
     
     # Check for required commands
-    for cmd in sakurs hyperfine python3 bc; do
+    for cmd in sakurs hyperfine uv bc; do
         if ! command -v "$cmd" &> /dev/null; then
             print_error "$cmd not found"
             has_errors=1
@@ -59,14 +59,14 @@ check_prerequisites() {
     done
     
     # Check for baseline tools
-    if ! python3 -c "import nltk" 2>/dev/null; then
+    if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import nltk") 2>/dev/null; then
         print_error "NLTK not installed (pip install nltk)"
         has_errors=1
     else
         print_status "✓ NLTK available"
     fi
     
-    if ! python3 -c "import ja_sentence_segmenter" 2>/dev/null; then
+    if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import ja_sentence_segmenter") 2>/dev/null; then
         print_error "ja_sentence_segmenter not installed (pip install ja-sentence-segmenter)"
         has_errors=1
     else
@@ -117,7 +117,7 @@ run_comparison() {
 generate_comparison_summary() {
     print_header "Generating Comparison Summary Report"
     
-    python3 - <<'EOF'
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<'EOF'
 import json
 import os
 import sys
@@ -309,7 +309,7 @@ generate_comparison_plots() {
         print_status "Generating comparison plots..."
         
         cd "$ROOT_DIR/benchmarks/cli/scripts"
-        python3 analyze_results.py \
+        cd "$ROOT_DIR/benchmarks" && uv run python cli/scenarios/comparison/analyze_results.py \
             -i "$SUMMARY_DIR"/*_comparison_results.json \
             -o "$SUMMARY_DIR" \
             -f plots || print_warning "Plot generation failed (optional)"

@@ -28,7 +28,7 @@ cli/
 ## Requirements
 
 - Hyperfine (for benchmarking)
-- Python 3.8+ (for evaluation scripts)
+- Python 3.12 (managed with uv)
 - sakurs-cli (built and in PATH)
 - Baseline tools (NLTK, ja_sentence_segmenter)
 
@@ -39,8 +39,9 @@ cli/
 brew install hyperfine  # macOS
 # or see https://github.com/sharkdp/hyperfine for other platforms
 
-# Install Python dependencies
-pip install -r requirements.txt
+# Install Python dependencies (from benchmarks/ directory)
+cd ..
+uv sync --all-extras
 
 # Build sakurs
 cd ../../
@@ -51,8 +52,12 @@ export PATH=$PATH:$(pwd)/target/release
 ## Quick Start
 
 ```bash
-# Prepare benchmark data
-python scripts/prepare_data.py
+# From the benchmarks directory, prepare benchmark data
+cd ..
+uv run python cli/scripts/prepare_data.py
+
+# Return to cli directory
+cd cli
 
 # Run all accuracy benchmarks
 bash scenarios/accuracy/run_all.sh
@@ -99,16 +104,18 @@ Fair comparison against established baselines:
 Benchmark data is managed by the parent `benchmarks/data/` directory:
 
 ```bash
-# Prepare all benchmark data (recommended)
-python scripts/prepare_data.py
+# Prepare all benchmark data (recommended) - from benchmarks/ directory
+cd ..
+uv run python cli/scripts/prepare_data.py
 
 # Or download specific datasets manually
-cd ../data
-python ud_english_ewt/download.py
-python ud_japanese_bccwj/download.py
+cd data
+uv run python ud_english_ewt/download.py
+uv run python ud_japanese_bccwj/download.py
 
 # Wikipedia samples for performance benchmarks (prepared automatically)
 # Manual preparation (if needed):
+cd ../cli
 bash scenarios/performance/prepare_wikipedia_data.sh
 ```
 
@@ -179,11 +186,12 @@ Wikipedia samples use Hugging Face's `wikimedia/wikipedia` dataset with fixed da
 Results can be formatted for academic papers:
 
 ```bash
-# Generate LaTeX tables
-python scripts/format_results.py --format latex
+# Generate LaTeX tables (from benchmarks/ directory)
+cd ..
+uv run python cli/scripts/format_results.py --format latex --results-dir cli/results
 
 # Generate plots
-python scripts/format_results.py --format plots
+uv run python cli/scripts/format_results.py --format plots --results-dir cli/results
 ```
 
 ## Troubleshooting

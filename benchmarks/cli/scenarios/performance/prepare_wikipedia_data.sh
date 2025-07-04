@@ -39,13 +39,13 @@ check_prerequisites() {
     print_status "Checking prerequisites..."
     
     # Check Python
-    if ! command -v python3 &> /dev/null; then
+    if ! command -v uv &> /dev/null; then
         print_error "Python 3 not found"
         missing=1
     fi
     
     # Check if datasets is installed
-    if ! python3 -c "import datasets" 2>/dev/null; then
+    if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import datasets") 2>/dev/null; then
         print_error "Python 'datasets' package not installed"
         echo "Install with: pip install datasets"
         missing=1
@@ -73,7 +73,7 @@ prepare_wikipedia_sample() {
     
     # Create sample using Python script
     print_status "Creating sample from Hugging Face Wikipedia dataset..."
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import sys
 import os
 from pathlib import Path
