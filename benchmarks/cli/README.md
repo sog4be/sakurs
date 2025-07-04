@@ -77,8 +77,8 @@ Metrics: Precision, Recall, F1, Pk, WindowDiff
 ### 2. Performance Benchmarks
 
 Measure throughput and latency using large text samples:
-- **English**: Wikipedia dump (500MB sample)
-- **Japanese**: Wikipedia dump (500MB sample)
+- **English**: Wikipedia (500MB sample, HF dataset 20231101.en)
+- **Japanese**: Wikipedia (500MB sample, HF dataset 20231101.ja)
 
 Metrics: Throughput (MB/s), Latency, Memory usage
 
@@ -93,15 +93,18 @@ Fair comparison against established baselines:
 Benchmark data is managed by the parent `benchmarks/data/` directory:
 
 ```bash
-# Download all required corpora
-cd ../data
-make download-all
+# Prepare all benchmark data (recommended)
+python scripts/prepare_data.py
 
-# Or download specific datasets
+# Or download specific datasets manually
+cd ../data
 python ud_english_ewt/download.py
 python ud_japanese_bccwj/download.py
-python wikipedia/download.py --language en --size 500MB
-python wikipedia/download.py --language ja --size 500MB
+
+# Wikipedia samples use Hugging Face datasets (automatic via prepare_data.py)
+# Manual creation example:
+python -c "from wikipedia import create_loader; create_loader('en', 500, '20231101').download()"
+python -c "from wikipedia import create_loader; create_loader('ja', 500, '20231101').download()"
 ```
 
 ## Running Benchmarks
@@ -151,9 +154,11 @@ results/
 For academic reproducibility:
 
 1. **Environment**: Document system specs in results
-2. **Data**: Use versioned corpora (UD r2.16)
+2. **Data**: Use versioned corpora (UD r2.16, Wikipedia 20231101)
 3. **Seeds**: Set random seeds where applicable
 4. **Isolation**: Run with minimal background processes
+
+Wikipedia samples use Hugging Face's `wikimedia/wikipedia` dataset with fixed dates (e.g., 20231101) to ensure reproducible results.
 
 ## Integration with Paper
 
