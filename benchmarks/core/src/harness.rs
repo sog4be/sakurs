@@ -62,7 +62,7 @@ pub fn setup_throughput(
 
 /// Common benchmark ID formatting
 pub fn format_benchmark_id(name: &str, variant: &str) -> String {
-    format!("{}/{}", name, variant)
+    format!("{name}/{variant}")
 }
 
 /// Helper to run a benchmark with error handling
@@ -80,7 +80,7 @@ pub fn run_benchmark_with_fallback<F, G>(
             // Primary benchmark succeeded
         }
         Err(e) => {
-            eprintln!("Warning: {} - using fallback: {}", id, e);
+            eprintln!("Warning: {id} - using fallback: {e}");
             group.bench_function(id, fallback_fn);
         }
     }

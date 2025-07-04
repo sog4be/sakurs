@@ -104,7 +104,7 @@ pub fn load_subset(max_sentences: usize) -> BenchmarkResult<TestData> {
     let boundaries = full_corpus.boundaries[..boundary_count].to_vec();
 
     Ok(TestData::new(
-        format!("brown_corpus_subset_{}", max_sentences),
+        format!("brown_corpus_subset_{max_sentences}"),
         text,
         boundaries,
     ))
@@ -160,7 +160,7 @@ mod tests {
         let result = load_full_corpus();
         if result.is_err() {
             let err = result.unwrap_err();
-            assert!(err.to_string().contains("Please run the download script"));
+            assert!(err.to_string().contains("Please run download script first"));
         }
     }
 }

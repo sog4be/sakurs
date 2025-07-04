@@ -51,7 +51,7 @@ impl fmt::Display for BenchmarkError {
                 )
             }
             Self::Validation { message } => {
-                write!(f, "Validation error: {}", message)
+                write!(f, "Validation error: {message}")
             }
             Self::CorpusNotFound {
                 corpus_name,
@@ -65,10 +65,10 @@ impl fmt::Display for BenchmarkError {
                 )
             }
             Self::InvalidFormat { expected, found } => {
-                write!(f, "Invalid format: expected {}, found {}", expected, found)
+                write!(f, "Invalid format: expected {expected}, found {found}")
             }
             Self::Config { message } => {
-                write!(f, "Configuration error: {}", message)
+                write!(f, "Configuration error: {message}")
             }
         }
     }
