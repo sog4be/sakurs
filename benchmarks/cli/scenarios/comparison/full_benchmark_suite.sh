@@ -56,7 +56,7 @@ check_prerequisites() {
     print_status "Checking complete benchmark suite prerequisites..."
     
     # Check for required commands
-    for cmd in sakurs hyperfine python3 bc jq; do
+    for cmd in sakurs hyperfine uv bc jq; do
         if ! command -v "$cmd" &> /dev/null; then
             print_error "$cmd not found"
             has_errors=1
@@ -82,11 +82,11 @@ check_prerequisites() {
     done
     
     # Check baseline tools
-    if ! python3 -c "import nltk" 2>/dev/null; then
+    if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import nltk") 2>/dev/null; then
         print_warning "NLTK not installed - comparison benchmarks will be skipped"
     fi
     
-    if ! python3 -c "import ja_sentence_segmenter" 2>/dev/null; then
+    if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import ja_sentence_segmenter") 2>/dev/null; then
         print_warning "ja_sentence_segmenter not installed - Japanese comparison will be skipped"
     fi
     
@@ -101,7 +101,7 @@ prepare_all_data() {
     # Prepare UD corpora
     print_status "Preparing UD corpora for accuracy benchmarks..."
     cd "$ROOT_DIR/benchmarks"
-    python3 scripts/prepare_data.py || print_warning "Some UD data preparation failed"
+    cd "$ROOT_DIR/benchmarks" && uv run python cli/scripts/prepare_data.py || print_warning "Some UD data preparation failed"
     
     # Prepare Wikipedia data
     print_status "Preparing Wikipedia data for performance benchmarks..."
@@ -207,7 +207,7 @@ generate_unified_report() {
     
     print_status "Generating comprehensive unified report..."
     
-    python3 - <<'EOF'
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<'EOF'
 import json
 import os
 import sys
@@ -480,7 +480,7 @@ run_advanced_analysis() {
     done
     
     if [ ${#result_files[@]} -gt 0 ]; then
-        python3 analyze_results.py \
+        cd "$ROOT_DIR/benchmarks" && uv run python cli/scenarios/comparison/analyze_results.py \
             -i "${result_files[@]}" \
             -o "$SUITE_DIR/advanced_analysis" \
             -f all \

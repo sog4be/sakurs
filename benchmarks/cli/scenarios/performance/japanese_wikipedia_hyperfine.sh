@@ -81,7 +81,7 @@ analyze_japanese_text() {
     
     print_status "Analyzing Japanese text characteristics..."
     
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import sys
 
 def analyze_file(filepath):
@@ -202,7 +202,7 @@ main() {
     # Step 4: Calculate throughput metrics (character-based for Japanese)
     print_header "Step 4: Throughput Analysis"
     
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import json
 import os
 
@@ -300,7 +300,7 @@ EOF
     # Step 5: Generate combined report
     print_header "Step 5: Combined Report Generation"
     
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import json
 
 # Load all data

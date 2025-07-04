@@ -67,22 +67,23 @@ check_prerequisites() {
     fi
     
     # Check if Python and NLTK are available
-    if ! command -v python3 &> /dev/null; then
-        print_error "Python 3 not found"
+    if ! command -v uv &> /dev/null; then
+        print_error "uv not found"
+        echo "Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
         missing=1
     fi
     
-    if ! python3 -c "import nltk" 2>/dev/null; then
+    if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import nltk") 2>/dev/null; then
         print_error "NLTK not installed"
         echo "Install with: pip install nltk"
         missing=1
     fi
     
     # Check if punkt data is available
-    if ! python3 -c "import nltk; nltk.data.find('tokenizers/punkt')" 2>/dev/null; then
+    if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import nltk; nltk.data.find('tokenizers/punkt')") 2>/dev/null; then
         print_warning "NLTK punkt data not found. Attempting download..."
-        python3 -c "import nltk; nltk.download('punkt', quiet=True)"
-        if ! python3 -c "import nltk; nltk.data.find('tokenizers/punkt')" 2>/dev/null; then
+        cd "$ROOT_DIR/benchmarks" && uv run python -c "import nltk; nltk.download('punkt', quiet=True)"
+        if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import nltk; nltk.data.find('tokenizers/punkt')") 2>/dev/null; then
             print_error "Failed to download NLTK punkt data"
             missing=1
         else
@@ -102,7 +103,7 @@ check_datasets() {
     local ud_dir="$ROOT_DIR/benchmarks/data/ud_english_ewt/cli_format"
     if [ ! -f "$ud_dir/ewt_plain.txt" ] || [ ! -f "$ud_dir/ewt_sentences.txt" ]; then
         print_error "UD English EWT data not found in $ud_dir"
-        echo "Please run: python $ROOT_DIR/benchmarks/scripts/prepare_data.py"
+        echo "Please run: cd $ROOT_DIR/benchmarks && uv run python cli/scripts/prepare_data.py"
         missing=1
     else
         print_status "✓ UD English EWT data available"
@@ -141,7 +142,7 @@ run_accuracy_comparison() {
     
     # Run NLTK Punkt
     print_status "Running NLTK Punkt segmentation..."
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import sys
 sys.path.insert(0, "$ROOT_DIR/benchmarks/baselines")
 from nltk_punkt.segmenter import create_segmenter
@@ -164,14 +165,14 @@ EOF
     print_status "Evaluating accuracy..."
     
     # Sakurs accuracy
-    python3 "$ROOT_DIR/benchmarks/cli/scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$sakurs_output" \
         --reference "$reference_file" \
         --output "$RESULTS_DIR/accuracy_sakurs_${dataset_name}_${TIMESTAMP}.json" \
         --format json
     
     # Punkt accuracy
-    python3 "$ROOT_DIR/benchmarks/cli/scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$punkt_output" \
         --reference "$reference_file" \
         --output "$RESULTS_DIR/accuracy_punkt_${dataset_name}_${TIMESTAMP}.json" \
@@ -183,14 +184,14 @@ EOF
     echo "=================================="
     echo ""
     echo "Sakurs:"
-    python3 "$ROOT_DIR/benchmarks/cli/scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$sakurs_output" \
         --reference "$reference_file" \
         --format text
     
     echo ""
     echo "NLTK Punkt:"
-    python3 "$ROOT_DIR/benchmarks/cli/scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$punkt_output" \
         --reference "$reference_file" \
         --format text
@@ -227,7 +228,7 @@ run_performance_comparison() {
         --command-name "sakurs" \
         --command-name "nltk-punkt" \
         "sakurs process --input '$input_file' --output '$temp_sakurs' --format sentences --language english" \
-        "python3 -c \"
+        "cd '$ROOT_DIR/benchmarks' && uv run python -c \"
 import sys
 sys.path.insert(0, '$ROOT_DIR/benchmarks/baselines')
 from nltk_punkt.segmenter import create_segmenter
@@ -246,7 +247,7 @@ with open('$temp_punkt', 'w', encoding='utf-8') as f:
     # Analyze performance results
     print_status "Analyzing performance results..."
     
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import json
 
 # Load performance results
@@ -349,7 +350,7 @@ run_memory_comparison() {
     print_status "Profiling NLTK Punkt memory usage..."
     local punkt_mem="$RESULTS_DIR/memory_punkt_${dataset_name}_${TIMESTAMP}.txt"
     
-    $time_cmd -v python3 -c "
+    $time_cmd -v sh -c "cd '$ROOT_DIR/benchmarks' && uv run python -c \"
 import sys
 sys.path.insert(0, '$ROOT_DIR/benchmarks/baselines')
 from nltk_punkt.segmenter import create_segmenter
@@ -363,7 +364,7 @@ sentences = segmenter.extract_sentences(text)
 with open('$temp_output', 'w', encoding='utf-8') as f:
     for sentence in sentences:
         f.write(sentence.strip() + '\n')
-" 2>&1 | tee "$punkt_mem" | grep -E "(Maximum resident|User time|System time)" || true
+\"" 2>&1 | tee "$punkt_mem" | grep -E "(Maximum resident|User time|System time)" || true
     
     # Compare memory usage
     echo ""

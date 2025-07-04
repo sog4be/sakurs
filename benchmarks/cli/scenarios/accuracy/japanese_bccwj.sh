@@ -44,16 +44,16 @@ sakurs process \
     --language japanese
 
 # Run segmentation with ja_sentence_segmenter (if available)
-if python -c "import ja_sentence_segmenter" 2>/dev/null; then
+if (cd "$ROOT_DIR/benchmarks" && uv run python -c "import ja_sentence_segmenter") 2>/dev/null; then
     echo "Segmenting with ja_sentence_segmenter..."
-    python "$ROOT_DIR/benchmarks/baselines/ja_sentence_segmenter/benchmark.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "baselines/ja_sentence_segmenter/benchmark.py" \
         "$DATA_DIR/bccwj_plain.txt" \
         --output "$RESULTS_DIR/bccwj_jaseg_${TIMESTAMP}.txt" \
         --format lines
         
     # Evaluate ja_sentence_segmenter accuracy
     echo "Evaluating ja_sentence_segmenter accuracy..."
-    python "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$RESULTS_DIR/bccwj_jaseg_${TIMESTAMP}.txt" \
         --reference "$DATA_DIR/bccwj_sentences.txt" \
         --output "$RESULTS_DIR/japanese_bccwj_jaseg_accuracy_${TIMESTAMP}.json" \
@@ -65,7 +65,7 @@ fi
 
 # Evaluate sakurs accuracy
 echo "Evaluating sakurs accuracy..."
-python "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/bccwj_sakurs_${TIMESTAMP}.txt" \
     --reference "$DATA_DIR/bccwj_sentences.txt" \
     --output "$RESULTS_DIR/japanese_bccwj_accuracy_${TIMESTAMP}.json" \
@@ -81,7 +81,7 @@ fi
 
 echo ""
 echo "Sakurs Summary:"
-python "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/bccwj_sakurs_${TIMESTAMP}.txt" \
     --reference "$DATA_DIR/bccwj_sentences.txt" \
     --format text

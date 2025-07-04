@@ -11,12 +11,12 @@ help:
 # Download and process the UD English EWT data
 download:
 	@echo "📥 Downloading UD English EWT r2.16..."
-	python3 download.py
+	cd "$${PWD%/benchmarks/data/ud_english_ewt}/benchmarks" && uv run python data/ud_english_ewt/download.py
 
 # Force re-download
 download-force:
 	@echo "🔄 Force re-downloading UD English EWT r2.16..."
-	python3 download.py --force
+	cd "$${PWD%/benchmarks/data/ud_english_ewt}/benchmarks" && uv run python data/ud_english_ewt/download.py --force
 
 # Run benchmarks for UD English EWT
 benchmark:
@@ -26,7 +26,7 @@ benchmark:
 # Test the download script with sample data
 test:
 	@echo "🧪 Testing UD English EWT processing..."
-	python3 -c "from loader import is_available, load_sample; print('Available:', is_available()); print('Sample:', load_sample())"
+	cd "$${PWD%/benchmarks/data/ud_english_ewt}/benchmarks" && uv run python -c "import sys; sys.path.insert(0, 'data/ud_english_ewt'); from loader import is_available, load_sample; print('Available:', is_available()); print('Sample:', load_sample())"
 
 # Clean processed data
 clean:

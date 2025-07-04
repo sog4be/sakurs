@@ -48,7 +48,7 @@ check_prerequisites() {
     print_status "Checking prerequisites..."
     
     # Check for required commands
-    for cmd in sakurs hyperfine python3 jq bc; do
+    for cmd in sakurs hyperfine uv jq bc; do
         if ! command -v "$cmd" &> /dev/null; then
             print_error "$cmd not found"
             has_errors=1
@@ -98,7 +98,7 @@ run_benchmark() {
 generate_summary_report() {
     print_header "Generating Summary Report"
     
-    python3 - <<'EOF'
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<'EOF'
 import json
 import os
 import sys

@@ -8,7 +8,7 @@ all: benchmark-all
 # Install dependencies
 install:
 	@echo "Installing Python dependencies..."
-	pip install -r requirements.txt
+	cd .. && uv sync --all-extras
 	@echo "Checking for Hyperfine..."
 	@which hyperfine > /dev/null || (echo "Please install Hyperfine: https://github.com/sharkdp/hyperfine" && exit 1)
 	@echo "Checking for sakurs..."
@@ -17,7 +17,7 @@ install:
 # Prepare benchmark data
 prepare:
 	@echo "Preparing benchmark data..."
-	python scripts/prepare_data.py
+	cd .. && uv run python cli/scripts/prepare_data.py
 
 # Run accuracy benchmarks
 benchmark-accuracy: prepare
@@ -40,7 +40,7 @@ benchmark-comparison: prepare
 # Run all benchmarks and generate report
 benchmark-all: benchmark-accuracy benchmark-performance benchmark-comparison
 	@echo "Generating comprehensive report..."
-	python scenarios/comparison/generate_report.py
+	cd .. && uv run python cli/scenarios/comparison/generate_report.py
 	@echo "Benchmarks complete! Results in results/"
 
 # Clean up results

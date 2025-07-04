@@ -2,4 +2,4 @@
 
 from .segmenter import JapaneseSentenceSegmenter
 
-__all__ = ['JapaneseSentenceSegmenter']
+__all__ = ["JapaneseSentenceSegmenter"]

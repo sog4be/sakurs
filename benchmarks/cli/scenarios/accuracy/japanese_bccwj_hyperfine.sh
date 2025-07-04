@@ -61,7 +61,7 @@ check_prerequisites() {
     fi
     
     # Check if Python and required packages are available
-    if ! command -v python3 &> /dev/null; then
+    if ! command -v uv &> /dev/null; then
         print_error "Python 3 not found"
         missing=1
     fi
@@ -77,14 +77,14 @@ validate_accuracy() {
     
     # Run evaluation
     local accuracy_json="$RESULTS_DIR/validation_ja_${TIMESTAMP}.json"
-    python3 "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$predicted_file" \
         --reference "$DATA_DIR/bccwj_sentences.txt" \
         --output "$accuracy_json" \
         --format json
     
     # Extract F1 score
-    local f1_score=$(python3 -c "
+    local f1_score=$(cd "$ROOT_DIR/benchmarks" && uv run python -c "
 import json
 with open('$accuracy_json') as f:
     data = json.load(f)
@@ -94,7 +94,7 @@ with open('$accuracy_json') as f:
     print_status "F1 Score: $f1_score (minimum required: $min_f1)"
     
     # Check if accuracy meets threshold
-    local meets_threshold=$(python3 -c "
+    local meets_threshold=$(cd "$ROOT_DIR/benchmarks" && uv run python -c "
 import json
 with open('$accuracy_json') as f:
     data = json.load(f)
@@ -115,7 +115,7 @@ analyze_japanese_text() {
     
     print_status "Analyzing Japanese text characteristics..."
     
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import sys
 
 def analyze_japanese_file(filepath):
@@ -204,7 +204,7 @@ main() {
     print_status "Step 3: Final accuracy evaluation"
     
     # Run detailed evaluation
-    python3 "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$output_file" \
         --reference "$DATA_DIR/bccwj_sentences.txt" \
         --output "$RESULTS_DIR/accuracy_japanese_bccwj_${TIMESTAMP}.json" \
@@ -213,7 +213,7 @@ main() {
     # Step 4: Character-based analysis
     print_status "Step 4: Character-based analysis"
     
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import json
 
 # Analyze predicted output
@@ -259,7 +259,7 @@ EOF
     
     echo ""
     echo "=== Accuracy Results ==="
-    python3 "$SCRIPT_DIR/../../scripts/evaluate_accuracy.py" \
+    cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
         --predicted "$output_file" \
         --reference "$DATA_DIR/bccwj_sentences.txt" \
         --format text
@@ -268,7 +268,7 @@ EOF
     print_status "Step 6: Generating combined report"
     
     # Create a combined JSON report with Japanese-specific metrics
-    python3 - <<EOF
+    cd "$ROOT_DIR/benchmarks" && uv run python - <<EOF
 import json
 from datetime import datetime
 
