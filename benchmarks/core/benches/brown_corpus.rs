@@ -5,6 +5,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use sakurs_benchmarks::data::brown_corpus;
+use sakurs_benchmarks::harness::configure_criterion;
 use sakurs_benchmarks::{calculate_complete_metrics, create_default_processor, extract_boundaries};
 use std::hint::black_box;
 
@@ -112,16 +113,9 @@ fn bench_brown_corpus_sample(c: &mut Criterion) {
     group.finish();
 }
 
-// Configure criterion for Brown Corpus benchmarks
-fn get_criterion_config() -> Criterion {
-    Criterion::default()
-        .sample_size(20)
-        .measurement_time(std::time::Duration::from_secs(10))
-}
-
 criterion_group! {
     name = brown_corpus_benches;
-    config = get_criterion_config();
+    config = configure_criterion();
     targets =
         bench_brown_corpus_sample,
         bench_brown_corpus_subsets,

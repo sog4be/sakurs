@@ -11,6 +11,10 @@ import click
 import nltk
 from tqdm import tqdm
 
+# Add parent directory to path to import schema
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from schema import validate_corpus_data
+
 
 def ensure_nltk_data() -> None:
     """Ensure NLTK Brown Corpus data is downloaded."""
@@ -79,6 +83,14 @@ def save_corpus_data(text: str, boundaries: List[int], output_path: Path) -> Non
         "boundaries": boundaries,
         "metadata": metadata,
     }
+    
+    # Validate before saving
+    try:
+        validate_corpus_data(corpus_data)
+        click.echo("✅ Data validation passed")
+    except ValueError as e:
+        click.echo(f"❌ Data validation failed: {e}", err=True)
+        sys.exit(1)
     
     # Save to JSON
     click.echo(f"💾 Saving to {output_path}...")

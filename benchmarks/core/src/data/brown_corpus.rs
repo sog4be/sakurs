@@ -4,8 +4,9 @@
 //! preprocessed by the Python scripts in benchmarks/data/brown_corpus/.
 
 use crate::data::TestData;
+use crate::error::{BenchmarkError, BenchmarkResult};
+use crate::paths;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 
@@ -28,14 +29,9 @@ struct CorpusData {
 }
 
 /// Get the path to the Brown Corpus cache directory
-fn get_cache_path() -> PathBuf {
-    // Try to find the cache relative to the workspace root
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.pop(); // benchmarks/core -> benchmarks
-    path.push("data");
-    path.push("brown_corpus");
-    path.push("cache");
-    path
+#[allow(dead_code)]
+fn get_cache_path() -> BenchmarkResult<PathBuf> {
+    paths::corpus_cache_dir("brown_corpus")
 }
 
 /// Load the full Brown Corpus dataset
@@ -45,26 +41,35 @@ fn get_cache_path() -> PathBuf {
 /// cd benchmarks/data/brown_corpus
 /// uv run python download.py
 /// ```
-pub fn load_full_corpus() -> Result<TestData, Box<dyn Error>> {
-    let cache_path = get_cache_path();
-    let corpus_file = cache_path.join("brown_corpus.json");
+pub fn load_full_corpus() -> BenchmarkResult<TestData> {
+    let corpus_file = paths::corpus_data_path("brown_corpus", "brown_corpus.json")?;
 
     if !corpus_file.exists() {
-        return Err(format!(
-            "Brown Corpus data not found at {:?}. Please run the download script first:\n\
-             cd benchmarks/data/brown_corpus && uv run python download.py",
-            corpus_file
-        )
-        .into());
+        return Err(BenchmarkError::CorpusNotFound {
+            corpus_name: "Brown Corpus".to_string(),
+            expected_path: corpus_file,
+        });
     }
 
     // Load and parse JSON data
-    let data = fs::read_to_string(&corpus_file)?;
-    let corpus_data: CorpusData = serde_json::from_str(&data)?;
+    let data = fs::read_to_string(&corpus_file).map_err(|e| BenchmarkError::Io {
+        path: corpus_file.clone(),
+        source: e,
+    })?;
+
+    let corpus_data: CorpusData =
+        serde_json::from_str(&data).map_err(|e| BenchmarkError::JsonParse {
+            path: corpus_file,
+            source: e,
+        })?;
 
     // Validate the data
     let test_data = TestData::new(corpus_data.name, corpus_data.text, corpus_data.boundaries);
-    test_data.validate()?;
+    test_data
+        .validate()
+        .map_err(|e| BenchmarkError::Validation {
+            message: e.to_string(),
+        })?;
 
     Ok(test_data)
 }
@@ -72,7 +77,7 @@ pub fn load_full_corpus() -> Result<TestData, Box<dyn Error>> {
 /// Load a subset of Brown Corpus for quick tests
 ///
 /// This loads only the first N sentences for faster iteration during development.
-pub fn load_subset(max_sentences: usize) -> Result<TestData, Box<dyn Error>> {
+pub fn load_subset(max_sentences: usize) -> BenchmarkResult<TestData> {
     let full_corpus = load_full_corpus()?;
 
     // Find the boundary index for the requested number of sentences
@@ -85,8 +90,16 @@ pub fn load_subset(max_sentences: usize) -> Result<TestData, Box<dyn Error>> {
         ));
     }
 
-    // Get the text up to the nth boundary
-    let text_end = full_corpus.boundaries[boundary_count - 1];
+    // Get the text up to and including the nth sentence
+    // We need to find where the sentence ends after the last boundary
+    let text_end = if boundary_count < full_corpus.boundaries.len() {
+        // Use the next boundary as the cutoff point
+        full_corpus.boundaries[boundary_count]
+    } else {
+        // Use all the text
+        full_corpus.text.len()
+    };
+
     let text = full_corpus.text[..text_end].to_string();
     let boundaries = full_corpus.boundaries[..boundary_count].to_vec();
 
@@ -99,8 +112,7 @@ pub fn load_subset(max_sentences: usize) -> Result<TestData, Box<dyn Error>> {
 
 /// Check if Brown Corpus data is available
 pub fn is_available() -> bool {
-    let cache_path = get_cache_path();
-    cache_path.join("brown_corpus.json").exists()
+    paths::corpus_exists("brown_corpus", "brown_corpus.json")
 }
 
 /// Get a small hardcoded Brown Corpus sample for testing
@@ -131,6 +143,8 @@ mod tests {
     #[test]
     fn test_cache_path() {
         let path = get_cache_path();
+        assert!(path.is_ok());
+        let path = path.unwrap();
         assert!(path.ends_with("brown_corpus/cache"));
     }
 
