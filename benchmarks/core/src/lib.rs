@@ -5,7 +5,10 @@
 
 pub mod constants;
 pub mod data;
+pub mod error;
+pub mod harness;
 pub mod metrics;
+pub mod paths;
 pub mod utils;
 
 pub use data::TestData;

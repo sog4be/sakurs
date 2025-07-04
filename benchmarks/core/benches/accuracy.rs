@@ -4,7 +4,7 @@
 //! with known ground truth boundaries.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use sakurs_benchmarks::constants::{bench_profiles, text_sizes};
+use sakurs_benchmarks::constants::text_sizes;
 use sakurs_benchmarks::data::{brown_corpus, generators};
 use sakurs_benchmarks::{
     calculate_complete_metrics, create_default_processor, extract_boundaries, AccuracyMetrics,

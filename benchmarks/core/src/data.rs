@@ -207,29 +207,8 @@ pub mod generators {
     }
 }
 
-/// Load predefined Brown Corpus samples
-/// Note: This is a placeholder. Real implementation would load actual Brown Corpus data
-pub mod brown_corpus {
-    use super::TestData;
-
-    /// Get a small Brown Corpus sample for testing
-    pub fn small_sample() -> TestData {
-        // This is a simplified example. Real implementation would load from files
-        let text = "The Fulton County Grand Jury said Friday an investigation of \
-                   Atlanta's recent primary election produced no evidence that \
-                   any irregularities took place. The jury further said in \
-                   term-end presentments that the City Executive Committee, \
-                   which had over-all charge of the election, deserves the \
-                   praise and thanks of the City of Atlanta for the manner \
-                   in which the election was conducted.";
-
-        // Boundaries are detected after period + space
-        let boundaries = vec![151];
-
-        TestData::new("brown_corpus_sample", text, boundaries)
-            .with_metadata("Brown Corpus news category sample")
-    }
-}
+/// Brown Corpus data loading
+pub mod brown_corpus;
 
 #[cfg(test)]
 mod tests {

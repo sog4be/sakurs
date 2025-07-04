@@ -74,7 +74,7 @@ fn bench_chunk_size_impact(c: &mut Criterion) {
                 config.parallel_threshold = 10_000;
                 config.max_threads = Some(4); // Fixed thread count
 
-                let processor = TextProcessor::with_config(config, rules.clone());
+                let processor = create_processor_with_config(config);
 
                 b.iter(|| {
                     let result = processor
@@ -102,13 +102,13 @@ fn bench_parallel_efficiency(c: &mut Criterion) {
         // Measure sequential performance
         let mut seq_config = ProcessorConfig::default();
         seq_config.parallel_threshold = usize::MAX; // Force sequential
-        let seq_processor = TextProcessor::with_config(seq_config, rules.clone());
+        let seq_processor = create_processor_with_config(seq_config);
 
         // Measure parallel performance with optimal threads
         let mut par_config = ProcessorConfig::default();
         par_config.parallel_threshold = 10_000;
         par_config.max_threads = Some(num_cpus::get());
-        let par_processor = TextProcessor::with_config(par_config, rules.clone());
+        let par_processor = create_processor_with_config(par_config);
 
         group.throughput(Throughput::Bytes(size as u64));
 
@@ -180,7 +180,7 @@ fn measure_scalability_metrics() {
             10_000
         };
 
-        let processor = TextProcessor::with_config(config, rules.clone());
+        let processor = create_processor_with_config(config);
 
         // Warm up
         for _ in 0..3 {

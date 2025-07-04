@@ -1,0 +1,58 @@
+[project]
+name = "sakurs-benchmarks"
+version = "0.1.0"
+description = "Benchmarking tools and data processors for sakurs"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    # Data processing
+    "nltk>=3.8",           # For Brown Corpus and other NLP corpora
+    "tqdm>=4.65.0",        # Progress bars for data processing
+    "click>=8.1.0",        # CLI for data download scripts
+    # Analysis and visualization
+    "pandas>=2.0.0",       # Data analysis
+    "matplotlib>=3.6.0",   # Plotting results
+    "seaborn>=0.12.0",     # Statistical visualizations
+    # Testing and benchmarking
+    "pytest>=7.0.0",       # Testing framework
+    "pytest-benchmark>=4.0.0",  # Benchmarking with pytest
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",         # Linting and formatting
+    "mypy>=1.0.0",         # Type checking
+    "pytest-cov>=4.0.0",   # Coverage reporting
+]
+
+[project.scripts]
+# Data download scripts
+download-brown-corpus = "data.brown_corpus.download:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]  # Line too long - handled by formatter
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["data", "data.brown_corpus"]
+py-modules = []
