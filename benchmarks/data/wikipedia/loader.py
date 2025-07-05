@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 class WikipediaLoader(CorpusLoader):
     """Loader for Wikipedia data from Hugging Face."""
 
-    # Default to June 2024 snapshot for reproducibility
+    # Default to November 2023 snapshot for reproducibility
     # Available dates can be found at: https://huggingface.co/datasets/wikimedia/wikipedia
-    DEFAULT_DATE = "20240601"
+    DEFAULT_DATE = "20231101"
 
     def __init__(
         self,
@@ -38,7 +38,7 @@ class WikipediaLoader(CorpusLoader):
             language: Language code ('en', 'ja', etc.)
             size_mb: Target sample size in MB
             cache_dir: Cache directory for samples
-            date: Wikipedia dump date (default: 20240601)
+            date: Wikipedia dump date (default: 20231101)
         """
         super().__init__(cache_dir)
         self.language = language

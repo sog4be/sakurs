@@ -184,7 +184,7 @@ make download
 #### 2. Wikipedia Datasets
 - **Languages**: English and Japanese
 - **Size**: 500MB samples per language
-- **Version**: June 2024 dumps (20240601)
+- **Version**: November 2023 dumps (20231101)
 - **Features**: Version tracking, metadata management
 
 The Wikipedia datasets are automatically downloaded from Hugging Face and include:
@@ -218,12 +218,12 @@ UD Japanese-BCCWJ prepared: /path/to/bccwj_plain.txt
   Test set: 4,442 sentences, 105,834 characters
 
 Wikipedia-EN prepared: /path/to/wikipedia_sample_en.txt
-  Version: 20240601 dump
+  Version: 20231101 dump
   Size: 500.0 MB
   Articles: ~3,000
   
 Wikipedia-JA prepared: /path/to/wikipedia_sample_ja.txt
-  Version: 20240601 dump  
+  Version: 20231101 dump  
   Size: 500.0 MB
   Articles: ~8,000
 ```
