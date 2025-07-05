@@ -190,10 +190,10 @@ except Exception as e:
         # Determine command based on tool
         case "$tool" in
             "nltk")
-                cmd="uv run python ../comparison/baselines/nltk_baseline.py"
+                cmd_module="baselines.nltk_punkt.cli"
                 ;;
             "ja_seg")
-                cmd="uv run python ../comparison/baselines/ja_seg_baseline.py"
+                cmd_module="baselines.ja_sentence_segmenter.cli"
                 ;;
             *)
                 print_error "Unknown tool: $tool"
@@ -211,7 +211,7 @@ from metrics import MetricsMeasurer, BenchmarkResult
 measurer = MetricsMeasurer()
 try:
     result = measurer.run_throughput_benchmark(
-        command=$cmd.split(),
+        command=['uv', 'run', 'python', '-m', '$cmd_module', '--input', '-'],
         input_file='$input_file',
         num_threads=1,
         warmup_runs=$WARMUP_RUNS,
@@ -289,10 +289,10 @@ except Exception as e:
         # Determine command based on tool
         case "$tool" in
             "nltk")
-                cmd="uv run python ../comparison/baselines/nltk_baseline.py"
+                cmd_module="baselines.nltk_punkt.cli"
                 ;;
             "ja_seg")
-                cmd="uv run python ../comparison/baselines/ja_seg_baseline.py"
+                cmd_module="baselines.ja_sentence_segmenter.cli"
                 ;;
             *)
                 print_error "Unknown tool: $tool"
@@ -309,7 +309,7 @@ from metrics import MetricsMeasurer, BenchmarkResult
 measurer = MetricsMeasurer()
 try:
     result = measurer.enhanced_measure_memory_peak(
-        command=$cmd.split(),
+        command=['uv', 'run', 'python', '-m', '$cmd_module', '--input', '-'],
         input_file='$input_file'
     )
     
