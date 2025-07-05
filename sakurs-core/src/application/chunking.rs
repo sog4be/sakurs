@@ -357,8 +357,11 @@ impl ChunkManager {
             return Ok(text.len());
         }
 
-        // Convert byte position to char position
-        let char_pos = text[..pos].chars().count();
+        // First, find a valid UTF-8 boundary near the requested position
+        let safe_pos = self.find_utf8_boundary(text_bytes, pos, forward)?;
+
+        // Now convert the safe byte position to char position
+        let char_pos = text[..safe_pos].chars().count();
         let chars: Vec<char> = text.chars().collect();
 
         if forward {
@@ -391,6 +394,26 @@ fn is_utf8_char_boundary(bytes: &[u8], pos: usize) -> bool {
 
     // UTF-8 continuation bytes start with 10xxxxxx
     (bytes[pos] & 0b11000000) != 0b10000000
+}
+
+/// Finds the nearest valid UTF-8 character boundary
+#[allow(dead_code)]
+fn find_char_boundary(text: &str, byte_pos: usize) -> usize {
+    if byte_pos >= text.len() {
+        return text.len();
+    }
+
+    // Check if already at a valid boundary
+    if text.is_char_boundary(byte_pos) {
+        return byte_pos;
+    }
+
+    // Search backward for the nearest character boundary
+    let mut pos = byte_pos;
+    while pos > 0 && !text.is_char_boundary(pos) {
+        pos -= 1;
+    }
+    pos
 }
 
 /// Checks if a position is at a word boundary
@@ -654,6 +677,87 @@ mod tests {
         // Should handle emoji boundaries correctly
         for chunk in &chunks {
             // Verify chunk starts and ends on character boundaries
+            assert!(chunk.content.is_char_boundary(0));
+            assert!(chunk.content.is_char_boundary(chunk.content.len()));
+        }
+    }
+
+    #[test]
+    fn test_utf8_boundary_in_japanese_text() {
+        // Test case from Issue #48 - Japanese text that causes UTF-8 boundary error
+        let manager = ChunkManager::new(10, 2);
+
+        // Create text with Japanese characters that are 3 bytes each
+        let text = "これは日本語のテストです。"; // Each character is 3 bytes
+
+        let chunks = manager.chunk_text(text).unwrap();
+
+        // Verify all chunks are valid UTF-8
+        for chunk in &chunks {
+            assert!(!chunk.content.is_empty());
+            // Should not panic when accessing content
+            let _ = chunk.content.chars().count();
+        }
+    }
+
+    #[test]
+    fn test_chunk_boundary_in_multibyte_char() {
+        // Simulate the exact scenario from Issue #48
+        // Create a string where chunk boundary falls in the middle of a multi-byte character
+        let mut text = String::new();
+
+        // Fill with ASCII until we're at a specific position
+        for _ in 0..8 {
+            text.push('a');
+        }
+
+        // Add a 3-byte Japanese character that will span the boundary
+        text.push('。'); // This is a 3-byte character
+
+        // Add more content
+        text.push_str("テスト");
+
+        // Use chunk size of 10 bytes - boundary will fall in middle of '。'
+        let manager = ChunkManager::new(10, 2);
+
+        // This should not panic
+        let result = manager.chunk_text(&text);
+        assert!(result.is_ok());
+
+        let chunks = result.unwrap();
+
+        // Verify chunks are valid
+        for chunk in &chunks {
+            // Each chunk should be valid UTF-8
+            assert!(std::str::from_utf8(chunk.content.as_bytes()).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_large_japanese_text_chunking() {
+        // Test with a larger chunk size similar to the production scenario
+        let manager = ChunkManager::new(100, 10);
+
+        // Create a long Japanese text
+        let mut text = String::new();
+        for _ in 0..50 {
+            text.push_str("これは日本語のテストです。");
+        }
+
+        let chunks = manager.chunk_text(&text).unwrap();
+
+        // Verify all chunks
+        assert!(!chunks.is_empty());
+
+        for (i, chunk) in chunks.iter().enumerate() {
+            // Verify chunk properties
+            assert!(!chunk.content.is_empty());
+            assert_eq!(chunk.index, i);
+
+            // Verify UTF-8 validity
+            assert!(std::str::from_utf8(chunk.content.as_bytes()).is_ok());
+
+            // Verify character boundaries
             assert!(chunk.content.is_char_boundary(0));
             assert!(chunk.content.is_char_boundary(chunk.content.len()));
         }
