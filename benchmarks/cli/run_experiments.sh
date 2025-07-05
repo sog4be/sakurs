@@ -369,17 +369,17 @@ if [ "$SKIP_THROUGHPUT" = false ]; then
     print_info "Running throughput benchmarks..."
     
     # Japanese Wikipedia
-    if [ -f "../data/wikipedia_ja_sample_20240601.txt" ]; then
-        run_throughput_benchmarks "ja" "wikipedia" "sakurs" "../data/wikipedia_ja_sample_20240601.txt"
-        run_throughput_benchmarks "ja" "wikipedia" "ja_seg" "../data/wikipedia_ja_sample_20240601.txt"
+    if [ -f "../data/wikipedia_ja_sample_20231101.txt" ]; then
+        run_throughput_benchmarks "ja" "wikipedia" "sakurs" "../data/wikipedia_ja_sample_20231101.txt"
+        run_throughput_benchmarks "ja" "wikipedia" "ja_seg" "../data/wikipedia_ja_sample_20231101.txt"
     else
         print_warning "Japanese Wikipedia sample not found, skipping..."
     fi
     
     # English Wikipedia
-    if [ -f "../data/wikipedia_en_sample_20240601.txt" ]; then
-        run_throughput_benchmarks "en" "wikipedia" "sakurs" "../data/wikipedia_en_sample_20240601.txt"
-        run_throughput_benchmarks "en" "wikipedia" "nltk" "../data/wikipedia_en_sample_20240601.txt"
+    if [ -f "../data/wikipedia_en_sample_20231101.txt" ]; then
+        run_throughput_benchmarks "en" "wikipedia" "sakurs" "../data/wikipedia_en_sample_20231101.txt"
+        run_throughput_benchmarks "en" "wikipedia" "nltk" "../data/wikipedia_en_sample_20231101.txt"
     else
         print_warning "English Wikipedia sample not found, skipping..."
     fi
@@ -390,17 +390,17 @@ if [ "$SKIP_MEMORY" = false ]; then
     print_info "Running memory benchmarks..."
     
     # Japanese Wikipedia
-    if [ -f "../data/wikipedia_ja_sample_20240601.txt" ]; then
-        run_memory_benchmarks "ja" "wikipedia" "sakurs" "../data/wikipedia_ja_sample_20240601.txt"
-        run_memory_benchmarks "ja" "wikipedia" "ja_seg" "../data/wikipedia_ja_sample_20240601.txt"
+    if [ -f "../data/wikipedia_ja_sample_20231101.txt" ]; then
+        run_memory_benchmarks "ja" "wikipedia" "sakurs" "../data/wikipedia_ja_sample_20231101.txt"
+        run_memory_benchmarks "ja" "wikipedia" "ja_seg" "../data/wikipedia_ja_sample_20231101.txt"
     else
         print_warning "Japanese Wikipedia sample not found, skipping..."
     fi
     
     # English Wikipedia
-    if [ -f "../data/wikipedia_en_sample_20240601.txt" ]; then
-        run_memory_benchmarks "en" "wikipedia" "sakurs" "../data/wikipedia_en_sample_20240601.txt"
-        run_memory_benchmarks "en" "wikipedia" "nltk" "../data/wikipedia_en_sample_20240601.txt"
+    if [ -f "../data/wikipedia_en_sample_20231101.txt" ]; then
+        run_memory_benchmarks "en" "wikipedia" "sakurs" "../data/wikipedia_en_sample_20231101.txt"
+        run_memory_benchmarks "en" "wikipedia" "nltk" "../data/wikipedia_en_sample_20231101.txt"
     else
         print_warning "English Wikipedia sample not found, skipping..."
     fi

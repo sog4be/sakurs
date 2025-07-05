@@ -56,7 +56,11 @@ def prepare_ud_english_ewt():
     with open(sentences_path, "w", encoding="utf-8") as f:
         for doc in data["documents"]:
             for sent in doc["sentences"]:
-                f.write(sent + "\n")
+                # Handle both string and dict formats
+                if isinstance(sent, str):
+                    f.write(sent + "\n")
+                elif isinstance(sent, dict) and "text" in sent:
+                    f.write(sent["text"] + "\n")
 
     # Display dataset statistics
     logger.info(f"UD English EWT prepared: {plain_text_path}")
@@ -94,7 +98,7 @@ def prepare_wikipedia_samples():
     logger.info("Preparing Wikipedia samples...")
 
     success = True
-    date = "20240601"  # Updated to June 2024 dump for more recent data
+    date = "20231101"  # Using November 2023 dump available from Hugging Face
 
     # Prepare English Wikipedia
     try:

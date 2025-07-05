@@ -64,7 +64,7 @@ uv run python cli/scripts/prepare_data.py
 
 This will:
 1. Download and prepare Wikipedia samples (500MB each for EN/JA)
-   - Uses June 2024 dumps (20240601) from Hugging Face
+   - Uses November 2023 dumps (20231101) from Hugging Face
    - Tracks version metadata and download timestamps
 2. Verify UD Treebanks are available (r2.16)
    - UD English-EWT: ~25K sentences
@@ -158,8 +158,8 @@ Metrics: Precision, Recall, F1, Pk, WindowDiff
 ### 2. Performance Benchmarks
 
 Measure throughput and latency using large text samples:
-- **English**: Wikipedia (500MB sample, HF dataset 20240601.en)
-- **Japanese**: Wikipedia (500MB sample, HF dataset 20240601.ja)
+- **English**: Wikipedia (500MB sample, HF dataset 20231101.en)
+- **Japanese**: Wikipedia (500MB sample, HF dataset 20231101.ja)
 
 Metrics:
 - **Throughput**: MB/s processed with various thread counts
@@ -291,7 +291,7 @@ For academic reproducibility:
 1. **Environment**: System specs are automatically captured in `metadata.json`
 2. **Data**: Use versioned corpora
    - UD Treebanks: r2.16 (verified during data preparation)
-   - Wikipedia: 20240601 dumps with tracked metadata
+   - Wikipedia: 20231101 dumps with tracked metadata
 3. **Seeds**: Deterministic processing (no randomness)
 4. **Isolation**: Run with minimal background processes
 5. **Version tracking**: All dataset versions and timestamps recorded

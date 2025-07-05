@@ -82,9 +82,26 @@ class UDJapaneseBCCWJLoader(ConllULoader):
             return sample
 
         # Otherwise return hardcoded sample
-        from .download import create_sample_data
-
-        return create_sample_data()
+        return {
+            "metadata": {
+                "name": "UD_Japanese-BCCWJ",
+                "version": "2.16",
+                "url": "https://github.com/UniversalDependencies/UD_Japanese-BCCWJ",
+                "license": "CC BY-NC-SA 4.0",
+                "sentences": 2,
+                "tokens": 20,
+                "documents": 1,
+            },
+            "documents": [{
+                "id": "sample_doc",
+                "text": "今日は良い天気です。公園で散歩しました。",
+                "sentences": [
+                    {"text": "今日は良い天気です。", "id": "1"},
+                    {"text": "公園で散歩しました。", "id": "2"}
+                ],
+                "split": "sample"
+            }]
+        }
 
     def iter_documents(self) -> Iterator[tuple[str, list[str]]]:
         """Iterate over documents with ground truth.
