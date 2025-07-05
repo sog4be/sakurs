@@ -87,21 +87,21 @@ check_datasets() {
     
     print_status "Checking datasets..."
     
-    # Check UD Japanese-BCCWJ (accuracy dataset)
-    local ud_dir="$ROOT_DIR/benchmarks/data/ud_japanese_bccwj/cli_format"
-    if [ ! -f "$ud_dir/bccwj_plain.txt" ] || [ ! -f "$ud_dir/bccwj_sentences.txt" ]; then
-        print_error "UD Japanese-BCCWJ data not found in $ud_dir"
+    # Check UD Japanese-GSD (accuracy dataset)
+    local ud_dir="$ROOT_DIR/benchmarks/data/ud_japanese_gsd/cli_format"
+    if [ ! -f "$ud_dir/gsd_plain.txt" ] || [ ! -f "$ud_dir/gsd_sentences.txt" ]; then
+        print_error "UD Japanese-GSD data not found in $ud_dir"
         echo "Please run: cd $ROOT_DIR/benchmarks && uv run python cli/scripts/prepare_data.py"
         missing=1
     else
-        print_status "✓ UD Japanese-BCCWJ data available"
+        print_status "✓ UD Japanese-GSD data available"
     fi
     
     # Check Wikipedia Japanese (performance dataset)
     local wiki_dir="$ROOT_DIR/benchmarks/data/wikipedia/cli_format"
     if [ ! -f "$wiki_dir/wikipedia_ja_500mb.txt" ]; then
         print_warning "Wikipedia Japanese data not found in $wiki_dir"
-        print_status "Will use UD BCCWJ for all tests"
+        print_status "Will use UD GSD for all tests"
     else
         print_status "✓ Wikipedia Japanese data available"
     fi
@@ -446,13 +446,13 @@ main() {
     fi
     
     # Dataset paths
-    local ud_dir="$ROOT_DIR/benchmarks/data/ud_japanese_bccwj/cli_format"
+    local ud_dir="$ROOT_DIR/benchmarks/data/ud_japanese_gsd/cli_format"
     local wiki_dir="$ROOT_DIR/benchmarks/data/wikipedia/cli_format"
     
-    # Run comparisons on UD Japanese-BCCWJ
-    run_accuracy_comparison "UD_BCCWJ" "$ud_dir/bccwj_plain.txt" "$ud_dir/bccwj_sentences.txt"
-    run_performance_comparison "UD_BCCWJ" "$ud_dir/bccwj_plain.txt"
-    run_memory_comparison "$ud_dir/bccwj_plain.txt" "UD_BCCWJ"
+    # Run comparisons on UD Japanese-GSD
+    run_accuracy_comparison "UD_GSD" "$ud_dir/gsd_plain.txt" "$ud_dir/gsd_sentences.txt"
+    run_performance_comparison "UD_GSD" "$ud_dir/gsd_plain.txt"
+    run_memory_comparison "$ud_dir/gsd_plain.txt" "UD_GSD"
     
     # Run performance comparison on Wikipedia if available
     if [ -f "$wiki_dir/wikipedia_ja_500mb.txt" ]; then

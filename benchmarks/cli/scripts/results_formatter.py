@@ -126,9 +126,7 @@ class ExperimentResults:
         """Generate accuracy table in markdown format."""
         grouped = self._group_by_language_tool()
 
-        lines = [
-            "| Lang | Tool | Precision | Recall | F1 | **Pk** | **WindowDiff** |"
-        ]
+        lines = ["| Lang | Tool | Precision | Recall | F1 | **Pk** | **WindowDiff** |"]
         lines.append("| --- | --- | --- | --- | --- | --- | --- |")
 
         for lang in ["JA", "EN"]:

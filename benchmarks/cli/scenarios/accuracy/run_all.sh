@@ -16,9 +16,9 @@ bash "$SCRIPT_DIR/english_ewt.sh"
 
 # Japanese benchmarks
 echo ""
-echo "2. UD Japanese BCCWJ"
-echo "--------------------"
-bash "$SCRIPT_DIR/japanese_bccwj.sh"
+echo "2. UD Japanese GSD"
+echo "------------------"
+bash "$SCRIPT_DIR/japanese_gsd.sh"
 
 echo ""
 echo "All accuracy benchmarks complete!"

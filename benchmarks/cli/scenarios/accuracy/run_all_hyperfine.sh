@@ -63,7 +63,7 @@ check_prerequisites() {
         has_errors=1
     fi
     
-    if [ ! -f "$SCRIPT_DIR/japanese_bccwj_hyperfine.sh" ]; then
+    if [ ! -f "$SCRIPT_DIR/japanese_gsd_hyperfine.sh" ]; then
         print_error "Japanese benchmark script not found"
         has_errors=1
     fi
@@ -240,7 +240,7 @@ main() {
     fi
     
     # Run Japanese benchmark
-    if ! run_benchmark "Japanese BCCWJ" "$SCRIPT_DIR/japanese_bccwj_hyperfine.sh" "japanese_bccwj"; then
+    if ! run_benchmark "Japanese GSD" "$SCRIPT_DIR/japanese_gsd_hyperfine.sh" "japanese_gsd"; then
         all_success=false
         print_warning "Japanese benchmark failed, continuing..."
     fi

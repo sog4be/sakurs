@@ -121,7 +121,7 @@ class WikipediaLoader(CorpusLoader):
 
         actual_size_mb = current_size / 1024 / 1024
         logger.info(f"Created sample: {article_count} articles, {actual_size_mb:.1f}MB")
-        
+
         # Save metadata
         self.version_manager.save_metadata(
             language=self.language,
@@ -133,7 +133,7 @@ class WikipediaLoader(CorpusLoader):
             additional_info={
                 "dataset_source": "Hugging Face wikimedia/wikipedia",
                 "sample_file": str(self.sample_file.name),
-            }
+            },
         )
 
     def load(self) -> dict[str, Any]:

@@ -189,9 +189,7 @@ class ResultsAggregator:
             md_lines.append(line)
 
         # Table 3: Accuracy
-        md_lines.append(
-            "\n### Table 3: Sentence Boundary Accuracy on Gold Corpora (%)\n"
-        )
+        md_lines.append("\n### Table 3: Sentence Boundary Accuracy on Gold Corpora (%)\n")
         md_lines.append("| Lang | Tool | Precision | Recall | F1 | **Pk** | **WindowDiff** |")
         md_lines.append("| --- | --- | --- | --- | --- | --- | --- |")
 
@@ -206,9 +204,9 @@ class ResultsAggregator:
             if key in aggregated["accuracy"]:
                 acc = aggregated["accuracy"][key]
                 if tool_key == "sakurs":
-                    line += f"| **{acc['precision']*100:.1f}** | **{acc['recall']*100:.1f}** | **{acc['f1']*100:.1f}** "
+                    line += f"| **{acc['precision'] * 100:.1f}** | **{acc['recall'] * 100:.1f}** | **{acc['f1'] * 100:.1f}** "
                 else:
-                    line += f"| {acc['precision']*100:.1f} | {acc['recall']*100:.1f} | {acc['f1']*100:.1f} "
+                    line += f"| {acc['precision'] * 100:.1f} | {acc['recall'] * 100:.1f} | {acc['f1'] * 100:.1f} "
 
                 if acc["pk"] is not None:
                     line += f"| {acc['pk']:.3f} "
@@ -234,9 +232,9 @@ class ResultsAggregator:
             if key in aggregated["accuracy"]:
                 acc = aggregated["accuracy"][key]
                 if tool_key == "sakurs":
-                    line += f"| **{acc['precision']*100:.1f}** | **{acc['recall']*100:.1f}** | **{acc['f1']*100:.1f}** "
+                    line += f"| **{acc['precision'] * 100:.1f}** | **{acc['recall'] * 100:.1f}** | **{acc['f1'] * 100:.1f}** "
                 else:
-                    line += f"| {acc['precision']*100:.1f} | {acc['recall']*100:.1f} | {acc['f1']*100:.1f} "
+                    line += f"| {acc['precision'] * 100:.1f} | {acc['recall'] * 100:.1f} | {acc['f1'] * 100:.1f} "
 
                 if acc["pk"] is not None:
                     line += f"| {acc['pk']:.3f} "

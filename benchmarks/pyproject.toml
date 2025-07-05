@@ -77,7 +77,7 @@ packages = [
     "data",
     "data.brown_corpus",
     "data.ud_english_ewt",
-    "data.ud_japanese_bccwj",
+    "data.ud_japanese_gsd",
     "data.wikipedia",
     "baselines",
     "baselines.ja_sentence_segmenter",

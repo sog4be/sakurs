@@ -6,13 +6,13 @@ This directory contains scripts for measuring the accuracy of Sakurs sentence se
 
 We provide two types of accuracy benchmark scripts:
 
-1. **Basic scripts** (`*_ewt.sh`, `*_bccwj.sh`) - Simple accuracy measurement
+1. **Basic scripts** (`*_ewt.sh`, `*_gsd.sh`) - Simple accuracy measurement
 2. **Hyperfine scripts** (`*_hyperfine.sh`) - Comprehensive benchmarking with performance metrics
 
 ## Datasets
 
 - **English**: UD English EWT (Universal Dependencies English Web Treebank)
-- **Japanese**: UD Japanese-BCCWJ (Universal Dependencies Japanese BCCWJ corpus)
+- **Japanese**: UD Japanese-GSD (Universal Dependencies Japanese GSD corpus)
 
 ## Scripts
 
@@ -26,13 +26,13 @@ Comprehensive English accuracy benchmark with:
 - Combined JSON report with both accuracy and performance metrics
 - Colored output and progress tracking
 
-#### `japanese_bccwj_hyperfine.sh`
+#### `japanese_gsd_hyperfine.sh`
 Comprehensive Japanese accuracy benchmark with:
 - Special handling for Japanese text characteristics
 - Character-based performance metrics (chars/second)
-- Text analysis (hiragana, katakana, kanji distribution)
-- Handling of reconstructed text from tokens
-- Lower accuracy threshold due to complexity
+- Full text available for accurate benchmarking
+- Text analysis capabilities
+- Suitable for accurate evaluation
 
 #### `run_all_hyperfine.sh`
 Run all accuracy benchmarks and generate:
@@ -44,7 +44,7 @@ Run all accuracy benchmarks and generate:
 ### Basic Scripts (Legacy)
 
 - `english_ewt.sh` - Basic English accuracy test
-- `japanese_bccwj.sh` - Basic Japanese accuracy test
+- `japanese_gsd.sh` - Basic Japanese accuracy test
 - `run_all.sh` - Run all basic benchmarks
 
 ## Usage
@@ -71,11 +71,11 @@ python prepare_data.py
 ./english_ewt_hyperfine.sh
 
 # Japanese with Hyperfine
-./japanese_bccwj_hyperfine.sh
+./japanese_gsd_hyperfine.sh
 
 # Basic versions (no performance metrics)
 ./english_ewt.sh
-./japanese_bccwj.sh
+./japanese_gsd.sh
 ```
 
 ### Running All Benchmarks

@@ -16,7 +16,7 @@ def load_corpus() -> dict[str, Any]:
     """Load the full UD English EWT corpus."""
     cache_file = Path(__file__).parent / "cache" / "ud_english_ewt.json"
     test_cache_file = Path(__file__).parent / "cache" / "test_ud_english_ewt.json"
-    
+
     # Try full corpus first
     if cache_file.exists():
         with open(cache_file, "r", encoding="utf-8") as f:
@@ -26,25 +26,29 @@ def load_corpus() -> dict[str, Any]:
                 # Old format: single text field
                 return {
                     "metadata": data.get("metadata", {}),
-                    "documents": [{
-                        "text": data["text"],
-                        "sentences": data["text"].split("\n") if "\n" in data["text"] else [data["text"]],
-                        "id": "full_corpus"
-                    }]
+                    "documents": [
+                        {
+                            "text": data["text"],
+                            "sentences": data["text"].split("\n")
+                            if "\n" in data["text"]
+                            else [data["text"]],
+                            "id": "full_corpus",
+                        }
+                    ],
                 }
             return data
-    
+
     # Fall back to test set
     if test_cache_file.exists():
         with open(test_cache_file, "r", encoding="utf-8") as f:
             return json.load(f)
-    
+
     raise FileNotFoundError("No UD English EWT data found. Please run download.py first.")
 
 
 def load_sample() -> dict[str, Any]:
     """Load UD English EWT data for benchmarking.
-    
+
     This loads the full corpus if available, otherwise a hardcoded sample.
     """
     try:
@@ -60,12 +64,14 @@ def load_sample() -> dict[str, Any]:
                 "words": 17,
                 "genres": ["sample"],
             },
-            "documents": [{
-                "text": "From the AP comes this story: President Bush met with congressional leaders today. The discussion focused on economic policy issues.",
-                "sentences": [
-                    "From the AP comes this story: President Bush met with congressional leaders today.",
-                    "The discussion focused on economic policy issues."
-                ],
-                "id": "sample_doc"
-            }]
+            "documents": [
+                {
+                    "text": "From the AP comes this story: President Bush met with congressional leaders today. The discussion focused on economic policy issues.",
+                    "sentences": [
+                        "From the AP comes this story: President Bush met with congressional leaders today.",
+                        "The discussion focused on economic policy issues.",
+                    ],
+                    "id": "sample_doc",
+                }
+            ],
         }

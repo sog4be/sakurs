@@ -142,11 +142,7 @@ class MetricsMeasurer:
             if (true_positives + false_negatives) > 0
             else 0.0
         )
-        f1 = (
-            2 * (precision * recall) / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
-        )
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
 
         return {"precision": precision, "recall": recall, "f1": f1}
 
@@ -189,9 +185,7 @@ class MetricsMeasurer:
             if ref_boundaries != hyp_boundaries:
                 windowdiff_errors += 1
 
-        windowdiff_score = (
-            windowdiff_errors / (len(reference) - k) if len(reference) > k else 0.0
-        )
+        windowdiff_score = windowdiff_errors / (len(reference) - k) if len(reference) > k else 0.0
 
         return {"pk": pk_score, "windowdiff": windowdiff_score}
 
@@ -279,9 +273,7 @@ class MetricsMeasurer:
                     command, stdin=f, stdout=subprocess.PIPE, stderr=subprocess.PIPE
                 )
         else:
-            proc = subprocess.Popen(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # Monitor memory usage
         peak_memory = initial_memory
@@ -412,9 +404,7 @@ class MetricsMeasurer:
             "metadata": {
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "platform": os.uname().sysname,
-                "python_version": subprocess.check_output(["python", "--version"])
-                .decode()
-                .strip(),
+                "python_version": subprocess.check_output(["python", "--version"]).decode().strip(),
             },
         }
 

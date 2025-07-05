@@ -54,7 +54,7 @@ Test English tools across multiple datasets:
 
 #### `cross_dataset_japanese.sh`
 Test Japanese tools across datasets:
-- UD Japanese-BCCWJ (accuracy focus)
+- UD Japanese-GSD (accuracy focus)
 - Wikipedia Japanese (performance focus)
 - Script distribution analysis
 - Robustness testing

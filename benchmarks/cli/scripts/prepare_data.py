@@ -13,8 +13,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from data.brown_corpus import is_available as brown_available
 from data.ud_english_ewt import is_available as ewt_available
 from data.ud_english_ewt import load_sample as load_ewt
-from data.ud_japanese_bccwj import is_available as bccwj_available
-from data.ud_japanese_bccwj import load_sample as load_bccwj
+from data.ud_japanese_gsd import is_available as gsd_available
+from data.ud_japanese_gsd import load_sample as load_gsd
 from data.wikipedia import create_loader as create_wikipedia_loader
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -40,7 +40,7 @@ def prepare_ud_english_ewt():
     # Count test set sentences
     test_sentence_count = 0
     test_word_count = 0
-    
+
     # Save as plain text (all documents concatenated)
     plain_text_path = output_dir / "ewt_plain.txt"
     with open(plain_text_path, "w", encoding="utf-8") as f:
@@ -67,7 +67,7 @@ def prepare_ud_english_ewt():
     if data.get("metadata"):
         logger.info(f"  Version: {data['metadata'].get('version', 'Unknown')}")
         logger.info(f"  Total sentences: {data['metadata'].get('sentences', 'Unknown')}")
-        
+
     # If we couldn't get test set info from documents, try from metadata
     if test_sentence_count == 0 and "metadata" in data:
         # For simple loader, we might not have split information
@@ -75,7 +75,7 @@ def prepare_ud_english_ewt():
         logger.info(f"  Dataset info: {data['metadata'].get('sentences', 'Unknown')} sentences")
     else:
         logger.info(f"  Test set: {test_sentence_count} sentences, {test_word_count} words")
-    
+
     return True
 
 
@@ -139,23 +139,22 @@ def prepare_wikipedia_samples():
     return success
 
 
-def prepare_japanese_data():
-    """Prepare Japanese data."""
-    logger.info("Checking UD Japanese-BCCWJ data...")
+def prepare_ud_japanese_gsd():
+    """Prepare UD Japanese GSD data."""
+    logger.info("Checking UD Japanese GSD data...")
 
-    if not bccwj_available():
-        logger.error("UD Japanese-BCCWJ data not available. Please run:")
-        logger.error("  cd ../../data/ud_japanese_bccwj && python download.py")
-        logger.info("Note: Original text may not be included due to licensing")
+    if not gsd_available():
+        logger.error("UD Japanese GSD data not available. Please run:")
+        logger.error("  cd ../../data/ud_japanese_gsd && python download.py")
         return False
 
     # Create plain text versions for CLI benchmarking
-    output_dir = Path(__file__).parent.parent.parent / "data" / "ud_japanese_bccwj" / "cli_format"
+    output_dir = Path(__file__).parent.parent.parent / "data" / "ud_japanese_gsd" / "cli_format"
     output_dir.mkdir(exist_ok=True)
 
     try:
         # Load and convert to plain text
-        data = load_bccwj()
+        data = load_gsd()
 
         # Count test set sentences
         test_sentence_count = 0
@@ -163,54 +162,49 @@ def prepare_japanese_data():
         total_sentence_count = 0
 
         # Save as plain text (all documents concatenated)
-        plain_text_path = output_dir / "bccwj_plain.txt"
+        plain_text_path = output_dir / "gsd_plain.txt"
         with open(plain_text_path, "w", encoding="utf-8") as f:
             for doc in data["documents"]:
-                # Note: text might be reconstructed from tokens
                 doc_text = doc.get("text", "")
-                if doc_text and doc_text != "[Text not included - see README]":
+                if doc_text:
                     f.write(doc_text + "\n\n")
-                else:
-                    # Reconstruct from sentences if available
-                    for sent in doc.get("sentences", []):
-                        sent_text = sent.get("text", "")
-                        if sent_text:
-                            f.write(sent_text)
-                    f.write("\n\n")
-                
+
                 # Count statistics
                 sentences = doc.get("sentences", [])
                 total_sentence_count += len(sentences)
-                if doc.get("split") == "test":
+                if doc.get("split") == "test" or "test" in doc.get("id", "").lower():
                     test_sentence_count += len(sentences)
-                    for sent in sentences:
-                        sent_text = sent.get("text", "")
-                        if sent_text and sent_text != "[Text not included - see README]":
-                            test_char_count += len(sent_text)
+                    test_char_count += len(doc_text)
 
         # Save ground truth (one sentence per line)
-        sentences_path = output_dir / "bccwj_sentences.txt"
+        sentences_path = output_dir / "gsd_sentences.txt"
         with open(sentences_path, "w", encoding="utf-8") as f:
             for doc in data["documents"]:
                 for sent in doc.get("sentences", []):
-                    sent_text = sent.get("text", "")
-                    if sent_text and sent_text.strip():
-                        f.write(sent_text.strip() + "\n")
+                    # Handle both string and dict formats
+                    if isinstance(sent, str):
+                        f.write(sent.strip() + "\n")
+                    elif isinstance(sent, dict) and "text" in sent:
+                        f.write(sent["text"].strip() + "\n")
 
-        logger.info(f"UD Japanese-BCCWJ prepared: {plain_text_path}")
+        logger.info(f"UD Japanese GSD prepared: {plain_text_path}")
         if data.get("metadata"):
             logger.info(f"  Version: {data['metadata'].get('version', 'Unknown')}")
-            logger.info(f"  Total documents: {len(data.get('documents', []))}")
-            logger.info(f"  Total sentences: {total_sentence_count}")
-        
-        if test_sentence_count > 0:
-            logger.info(f"  Test set: {test_sentence_count} sentences, {test_char_count} characters")
-        
-        logger.warning("Note: Text may be reconstructed from tokens if original is not available")
+            logger.info(f"  Total sentences: {data['metadata'].get('sentences', 'Unknown')}")
+
+        if test_sentence_count == 0 and "metadata" in data:
+            # For simple loader, display total stats
+            logger.info(f"  Dataset info: {data['metadata'].get('sentences', 'Unknown')} sentences")
+        else:
+            logger.info(
+                f"  Test set: {test_sentence_count} sentences, {test_char_count} characters"
+            )
+
+        logger.info("  Full text available for accurate benchmarking")
         return True
 
     except Exception as e:
-        logger.error(f"Failed to prepare Japanese data: {e}")
+        logger.error(f"Failed to prepare Japanese GSD data: {e}")
         return False
 
 
@@ -233,9 +227,10 @@ def main(force):
     if not prepare_wikipedia_samples():
         success = False
 
-    # Prepare Japanese data (Phase 2)
-    if not prepare_japanese_data():
-        logger.warning("Japanese data not ready (Phase 2)")
+    # Prepare Japanese data
+    if not prepare_ud_japanese_gsd():
+        logger.warning("Japanese GSD data not ready")
+        success = False
 
     if success:
         logger.info("Data preparation complete!")

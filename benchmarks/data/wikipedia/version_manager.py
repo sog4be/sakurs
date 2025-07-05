@@ -44,9 +44,9 @@ class WikipediaVersionManager:
             additional_info: Any additional metadata
         """
         metadata = self.load_all_metadata()
-        
+
         key = f"{language}_{size_mb}mb_{date}"
-        
+
         metadata[key] = {
             "language": language,
             "target_size_mb": size_mb,
@@ -58,10 +58,10 @@ class WikipediaVersionManager:
             "dataset_name": f"wikimedia/wikipedia/{date}.{language}",
             **(additional_info or {}),
         }
-        
+
         with open(self.metadata_file, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
-        
+
         logger.info(f"Saved metadata for {key}")
 
     def load_metadata(self, language: str, size_mb: int, date: str) -> dict[str, Any] | None:
@@ -87,7 +87,7 @@ class WikipediaVersionManager:
         """
         if not self.metadata_file.exists():
             return {}
-        
+
         try:
             with open(self.metadata_file, encoding="utf-8") as f:
                 return json.load(f)
@@ -106,15 +106,12 @@ class WikipediaVersionManager:
             Latest dump date or None if no versions found
         """
         metadata = self.load_all_metadata()
-        
-        matching_keys = [
-            key for key in metadata
-            if key.startswith(f"{language}_{size_mb}mb_")
-        ]
-        
+
+        matching_keys = [key for key in metadata if key.startswith(f"{language}_{size_mb}mb_")]
+
         if not matching_keys:
             return None
-        
+
         # Extract dates and sort
         dates = [key.split("_")[-1] for key in matching_keys]
         return sorted(dates)[-1]
@@ -126,16 +123,18 @@ class WikipediaVersionManager:
             List of dataset version info
         """
         metadata = self.load_all_metadata()
-        
+
         versions = []
         for key, info in metadata.items():
-            versions.append({
-                "key": key,
-                "language": info["language"],
-                "size_mb": info["target_size_mb"],
-                "date": info["wikipedia_dump_date"],
-                "download_date": info.get("download_date", "Unknown"),
-                "articles": info.get("article_count", 0),
-            })
-        
+            versions.append(
+                {
+                    "key": key,
+                    "language": info["language"],
+                    "size_mb": info["target_size_mb"],
+                    "date": info["wikipedia_dump_date"],
+                    "download_date": info.get("download_date", "Unknown"),
+                    "articles": info.get("article_count", 0),
+                }
+            )
+
         return sorted(versions, key=lambda x: (x["language"], x["date"]))

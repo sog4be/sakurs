@@ -46,7 +46,7 @@ class ParallelRunner:
                 "parallel_threshold_mb": 0,  # Force parallel for benchmarking
             }
         }
-        
+
         if config_override:
             # Merge additional config
             for key, value in config_override.items():
@@ -55,9 +55,7 @@ class ParallelRunner:
                 else:
                     config[key].update(value)
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as config_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as config_file:
             json.dump(config, config_file)
             config_path = config_file.name
 
@@ -68,16 +66,22 @@ class ParallelRunner:
                 cmd.extend(self.sakurs_bin)
             else:
                 cmd.append(self.sakurs_bin)
-            
-            cmd.extend([
-                "process",
-                "-i", input_file,
-                "-o", output_file,
-                "-l", language,
-                "-c", config_path,
-                "-p",  # Force parallel processing
-                "-q",  # Quiet mode
-            ])
+
+            cmd.extend(
+                [
+                    "process",
+                    "-i",
+                    input_file,
+                    "-o",
+                    output_file,
+                    "-l",
+                    language,
+                    "-c",
+                    config_path,
+                    "-p",  # Force parallel processing
+                    "-q",  # Quiet mode
+                ]
+            )
 
             # Run with environment variable as fallback
             env = os.environ.copy()
@@ -89,7 +93,7 @@ class ParallelRunner:
                 capture_output=True,
                 text=True,
             )
-            
+
             return result
 
         finally:
@@ -115,11 +119,11 @@ class ParallelRunner:
             Dictionary mapping thread count to list of execution times
         """
         results = {}
-        
+
         for threads in thread_counts:
             with tempfile.NamedTemporaryFile(delete=False) as output_file:
                 output_path = output_file.name
-            
+
             try:
                 # Create config for this thread count
                 config = {
@@ -128,50 +132,60 @@ class ParallelRunner:
                         "parallel_threshold_mb": 0,
                     }
                 }
-                
+
                 with tempfile.NamedTemporaryFile(
                     mode="w", suffix=".json", delete=False
                 ) as config_file:
                     json.dump(config, config_file)
                     config_path = config_file.name
-                
+
                 # Build hyperfine command
                 sakurs_cmd = []
                 if isinstance(self.sakurs_bin, list):
                     sakurs_cmd.extend(self.sakurs_bin)
                 else:
                     sakurs_cmd.append(self.sakurs_bin)
-                
-                sakurs_cmd.extend([
-                    "process",
-                    "-i", input_file,
-                    "-o", output_path,
-                    "-l", language,
-                    "-c", config_path,
-                    "-p",
-                    "-q",
-                ])
-                
+
+                sakurs_cmd.extend(
+                    [
+                        "process",
+                        "-i",
+                        input_file,
+                        "-o",
+                        output_path,
+                        "-l",
+                        language,
+                        "-c",
+                        config_path,
+                        "-p",
+                        "-q",
+                    ]
+                )
+
                 hyperfine_cmd = [
                     "hyperfine",
-                    "--warmup", "1",
-                    "--runs", str(runs_per_thread),
-                    "--export-json", "-",
-                    "--shell", "none",
+                    "--warmup",
+                    "1",
+                    "--runs",
+                    str(runs_per_thread),
+                    "--export-json",
+                    "-",
+                    "--shell",
+                    "none",
                     " ".join(sakurs_cmd) if isinstance(self.sakurs_bin, list) else sakurs_cmd,
                 ]
-                
+
                 # Run hyperfine
                 env = os.environ.copy()
                 env["RAYON_NUM_THREADS"] = str(threads)
-                
+
                 result = subprocess.run(
                     hyperfine_cmd,
                     env=env,
                     capture_output=True,
                     text=True,
                 )
-                
+
                 if result.returncode == 0:
                     # Parse hyperfine JSON output
                     data = json.loads(result.stdout)
@@ -180,11 +194,11 @@ class ParallelRunner:
                 else:
                     print(f"Error running benchmark for {threads} threads: {result.stderr}")
                     results[threads] = []
-                
+
                 os.unlink(config_path)
-                
+
             finally:
                 if os.path.exists(output_path):
                     os.unlink(output_path)
-        
+
         return results

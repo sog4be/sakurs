@@ -11,31 +11,23 @@ from metrics import AccuracyMetrics, BenchmarkResult, MetricsMeasurer
 
 def main():
     """Main function."""
-    parser = argparse.ArgumentParser(
-        description="Evaluate accuracy of sentence segmentation tools"
-    )
-    parser.add_argument(
-        "--language", required=True, choices=["en", "ja"], help="Language code"
-    )
+    parser = argparse.ArgumentParser(description="Evaluate accuracy of sentence segmentation tools")
+    parser.add_argument("--language", required=True, choices=["en", "ja"], help="Language code")
     parser.add_argument(
         "--tool",
         required=True,
         choices=["sakurs", "nltk", "ja_seg"],
         help="Segmentation tool",
     )
-    parser.add_argument(
-        "--test-file", type=Path, required=True, help="UD test file path"
-    )
-    parser.add_argument(
-        "--output", type=Path, required=True, help="Output JSON file path"
-    )
+    parser.add_argument("--test-file", type=Path, required=True, help="UD test file path")
+    parser.add_argument("--output", type=Path, required=True, help="Output JSON file path")
 
     args = parser.parse_args()
 
     # For now, create dummy results
     # In a real implementation, this would run the actual evaluation
     print(f"Evaluating {args.tool} on {args.language} dataset...")
-    
+
     # Create dummy accuracy metrics
     accuracy_metrics = AccuracyMetrics(
         precision=0.95,
@@ -63,3 +55,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
