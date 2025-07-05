@@ -1,0 +1,6 @@
+# This directory stores benchmark experiment results
+# Each experiment creates a timestamped subdirectory (YYYYMMDD_HHMMSS)
+# containing JSON results and markdown tables
+
+# The actual result files are ignored by git (see .gitignore)
+# This .gitkeep file ensures the directory structure is preserved

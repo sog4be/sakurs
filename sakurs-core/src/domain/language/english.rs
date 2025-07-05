@@ -67,9 +67,14 @@ impl EnglishLanguageRules {
             return false;
         }
 
-        let word_start = text[..position]
-            .rfind(|c: char| c.is_whitespace())
-            .map(|p| p + 1)
+        let text_before = &text[..position];
+        let word_start = text_before
+            .char_indices()
+            .rfind(|(_, c)| c.is_whitespace())
+            .map(|(idx, c)| {
+                // Get the byte position after the found character
+                idx + c.len_utf8()
+            })
             .unwrap_or(0);
 
         if word_start >= position {
@@ -452,10 +457,15 @@ impl EnglishAbbreviationRule {
             };
         }
 
-        // Find word boundaries
-        let start_pos = text[..position]
-            .rfind(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
-            .map(|p| p + 1)
+        // Find word boundaries using char_indices for UTF-8 safety
+        let text_before = &text[..position];
+        let start_pos = text_before
+            .char_indices()
+            .rfind(|(_, c)| c.is_whitespace() || c.is_ascii_punctuation())
+            .map(|(idx, c)| {
+                // Get the byte position after the found character
+                idx + c.len_utf8()
+            })
             .unwrap_or(0);
 
         if start_pos >= position {
@@ -1042,5 +1052,61 @@ mod tests {
             rules.detect_sentence_boundary(&context),
             BoundaryDecision::NotBoundary
         );
+    }
+
+    #[test]
+    fn test_utf8_boundary_with_non_ascii_whitespace() {
+        let rule = EnglishAbbreviationRule::new();
+
+        // Test with non-breaking space (U+00A0) - 2 bytes in UTF-8
+        let text1 = "Hello world\u{a0}Dr. Smith";
+        let dr_pos = text1.find("Dr.").unwrap() + 2; // Position after "Dr"
+        let result1 = rule.detect_abbreviation(text1, dr_pos);
+        assert!(result1.is_abbreviation);
+        assert_eq!(result1.confidence, 1.0);
+
+        // Test with em space (U+2003) - 3 bytes in UTF-8
+        let text2 = "The company\u{2003}Inc. announced";
+        let inc_pos = text2.find("Inc.").unwrap() + 3; // Position after "Inc"
+        let result2 = rule.detect_abbreviation(text2, inc_pos);
+        assert!(result2.is_abbreviation);
+
+        // Test with ideographic space (U+3000) - 3 bytes in UTF-8
+        let text3 = "Contact us\u{3000}Ltd. for details";
+        let ltd_pos = text3.find("Ltd.").unwrap() + 3; // Position after "Ltd"
+        let result3 = rule.detect_abbreviation(text3, ltd_pos);
+        assert!(result3.is_abbreviation);
+
+        // Test with thin space (U+2009) - 3 bytes in UTF-8
+        let text4 = "Professor\u{2009}Ph.D. Smith";
+        let phd_pos = text4.find("Ph.D.").unwrap() + 4; // Position after "Ph.D"
+        let result4 = rule.detect_abbreviation(text4, phd_pos);
+        assert!(result4.is_abbreviation);
+
+        // Test with zero-width space (U+200B) - 3 bytes in UTF-8
+        let text5 = "Example\u{200B}U.S.A. text";
+        let usa_pos = text5.find("U.S.A.").unwrap() + 5; // Position after "U.S.A"
+        let result5 = rule.detect_abbreviation(text5, usa_pos);
+        assert!(result5.is_abbreviation);
+    }
+
+    #[test]
+    fn test_utf8_boundary_no_panic() {
+        let rule = EnglishAbbreviationRule::new();
+
+        // Construct text that previously caused the panic
+        // We need text where position points after an abbreviation
+        // and the character before the abbreviation is multi-byte
+        let mut text = String::new();
+        for _ in 0..8805 {
+            text.push('a');
+        }
+        text.push('\u{a0}'); // Non-breaking space at position 8805-8807
+        text.push_str("Dr.");
+
+        // Try to detect abbreviation at position after "Dr."
+        // This should now work correctly without panic
+        let result = rule.detect_abbreviation(&text, 8809);
+        assert!(result.is_abbreviation);
     }
 }
