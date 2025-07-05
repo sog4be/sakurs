@@ -24,17 +24,48 @@ CACHE_FILE = CACHE_DIR / "ud_japanese_bccwj.json"
 
 
 def download_file(url: str, dest_path: Path, desc: str = "Downloading") -> None:
-    """Download file with progress bar."""
-    response = requests.get(url, stream=True)
-    response.raise_for_status()
+    """Download file with progress bar and resume support."""
+    # Check if file already exists partially
+    resume_pos = 0
+    mode = "wb"
+    if dest_path.exists():
+        resume_pos = dest_path.stat().st_size
+        mode = "ab"
+        logger.info(f"Resuming download from {resume_pos} bytes")
+    
+    headers = {}
+    if resume_pos > 0:
+        headers["Range"] = f"bytes={resume_pos}-"
+    
+    try:
+        response = requests.get(url, stream=True, headers=headers, timeout=30)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to connect: {e}")
+        raise
+    
+    # Check if server supports resume
+    if resume_pos > 0 and response.status_code != 206:
+        logger.warning("Server doesn't support resume, starting from beginning")
+        resume_pos = 0
+        mode = "wb"
+        response = requests.get(url, stream=True, timeout=30)
+        response.raise_for_status()
+    
+    total_size = int(response.headers.get("content-length", 0)) + resume_pos
 
-    total_size = int(response.headers.get("content-length", 0))
-
-    with open(dest_path, "wb") as f:
-        with tqdm(total=total_size, unit="B", unit_scale=True, desc=desc) as pbar:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-                pbar.update(len(chunk))
+    with open(dest_path, mode) as f:
+        with tqdm(total=total_size, initial=resume_pos, unit="B", unit_scale=True, desc=desc) as pbar:
+            try:
+                for chunk in response.iter_content(chunk_size=65536):  # Larger chunks
+                    if chunk:
+                        f.write(chunk)
+                        pbar.update(len(chunk))
+            except Exception as e:
+                logger.error(f"Download interrupted: {e}")
+                logger.info(f"Partial file saved at {dest_path}")
+                logger.info("You can resume by running the command again")
+                raise
 
 
 def extract_japanese_bccwj(archive_path: Path, extract_to: Path) -> Path:
@@ -55,19 +86,27 @@ def extract_japanese_bccwj(archive_path: Path, extract_to: Path) -> Path:
         for member in tqdm(japanese_members, desc="Extracting"):
             tar.extract(member, extract_to)
 
-    # Find the extracted directory
+    # The archive structure is: ud-treebanks-v2.16/UD_Japanese-BCCWJ/
+    # So we need to look for this nested structure
     extracted_dir = None
-    for item in extract_to.iterdir():
-        if item.is_dir() and JAPANESE_BCCWJ_DIR in str(item):
-            extracted_dir = item / JAPANESE_BCCWJ_DIR
+    
+    # First try the expected path structure
+    ud_root = extract_to / "ud-treebanks-v2.16"
+    if ud_root.exists():
+        extracted_dir = ud_root / JAPANESE_BCCWJ_DIR
+        if extracted_dir.exists():
+            logger.info(f"Found Japanese-BCCWJ at: {extracted_dir}")
+            return extracted_dir
+    
+    # If not found, search for it
+    for item in extract_to.rglob("*"):
+        if item.is_dir() and item.name == JAPANESE_BCCWJ_DIR:
+            extracted_dir = item
+            logger.info(f"Found Japanese-BCCWJ at: {extracted_dir}")
             break
 
     if not extracted_dir or not extracted_dir.exists():
-        # Try alternative path
-        extracted_dir = extract_to / JAPANESE_BCCWJ_DIR
-
-    if not extracted_dir.exists():
-        raise ValueError(f"Extraction failed: {JAPANESE_BCCWJ_DIR} not found")
+        raise ValueError(f"Extraction failed: {JAPANESE_BCCWJ_DIR} not found in expected structure")
 
     return extracted_dir
 
@@ -136,6 +175,7 @@ def parse_conllu_to_json(conllu_dir: Path) -> dict:
                     # Token line
                     parts = line.split("\t")
                     if len(parts) >= 10 and "-" not in parts[0]:
+                        # Note: form field may be "_" due to licensing restrictions
                         token = {
                             "id": parts[0],
                             "form": parts[1],
@@ -156,6 +196,18 @@ def parse_conllu_to_json(conllu_dir: Path) -> dict:
                     }
                 )
 
+    # Log warning about missing text
+    if documents:
+        # Check if any document has actual text
+        has_text = any(
+            any(token["form"] != "_" for sent in doc["sentences"] for token in sent.get("tokens", []))
+            for doc in documents
+        )
+        if not has_text:
+            logger.warning("No actual text found in corpus - all tokens have '_' forms")
+            logger.warning("This is expected for UD Japanese-BCCWJ due to licensing restrictions")
+            logger.warning("See README for alternatives")
+    
     return {"metadata": metadata, "documents": documents}
 
 
@@ -214,12 +266,21 @@ def main(output, force, merge_bccwj):
         logger.info(f"Downloading UD {UD_VERSION} release...")
         logger.info("This may take several minutes (file size ~625MB)")
 
-        try:
-            download_file(UD_RELEASE_URL, archive_path, "Downloading UD release")
-        except Exception as e:
-            logger.error(f"Download failed: {e}")
-            logger.info("Please check your internet connection and try again")
-            sys.exit(1)
+        # Try downloading with retries
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                download_file(UD_RELEASE_URL, archive_path, "Downloading UD release")
+                logger.info("Download completed successfully")
+                break
+            except Exception as e:
+                logger.error(f"Download failed: {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying... (attempt {attempt + 2}/{max_retries})")
+                else:
+                    logger.error("All download attempts failed")
+                    logger.info("Please check your internet connection and try again")
+                    sys.exit(1)
 
         # Extract Japanese-BCCWJ
         try:

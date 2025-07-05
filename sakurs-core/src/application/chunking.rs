@@ -358,6 +358,7 @@ impl ChunkManager {
         }
 
         // First, find a valid UTF-8 boundary near the requested position
+        // This prevents panics when chunk boundaries fall within multi-byte characters (Issue #48)
         let safe_pos = self.find_utf8_boundary(text_bytes, pos, forward)?;
 
         // Now convert the safe byte position to char position
@@ -394,26 +395,6 @@ fn is_utf8_char_boundary(bytes: &[u8], pos: usize) -> bool {
 
     // UTF-8 continuation bytes start with 10xxxxxx
     (bytes[pos] & 0b11000000) != 0b10000000
-}
-
-/// Finds the nearest valid UTF-8 character boundary
-#[allow(dead_code)]
-fn find_char_boundary(text: &str, byte_pos: usize) -> usize {
-    if byte_pos >= text.len() {
-        return text.len();
-    }
-
-    // Check if already at a valid boundary
-    if text.is_char_boundary(byte_pos) {
-        return byte_pos;
-    }
-
-    // Search backward for the nearest character boundary
-    let mut pos = byte_pos;
-    while pos > 0 && !text.is_char_boundary(pos) {
-        pos -= 1;
-    }
-    pos
 }
 
 /// Checks if a position is at a word boundary
