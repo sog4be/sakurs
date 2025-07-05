@@ -258,6 +258,9 @@ benchmarks/**/cache/
 # CLI format files (generated dynamically during benchmarks)
 benchmarks/data/**/cli_format/*.txt
 
+# Sized samples for scalability benchmarks (generated dynamically)
+benchmarks/data/sized_samples/
+
 # Benchmark experiment results (timestamped directories)
 benchmarks/cli/results/*/
 
@@ -273,9 +276,11 @@ benchmarks/cli/results/*/
 
 # Test artifacts
 /tmp/
-/temp/
 *.tmp
 *.temp
+
+# Temporary files and analysis reports (ignore all temp/ directories)
+**/temp/
 
 # Coverage reports
 lcov.info
