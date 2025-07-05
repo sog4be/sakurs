@@ -258,6 +258,9 @@ benchmarks/**/cache/
 # CLI format files (generated dynamically during benchmarks)
 benchmarks/data/**/cli_format/*.txt
 
+# Benchmark experiment results (timestamped directories)
+benchmarks/cli/results/*/
+
 # Brown Corpus data files (large dataset)
 /benchmarks/data/brown_corpus/data/
 
