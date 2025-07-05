@@ -227,6 +227,35 @@ Wikipedia-JA prepared: /path/to/wikipedia_sample_ja.txt
   Articles: ~8,000
 ```
 
+### Data Directory Structure
+
+```
+benchmarks/data/
+├── brown_corpus/
+│   ├── cache/                   # Downloaded corpus data
+│   └── data/                    # Extracted text files
+├── ud_japanese_gsd/
+│   ├── cache/                   # Downloaded UD data (JSON format)
+│   └── cli_format/              # Generated benchmark files
+│       ├── .gitkeep             # Preserves directory structure
+│       ├── gsd_plain.txt        # (generated) All text concatenated
+│       └── gsd_sentences.txt    # (generated) One sentence per line
+├── ud_english_ewt/
+│   ├── cache/                   # Downloaded UD data (JSON format)
+│   └── cli_format/              # Generated benchmark files
+│       ├── .gitkeep             # Preserves directory structure
+│       ├── ewt_plain.txt        # (generated) All text concatenated
+│       └── ewt_sentences.txt    # (generated) One sentence per line
+└── wikipedia/
+    └── cache/                   # Downloaded Wikipedia samples
+```
+
+**Note**: Files marked as `(generated)` are created dynamically by running:
+```bash
+cd benchmarks
+uv run python cli/scripts/prepare_data.py
+```
+
 ### Running Dataset-Specific Benchmarks
 
 #### Individual Benchmark Scripts
