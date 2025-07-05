@@ -255,6 +255,9 @@ $RECYCLE.BIN/
 # Benchmark data cache directories (all cache folders under benchmarks/)
 benchmarks/**/cache/
 
+# CLI format files (generated dynamically during benchmarks)
+benchmarks/data/**/cli_format/*.txt
+
 # Brown Corpus data files (large dataset)
 /benchmarks/data/brown_corpus/data/
 

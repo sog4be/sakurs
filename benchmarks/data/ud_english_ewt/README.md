@@ -35,6 +35,22 @@ python download.py --force
 python download.py --output custom/path/ud_english_ewt.json
 ```
 
+### Generate CLI Format Files
+
+CLI format files are generated dynamically by the prepare_data script:
+
+```bash
+# From benchmarks directory
+cd ../..
+uv run python cli/scripts/prepare_data.py
+```
+
+This will create:
+- `cli_format/ewt_plain.txt` - Plain text for processing
+- `cli_format/ewt_sentences.txt` - One sentence per line for evaluation
+
+**Note**: These files are not stored in the repository and must be generated locally.
+
 ### Python API
 
 ```python
