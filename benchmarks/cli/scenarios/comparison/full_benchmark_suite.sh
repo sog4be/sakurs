@@ -312,7 +312,7 @@ with open(md_output, 'w', encoding='utf-8') as f:
     f.write("# Sakurs Comprehensive Benchmark Report\n\n")
     f.write(f"Generated: {timestamp}\n\n")
     f.write("This report summarizes results from all Sakurs benchmarks:\n")
-    f.write("- **Accuracy Benchmarks**: Performance on annotated corpora (UD English EWT, UD Japanese-BCCWJ)\n")
+    f.write("- **Accuracy Benchmarks**: Performance on annotated corpora (UD English EWT, UD Japanese-GSD)\n")
     f.write("- **Performance Benchmarks**: Throughput and latency on large datasets (Wikipedia 500MB samples)\n")
     f.write("- **Baseline Comparisons**: Head-to-head comparison with established tools (NLTK Punkt, ja_sentence_segmenter)\n\n")
     

@@ -68,7 +68,7 @@ This will:
    - Tracks version metadata and download timestamps
 2. Verify UD Treebanks are available (r2.16)
    - UD English-EWT: ~25K sentences
-   - UD Japanese-BCCWJ: ~57K sentences  
+   - UD Japanese-GSD: ~8K sentences with full text  
 3. Check Brown Corpus availability
 4. Create CLI-formatted versions for benchmarking
 
@@ -151,7 +151,7 @@ bash scenarios/comparison/full_benchmark_suite.sh
 
 Measure segmentation accuracy using annotated corpora:
 - **English**: UD English EWT
-- **Japanese**: UD Japanese-BCCWJ
+- **Japanese**: UD Japanese-GSD
 
 Metrics: Precision, Recall, F1, Pk, WindowDiff
 
@@ -184,7 +184,7 @@ uv run python cli/scripts/prepare_data.py
 # Or download specific datasets manually
 cd data
 uv run python ud_english_ewt/download.py
-uv run python ud_japanese_bccwj/download.py
+uv run python ud_japanese_gsd/download.py
 
 # Wikipedia samples for performance benchmarks (prepared automatically)
 # Manual preparation (if needed):

@@ -193,8 +193,8 @@ The Wikipedia datasets are automatically downloaded from Hugging Face and includ
 - Metadata tracking (download date, article count, etc.)
 
 #### 3. UD Treebanks
-- **UD English-EWT**: r2.16 (~25K sentences)
-- **UD Japanese-BCCWJ**: r2.16 (~57K sentences)
+- **UD English-EWT**: r2.16 (~16K sentences)
+- **UD Japanese-GSD**: r2.16 (~8K sentences with full text)
 - **Usage**: Gold standard for accuracy evaluation
 
 Each UD dataset includes:
@@ -211,11 +211,10 @@ UD English EWT prepared: /path/to/ewt_plain.txt
   Total sentences: 25,112
   Test set: 2,077 sentences, 25,148 words
 
-UD Japanese-BCCWJ prepared: /path/to/bccwj_plain.txt  
+UD Japanese-GSD prepared: /path/to/gsd_plain.txt  
   Version: 2.16
-  Total documents: 2,291
-  Total sentences: 57,147
-  Test set: 4,442 sentences, 105,834 characters
+  Total sentences: 8,097
+  Test set: 543 sentences
 
 Wikipedia-EN prepared: /path/to/wikipedia_sample_en.txt
   Version: 20231101 dump
@@ -226,6 +225,35 @@ Wikipedia-JA prepared: /path/to/wikipedia_sample_ja.txt
   Version: 20231101 dump  
   Size: 500.0 MB
   Articles: ~8,000
+```
+
+### Data Directory Structure
+
+```
+benchmarks/data/
+├── brown_corpus/
+│   ├── cache/                   # Downloaded corpus data
+│   └── data/                    # Extracted text files
+├── ud_japanese_gsd/
+│   ├── cache/                   # Downloaded UD data (JSON format)
+│   └── cli_format/              # Generated benchmark files
+│       ├── .gitkeep             # Preserves directory structure
+│       ├── gsd_plain.txt        # (generated) All text concatenated
+│       └── gsd_sentences.txt    # (generated) One sentence per line
+├── ud_english_ewt/
+│   ├── cache/                   # Downloaded UD data (JSON format)
+│   └── cli_format/              # Generated benchmark files
+│       ├── .gitkeep             # Preserves directory structure
+│       ├── ewt_plain.txt        # (generated) All text concatenated
+│       └── ewt_sentences.txt    # (generated) One sentence per line
+└── wikipedia/
+    └── cache/                   # Downloaded Wikipedia samples
+```
+
+**Note**: Files marked as `(generated)` are created dynamically by running:
+```bash
+cd benchmarks
+uv run python cli/scripts/prepare_data.py
 ```
 
 ### Running Dataset-Specific Benchmarks

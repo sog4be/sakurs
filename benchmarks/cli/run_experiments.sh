@@ -410,12 +410,12 @@ fi
 if [ "$SKIP_ACCURACY" = false ]; then
     print_info "Running accuracy benchmarks..."
     
-    # UD Japanese-BCCWJ
-    if [ -f "../data/ud-treebanks-v2.16/UD_Japanese-BCCWJ/ja_bccwj-ud-test.txt" ]; then
-        run_accuracy_benchmarks "ja" "ud_bccwj" "sakurs" "../data/ud-treebanks-v2.16/UD_Japanese-BCCWJ/ja_bccwj-ud-test.txt"
-        run_accuracy_benchmarks "ja" "ud_bccwj" "ja_seg" "../data/ud-treebanks-v2.16/UD_Japanese-BCCWJ/ja_bccwj-ud-test.txt"
+    # UD Japanese-GSD
+    if [ -f "../data/ud_japanese_gsd/cli_format/gsd_plain.txt" ]; then
+        run_accuracy_benchmarks "ja" "ud_gsd" "sakurs" "../data/ud_japanese_gsd/cli_format/gsd_plain.txt"
+        run_accuracy_benchmarks "ja" "ud_gsd" "ja_seg" "../data/ud_japanese_gsd/cli_format/gsd_plain.txt"
     else
-        print_warning "UD Japanese-BCCWJ test set not found, skipping..."
+        print_warning "UD Japanese-GSD test set not found, skipping..."
     fi
     
     # UD English-EWT

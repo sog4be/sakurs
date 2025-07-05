@@ -8,7 +8,7 @@ set -euo pipefail
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-DATA_DIR="$ROOT_DIR/benchmarks/data/ud_japanese_bccwj/cli_format"
+DATA_DIR="$ROOT_DIR/benchmarks/data/ud_japanese_gsd/cli_format"
 RESULTS_DIR="$ROOT_DIR/benchmarks/cli/results"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 
@@ -16,7 +16,7 @@ TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 mkdir -p "$RESULTS_DIR"
 
 # Check if data is prepared
-if [ ! -f "$DATA_DIR/bccwj_plain.txt" ]; then
+if [ ! -f "$DATA_DIR/gsd_plain.txt" ]; then
     echo "Error: Japanese benchmark data not found. Please run prepare_data.py first."
     exit 1
 fi
@@ -36,10 +36,10 @@ fi
 echo "Comparing sakurs vs ja_sentence_segmenter on Japanese text..."
 
 # Get file size for throughput calculation
-FILE_SIZE=$(wc -c < "$DATA_DIR/bccwj_plain.txt" | tr -d ' ')
+FILE_SIZE=$(wc -c < "$DATA_DIR/gsd_plain.txt" | tr -d ' ')
 FILE_SIZE_MB=$(echo "scale=2; $FILE_SIZE / 1048576" | bc)
 
-echo "Test data: UD Japanese-BCCWJ (${FILE_SIZE_MB} MB)"
+echo "Test data: UD Japanese-GSD (${FILE_SIZE_MB} MB)"
 
 # Run hyperfine comparison
 echo "Running performance comparison..."
@@ -47,8 +47,8 @@ hyperfine \
     --warmup 2 \
     --runs 5 \
     --export-json "$RESULTS_DIR/japanese_comparison_${TIMESTAMP}.json" \
-    "sakurs process --input '$DATA_DIR/bccwj_plain.txt' --output /dev/null --format text --language japanese" \
-    "cd '$ROOT_DIR/benchmarks' && uv run python 'baselines/ja_sentence_segmenter/benchmark.py' '$DATA_DIR/bccwj_plain.txt' --output /dev/null"
+    "sakurs process --input '$DATA_DIR/gsd_plain.txt' --output /dev/null --format text --language japanese" \
+    "cd '$ROOT_DIR/benchmarks' && uv run python 'baselines/ja_sentence_segmenter/benchmark.py' '$DATA_DIR/gsd_plain.txt' --output /dev/null"
 
 # Extract and display results
 echo ""
@@ -85,13 +85,13 @@ echo "Running accuracy comparison..."
 
 # Get predictions from both
 sakurs process \
-    --input "$DATA_DIR/bccwj_plain.txt" \
+    --input "$DATA_DIR/gsd_plain.txt" \
     --output "$RESULTS_DIR/comp_sakurs_${TIMESTAMP}.txt" \
     --format text \
     --language japanese
 
 cd "$ROOT_DIR/benchmarks" && uv run python "baselines/ja_sentence_segmenter/benchmark.py" \
-    "$DATA_DIR/bccwj_plain.txt" \
+    "$DATA_DIR/gsd_plain.txt" \
     --output "$RESULTS_DIR/comp_jaseg_${TIMESTAMP}.txt" \
     --format lines
 
@@ -99,13 +99,13 @@ cd "$ROOT_DIR/benchmarks" && uv run python "baselines/ja_sentence_segmenter/benc
 echo "Evaluating accuracy..."
 cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/comp_sakurs_${TIMESTAMP}.txt" \
-    --reference "$DATA_DIR/bccwj_sentences.txt" \
+    --reference "$DATA_DIR/gsd_sentences.txt" \
     --output "$RESULTS_DIR/comp_sakurs_accuracy_${TIMESTAMP}.json" \
     --format json
 
 cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/comp_jaseg_${TIMESTAMP}.txt" \
-    --reference "$DATA_DIR/bccwj_sentences.txt" \
+    --reference "$DATA_DIR/gsd_sentences.txt" \
     --output "$RESULTS_DIR/comp_jaseg_accuracy_${TIMESTAMP}.json" \
     --format json
 
@@ -117,14 +117,14 @@ echo ""
 echo "Sakurs:"
 cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/comp_sakurs_${TIMESTAMP}.txt" \
-    --reference "$DATA_DIR/bccwj_sentences.txt" \
+    --reference "$DATA_DIR/gsd_sentences.txt" \
     --format text
 
 echo ""
 echo "ja_sentence_segmenter:"
 cd "$ROOT_DIR/benchmarks" && uv run python "cli/scripts/evaluate_accuracy.py" \
     --predicted "$RESULTS_DIR/comp_jaseg_${TIMESTAMP}.txt" \
-    --reference "$DATA_DIR/bccwj_sentences.txt" \
+    --reference "$DATA_DIR/gsd_sentences.txt" \
     --format text
 
 # Clean up intermediate files

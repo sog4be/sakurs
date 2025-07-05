@@ -62,7 +62,7 @@ command -v tree >/dev/null 2>&1 && echo "tree is available" || echo "tree not fo
 - Python benchmarks in `benchmarks/` directory:
   - Brown Corpus benchmark suite
   - UD English EWT benchmark suite (r2.16)
-  - UD Japanese BCCWJ benchmark suite (r2.16)
+  - UD Japanese GSD benchmark suite (r2.16)
   - Wikipedia throughput benchmarks (500MB samples)
   - Performance comparison with NLTK and ja_sentence_segmenter baselines
 
