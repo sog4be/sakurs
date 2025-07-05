@@ -149,23 +149,58 @@ run_throughput_benchmarks() {
             print_info "  Testing with $threads threads..."
             
             # Build command
-            cmd=(sakurs process --input -)
+            lang_flag=""
+            if [ "$lang" = "ja" ]; then
+                lang_flag="--language japanese"
+            fi
             
             # Run benchmark
             uv run python -c "
 import sys
+import time
+import subprocess
+import os
 sys.path.insert(0, 'scripts')
 from metrics import MetricsMeasurer, BenchmarkResult, ThroughputMetrics
 
 measurer = MetricsMeasurer()
 try:
-    result = measurer.run_throughput_benchmark(
-        command=['sakurs', 'process', '--input', '-'],
-        input_file='$input_file',
-        num_threads=$threads,
-        warmup_runs=$WARMUP_RUNS,
-        test_runs=$TEST_RUNS
-    )
+    # Get file size
+    file_size_bytes = os.path.getsize('$input_file')
+    file_size_mb = file_size_bytes / (1024 * 1024)
+    
+    # Warmup runs
+    for _ in range($WARMUP_RUNS):
+        subprocess.run(
+            ['sakurs', 'process', '--input', '$input_file'] + '$lang_flag'.split(),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    
+    # Test runs
+    durations = []
+    for _ in range($TEST_RUNS):
+        start_time = time.time()
+        result = subprocess.run(
+            ['sakurs', 'process', '--input', '$input_file'] + '$lang_flag'.split(),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        end_time = time.time()
+        
+        if result.returncode == 0:
+            durations.append(end_time - start_time)
+    
+    # Calculate average
+    if durations:
+        avg_duration = sum(durations) / len(durations)
+        throughput = file_size_mb / avg_duration if avg_duration > 0 else 0
+        result = ThroughputMetrics(
+            duration_seconds=avg_duration,
+            data_size_mb=file_size_mb,
+            throughput_mbps=throughput,
+            num_threads=$threads
+        )
+    else:
+        raise RuntimeError('All benchmark runs failed')
     
     br = BenchmarkResult(
         tool='sakurs',
@@ -190,10 +225,10 @@ except Exception as e:
         # Determine command based on tool
         case "$tool" in
             "nltk")
-                cmd="uv run python ../comparison/baselines/nltk_baseline.py"
+                cmd_module="baselines.nltk_punkt.cli"
                 ;;
             "ja_seg")
-                cmd="uv run python ../comparison/baselines/ja_seg_baseline.py"
+                cmd_module="baselines.ja_sentence_segmenter.cli"
                 ;;
             *)
                 print_error "Unknown tool: $tool"
@@ -211,7 +246,7 @@ from metrics import MetricsMeasurer, BenchmarkResult
 measurer = MetricsMeasurer()
 try:
     result = measurer.run_throughput_benchmark(
-        command=$cmd.split(),
+        command=['uv', 'run', 'python', '-m', '$cmd_module', '--input', '-'],
         input_file='$input_file',
         num_threads=1,
         warmup_runs=$WARMUP_RUNS,
@@ -251,7 +286,10 @@ run_memory_benchmarks() {
             print_info "  Testing with $threads threads..."
             
             # Build command
-            cmd=(sakurs process --input -)
+            lang_flag=""
+            if [ "$lang" = "ja" ]; then
+                lang_flag="--language japanese"
+            fi
             
             # Run benchmark
             uv run python -c "
@@ -261,9 +299,14 @@ from metrics import MetricsMeasurer, BenchmarkResult
 
 measurer = MetricsMeasurer()
 try:
+    # For sakurs, we need to pass the file path directly
+    cmd = ['sakurs', 'process', '--input', '$input_file']
+    if '$lang_flag':
+        cmd.extend('$lang_flag'.split())
+    
     result = measurer.enhanced_measure_memory_peak(
-        command=['sakurs', 'process', '--input', '-'],
-        input_file='$input_file'
+        command=cmd,
+        input_file=None  # Don't use stdin for sakurs
     )
     
     br = BenchmarkResult(
@@ -289,10 +332,10 @@ except Exception as e:
         # Determine command based on tool
         case "$tool" in
             "nltk")
-                cmd="uv run python ../comparison/baselines/nltk_baseline.py"
+                cmd_module="baselines.nltk_punkt.cli"
                 ;;
             "ja_seg")
-                cmd="uv run python ../comparison/baselines/ja_seg_baseline.py"
+                cmd_module="baselines.ja_sentence_segmenter.cli"
                 ;;
             *)
                 print_error "Unknown tool: $tool"
@@ -309,7 +352,7 @@ from metrics import MetricsMeasurer, BenchmarkResult
 measurer = MetricsMeasurer()
 try:
     result = measurer.enhanced_measure_memory_peak(
-        command=$cmd.split(),
+        command=['uv', 'run', 'python', '-m', '$cmd_module', '--input', '-'],
         input_file='$input_file'
     )
     
@@ -369,17 +412,17 @@ if [ "$SKIP_THROUGHPUT" = false ]; then
     print_info "Running throughput benchmarks..."
     
     # Japanese Wikipedia
-    if [ -f "../data/wikipedia_ja_sample_20231101.txt" ]; then
-        run_throughput_benchmarks "ja" "wikipedia" "sakurs" "../data/wikipedia_ja_sample_20231101.txt"
-        run_throughput_benchmarks "ja" "wikipedia" "ja_seg" "../data/wikipedia_ja_sample_20231101.txt"
+    if [ -f "../data/cache/wikipedia_ja_500mb_20231101.txt" ]; then
+        run_throughput_benchmarks "ja" "wikipedia" "sakurs" "../data/cache/wikipedia_ja_500mb_20231101.txt"
+        run_throughput_benchmarks "ja" "wikipedia" "ja_seg" "../data/cache/wikipedia_ja_500mb_20231101.txt"
     else
         print_warning "Japanese Wikipedia sample not found, skipping..."
     fi
     
     # English Wikipedia
-    if [ -f "../data/wikipedia_en_sample_20231101.txt" ]; then
-        run_throughput_benchmarks "en" "wikipedia" "sakurs" "../data/wikipedia_en_sample_20231101.txt"
-        run_throughput_benchmarks "en" "wikipedia" "nltk" "../data/wikipedia_en_sample_20231101.txt"
+    if [ -f "../data/cache/wikipedia_en_500mb_20231101.txt" ]; then
+        run_throughput_benchmarks "en" "wikipedia" "sakurs" "../data/cache/wikipedia_en_500mb_20231101.txt"
+        run_throughput_benchmarks "en" "wikipedia" "nltk" "../data/cache/wikipedia_en_500mb_20231101.txt"
     else
         print_warning "English Wikipedia sample not found, skipping..."
     fi
@@ -390,17 +433,17 @@ if [ "$SKIP_MEMORY" = false ]; then
     print_info "Running memory benchmarks..."
     
     # Japanese Wikipedia
-    if [ -f "../data/wikipedia_ja_sample_20231101.txt" ]; then
-        run_memory_benchmarks "ja" "wikipedia" "sakurs" "../data/wikipedia_ja_sample_20231101.txt"
-        run_memory_benchmarks "ja" "wikipedia" "ja_seg" "../data/wikipedia_ja_sample_20231101.txt"
+    if [ -f "../data/cache/wikipedia_ja_500mb_20231101.txt" ]; then
+        run_memory_benchmarks "ja" "wikipedia" "sakurs" "../data/cache/wikipedia_ja_500mb_20231101.txt"
+        run_memory_benchmarks "ja" "wikipedia" "ja_seg" "../data/cache/wikipedia_ja_500mb_20231101.txt"
     else
         print_warning "Japanese Wikipedia sample not found, skipping..."
     fi
     
     # English Wikipedia
-    if [ -f "../data/wikipedia_en_sample_20231101.txt" ]; then
-        run_memory_benchmarks "en" "wikipedia" "sakurs" "../data/wikipedia_en_sample_20231101.txt"
-        run_memory_benchmarks "en" "wikipedia" "nltk" "../data/wikipedia_en_sample_20231101.txt"
+    if [ -f "../data/cache/wikipedia_en_500mb_20231101.txt" ]; then
+        run_memory_benchmarks "en" "wikipedia" "sakurs" "../data/cache/wikipedia_en_500mb_20231101.txt"
+        run_memory_benchmarks "en" "wikipedia" "nltk" "../data/cache/wikipedia_en_500mb_20231101.txt"
     else
         print_warning "English Wikipedia sample not found, skipping..."
     fi
@@ -419,9 +462,9 @@ if [ "$SKIP_ACCURACY" = false ]; then
     fi
     
     # UD English-EWT
-    if [ -f "../data/ud-treebanks-v2.16/UD_English-EWT/en_ewt-ud-test.txt" ]; then
-        run_accuracy_benchmarks "en" "ud_ewt" "sakurs" "../data/ud-treebanks-v2.16/UD_English-EWT/en_ewt-ud-test.txt"
-        run_accuracy_benchmarks "en" "ud_ewt" "nltk" "../data/ud-treebanks-v2.16/UD_English-EWT/en_ewt-ud-test.txt"
+    if [ -f "../data/ud_english_ewt/cli_format/ewt_plain.txt" ]; then
+        run_accuracy_benchmarks "en" "ud_ewt" "sakurs" "../data/ud_english_ewt/cli_format/ewt_plain.txt"
+        run_accuracy_benchmarks "en" "ud_ewt" "nltk" "../data/ud_english_ewt/cli_format/ewt_plain.txt"
     else
         print_warning "UD English-EWT test set not found, skipping..."
     fi
