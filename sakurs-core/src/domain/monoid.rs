@@ -3,6 +3,8 @@
 //! This module defines the mathematical foundation that enables
 //! parallelization of sentence boundary detection through monoid algebra.
 
+use smallvec::SmallVec;
+
 /// A mathematical monoid structure that enables parallel computation
 ///
 /// A monoid is an algebraic structure with an associative binary operation
@@ -36,7 +38,8 @@ pub trait MonoidReduce: Monoid {
         I: IntoIterator<Item = Self>,
         I::IntoIter: ExactSizeIterator,
     {
-        let mut items: Vec<Self> = iter.into_iter().collect();
+        // Use SmallVec to avoid heap allocation for small collections
+        let mut items: SmallVec<[Self; 16]> = iter.into_iter().collect();
 
         if items.is_empty() {
             return Self::identity();
@@ -44,7 +47,7 @@ pub trait MonoidReduce: Monoid {
 
         // Tree reduction: combine pairs until only one remains
         while items.len() > 1 {
-            let mut next_level = Vec::new();
+            let mut next_level = SmallVec::<[Self; 16]>::new();
             let mut i = 0;
 
             while i < items.len() {

@@ -7,6 +7,7 @@ use crate::domain::{
     enclosure::{EnclosureRules, StandardEnclosureRules},
     language::{BoundaryContext, BoundaryDecision, LanguageRules},
     state::{AbbreviationState, BoundaryFlags, DeltaEntry, PartialState},
+    types::DepthVec,
 };
 
 /// Parser configuration options.
@@ -102,7 +103,7 @@ impl Parser {
                         // Record as boundary candidate with current local depths
                         state.add_boundary_candidate(
                             position + char_len,
-                            local_depths.clone(),
+                            DepthVec::from_vec(local_depths.clone()),
                             flags,
                         );
 
@@ -128,7 +129,7 @@ impl Parser {
                         // Record as weak boundary candidate
                         state.add_boundary_candidate(
                             position + char_len,
-                            local_depths.clone(),
+                            DepthVec::from_vec(local_depths.clone()),
                             BoundaryFlags::WEAK,
                         );
                     }
