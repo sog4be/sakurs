@@ -34,6 +34,10 @@ harness = false
 name = "adaptive_comparison"
 harness = false
 
+[[bench]]
+name = "streaming_benchmark"
+harness = false
+
 [features]
 default = ["std", "parallel"]
 std = []
