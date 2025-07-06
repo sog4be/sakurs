@@ -26,6 +26,14 @@ harness = false
 name = "smallvec_comparison"
 harness = false
 
+[[bench]]
+name = "adaptive_profiling"
+harness = false
+
+[[bench]]
+name = "adaptive_comparison"
+harness = false
+
 [features]
 default = ["std", "parallel"]
 std = []

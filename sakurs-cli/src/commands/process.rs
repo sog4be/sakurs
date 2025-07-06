@@ -27,6 +27,10 @@ pub struct ProcessArgs {
     #[arg(short, long)]
     pub parallel: bool,
 
+    /// Use adaptive processing (automatically choose best strategy)
+    #[arg(long, conflicts_with = "parallel")]
+    pub adaptive: bool,
+
     /// Configuration file
     #[arg(short, long, value_name = "FILE")]
     pub config: Option<PathBuf>,
@@ -110,7 +114,11 @@ impl ProcessArgs {
                 let content = crate::input::FileReader::read_text(file)?;
 
                 // Process text
-                let result = processor.process_text(&content)?;
+                let result = if self.adaptive {
+                    processor.process_text_adaptive(&content)?
+                } else {
+                    processor.process_text(&content)?
+                };
 
                 // Extract and output sentences
                 let sentences = result.extract_sentences(&content);
