@@ -317,7 +317,7 @@ mod tests {
     fn test_parallel_reduce_states_single() {
         // Test with single state
         let mut state = PartialState::new(1);
-        state.add_boundary_candidate(10, vec![0], crate::domain::BoundaryFlags::WEAK);
+        state.add_boundary_candidate(10, vec![0].into(), crate::domain::BoundaryFlags::WEAK);
         state.chunk_length = 20;
 
         let states = vec![state.clone()];

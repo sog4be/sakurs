@@ -35,6 +35,7 @@
 
 use crate::domain::prefix_sum::ChunkStartState;
 use crate::domain::state::{Boundary, BoundaryCandidate, PartialState};
+use crate::domain::types::DeltaVec;
 use rayon::prelude::*;
 
 /// Evaluates boundary candidates to produce confirmed boundaries.
@@ -111,10 +112,13 @@ impl BoundaryReducer {
     /// This is used when processing a single chunk or in sequential mode.
     pub fn reduce_single(state: &PartialState) -> Vec<Boundary> {
         let chunk_start = ChunkStartState {
-            cumulative_deltas: vec![
-                crate::domain::state::DeltaEntry { net: 0, min: 0 };
+            cumulative_deltas: DeltaVec::from_vec(vec![
+                crate::domain::state::DeltaEntry {
+                    net: 0,
+                    min: 0
+                };
                 state.deltas.len()
-            ],
+            ]),
             global_offset: 0,
         };
 
@@ -126,6 +130,7 @@ impl BoundaryReducer {
 mod tests {
     use super::*;
     use crate::domain::state::DeltaEntry;
+    use crate::domain::types::{BoundaryVec, DepthVec};
     use crate::domain::BoundaryFlags;
 
     #[test]
@@ -133,18 +138,21 @@ mod tests {
         let candidates = vec![
             BoundaryCandidate {
                 local_offset: 10,
-                local_depths: vec![0, 0],
+                local_depths: DepthVec::from_vec(vec![0, 0]),
                 flags: BoundaryFlags::WEAK,
             },
             BoundaryCandidate {
                 local_offset: 25,
-                local_depths: vec![0, 0],
+                local_depths: DepthVec::from_vec(vec![0, 0]),
                 flags: BoundaryFlags::STRONG,
             },
         ];
 
         let chunk_start = ChunkStartState {
-            cumulative_deltas: vec![DeltaEntry { net: 0, min: 0 }, DeltaEntry { net: 0, min: 0 }],
+            cumulative_deltas: DeltaVec::from_vec(vec![
+                DeltaEntry { net: 0, min: 0 },
+                DeltaEntry { net: 0, min: 0 },
+            ]),
             global_offset: 100,
         };
 
@@ -160,18 +168,18 @@ mod tests {
         let candidates = vec![
             BoundaryCandidate {
                 local_offset: 10,
-                local_depths: vec![1], // Inside parentheses
+                local_depths: DepthVec::from_vec(vec![1]), // Inside parentheses
                 flags: BoundaryFlags::WEAK,
             },
             BoundaryCandidate {
                 local_offset: 25,
-                local_depths: vec![0], // Outside
+                local_depths: DepthVec::from_vec(vec![0]), // Outside
                 flags: BoundaryFlags::STRONG,
             },
         ];
 
         let chunk_start = ChunkStartState {
-            cumulative_deltas: vec![DeltaEntry { net: 0, min: 0 }],
+            cumulative_deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }]),
             global_offset: 0,
         };
 
@@ -185,12 +193,12 @@ mod tests {
     fn test_evaluate_candidates_with_cumulative_depth() {
         let candidates = vec![BoundaryCandidate {
             local_offset: 10,
-            local_depths: vec![-1], // Closes an enclosure
+            local_depths: DepthVec::from_vec(vec![-1]), // Closes an enclosure
             flags: BoundaryFlags::WEAK,
         }];
 
         let chunk_start = ChunkStartState {
-            cumulative_deltas: vec![DeltaEntry { net: 1, min: 0 }], // Started with open enclosure
+            cumulative_deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 1, min: 0 }]), // Started with open enclosure
             global_offset: 100,
         };
 
@@ -204,22 +212,22 @@ mod tests {
     fn test_reduce_all() {
         let states = vec![
             PartialState {
-                boundary_candidates: vec![BoundaryCandidate {
+                boundary_candidates: BoundaryVec::from_vec(vec![BoundaryCandidate {
                     local_offset: 10,
-                    local_depths: vec![0],
+                    local_depths: DepthVec::from_vec(vec![0]),
                     flags: BoundaryFlags::WEAK,
-                }],
-                deltas: vec![DeltaEntry { net: 1, min: 0 }],
+                }]),
+                deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 1, min: 0 }]),
                 abbreviation: Default::default(),
                 chunk_length: 50,
             },
             PartialState {
-                boundary_candidates: vec![BoundaryCandidate {
+                boundary_candidates: BoundaryVec::from_vec(vec![BoundaryCandidate {
                     local_offset: 15,
-                    local_depths: vec![-1],
+                    local_depths: DepthVec::from_vec(vec![-1]),
                     flags: BoundaryFlags::STRONG,
-                }],
-                deltas: vec![DeltaEntry { net: -1, min: -1 }],
+                }]),
+                deltas: DeltaVec::from_vec(vec![DeltaEntry { net: -1, min: -1 }]),
                 abbreviation: Default::default(),
                 chunk_length: 50,
             },
@@ -227,11 +235,11 @@ mod tests {
 
         let chunk_starts = vec![
             ChunkStartState {
-                cumulative_deltas: vec![DeltaEntry { net: 0, min: 0 }],
+                cumulative_deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }]),
                 global_offset: 0,
             },
             ChunkStartState {
-                cumulative_deltas: vec![DeltaEntry { net: 1, min: 0 }],
+                cumulative_deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 1, min: 0 }]),
                 global_offset: 50,
             },
         ];

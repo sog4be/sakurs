@@ -267,6 +267,9 @@ benchmarks/cli/results/*/
 # Brown Corpus data files (large dataset)
 /benchmarks/data/brown_corpus/data/
 
+# Sized sample files (generated during benchmarks)
+/benchmarks/data/sized_samples/
+
 # Documentation build
 /book/
 /mdbook-output/

@@ -6,6 +6,7 @@
 //! - A: Abbreviation state for cross-chunk handling
 
 use super::monoid::{Monoid, MonoidReduce};
+use super::types::{BoundaryVec, DeltaVec, DepthVec};
 
 /// Represents a sentence boundary with metadata
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -147,7 +148,7 @@ pub struct BoundaryCandidate {
     pub local_offset: usize,
 
     /// Local depths at this position (relative to chunk start)
-    pub local_depths: Vec<i32>,
+    pub local_depths: DepthVec,
 
     /// Boundary classification flags
     pub flags: BoundaryFlags,
@@ -162,10 +163,10 @@ pub struct BoundaryCandidate {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartialState {
     /// Boundary candidates found in this chunk
-    pub boundary_candidates: Vec<BoundaryCandidate>,
+    pub boundary_candidates: BoundaryVec,
 
     /// Delta stack entries for enclosure tracking
-    pub deltas: Vec<DeltaEntry>,
+    pub deltas: DeltaVec,
 
     /// Abbreviation state for cross-chunk processing
     pub abbreviation: AbbreviationState,
@@ -178,8 +179,8 @@ impl PartialState {
     /// Creates a new partial state
     pub fn new(enclosure_count: usize) -> Self {
         Self {
-            boundary_candidates: Vec::new(),
-            deltas: vec![DeltaEntry::identity(); enclosure_count],
+            boundary_candidates: BoundaryVec::new(),
+            deltas: DeltaVec::from_vec(vec![DeltaEntry::identity(); enclosure_count]),
             abbreviation: AbbreviationState::identity(),
             chunk_length: 0,
         }
@@ -189,7 +190,7 @@ impl PartialState {
     pub fn add_boundary_candidate(
         &mut self,
         local_offset: usize,
-        local_depths: Vec<i32>,
+        local_depths: DepthVec,
         flags: BoundaryFlags,
     ) {
         self.boundary_candidates.push(BoundaryCandidate {
@@ -223,8 +224,8 @@ impl PartialState {
 impl Monoid for PartialState {
     fn identity() -> Self {
         Self {
-            boundary_candidates: Vec::new(),
-            deltas: Vec::new(),
+            boundary_candidates: BoundaryVec::new(),
+            deltas: DeltaVec::new(),
             abbreviation: AbbreviationState::identity(),
             chunk_length: 0,
         }
@@ -248,7 +249,7 @@ impl Monoid for PartialState {
         // when we have access to global depths
 
         // Combine delta entries
-        let mut combined_deltas = Vec::with_capacity(max_deltas);
+        let mut combined_deltas = DeltaVec::with_capacity(max_deltas);
         let identity = DeltaEntry::identity();
         for i in 0..max_deltas {
             let left_delta = self.deltas.get(i).unwrap_or(&identity);
@@ -301,62 +302,6 @@ impl PartialState {
     ) -> Self {
         // Language rule refinement is handled by the reduce phase
         self.clone()
-        /*
-        use crate::domain::language::{BoundaryContext, BoundaryDecision};
-
-        let mut refined_boundaries = std::collections::BTreeSet::new();
-
-        for boundary in &self.boundaries {
-            let absolute_position = text_offset + boundary.offset;
-
-            // Skip if position is out of bounds
-            if absolute_position >= text.len() {
-                refined_boundaries.insert(boundary.clone());
-                continue;
-            }
-
-            let boundary_char = text.chars().nth(absolute_position).unwrap_or('.');
-
-            // Create context for language rules
-            let preceding_start = absolute_position.saturating_sub(10);
-            let following_end = (absolute_position + 11).min(text.len());
-
-            let preceding_context = text[preceding_start..absolute_position].to_string();
-            let following_context = text[absolute_position + 1..following_end].to_string();
-
-            let context = BoundaryContext {
-                text: text.to_string(),
-                position: absolute_position,
-                boundary_char,
-                preceding_context,
-                following_context,
-            };
-
-            // Apply language rules
-            match rules.detect_sentence_boundary(&context) {
-                BoundaryDecision::Boundary(new_flags) => {
-                    refined_boundaries.insert(Boundary {
-                        offset: boundary.offset,
-                        flags: new_flags,
-                    });
-                }
-                BoundaryDecision::NotBoundary => {
-                    // Language rules determined this is not a boundary, skip it
-                }
-                BoundaryDecision::NeedsMoreContext => {
-                    // Keep original boundary when uncertain
-                    refined_boundaries.insert(boundary.clone());
-                }
-            }
-        }
-
-        Self {
-            boundaries: refined_boundaries,
-            deltas: self.deltas.clone(),
-            abbreviation: self.abbreviation.clone(),
-            chunk_length: self.chunk_length,
-        }
-        */
     }
 
     /// Create a PartialState with language rule analysis for a text chunk
@@ -379,23 +324,6 @@ impl PartialState {
         // Language rule processing is handled by scan and reduce phases
         use crate::domain::parser::scan_chunk;
         scan_chunk(text, rules)
-        /*
-        // Start with a basic analysis (this would normally come from the parser)
-        let mut state = Self::new(text.len());
-
-        // Add basic punctuation boundaries
-        for (i, ch) in text.char_indices() {
-            if matches!(ch, '.' | '!' | '?') {
-                state.boundaries.insert(Boundary {
-                    offset: i,
-                    flags: crate::domain::BoundaryFlags::WEAK,
-                });
-            }
-        }
-
-        // Apply language rules to refine the boundaries
-        state.apply_language_rules(text, text_offset, rules)
-        */
     }
 }
 
@@ -457,12 +385,12 @@ mod tests {
     #[test]
     fn test_partial_state_combine() {
         let mut left = PartialState::new(2);
-        left.add_boundary_candidate(5, vec![0, 0], BoundaryFlags::STRONG);
+        left.add_boundary_candidate(5, DepthVec::from_vec(vec![0, 0]), BoundaryFlags::STRONG);
         left.chunk_length = 10;
         left.deltas[0] = DeltaEntry::new(1, 0);
 
         let mut right = PartialState::new(2);
-        right.add_boundary_candidate(3, vec![0, 0], BoundaryFlags::WEAK);
+        right.add_boundary_candidate(3, DepthVec::from_vec(vec![0, 0]), BoundaryFlags::WEAK);
         right.chunk_length = 8;
         right.deltas[0] = DeltaEntry::new(-1, -1);
 
@@ -540,7 +468,7 @@ mod tests {
 
         // Create a state with a boundary after "Dr."
         let mut state = PartialState::new(20);
-        state.add_boundary_candidate(2, vec![0], BoundaryFlags::WEAK);
+        state.add_boundary_candidate(2, DepthVec::from_vec(vec![0]), BoundaryFlags::WEAK);
 
         let text = "Dr. Smith is here.";
         let refined_state = state.apply_language_rules(text, 0, &rules);
@@ -557,7 +485,7 @@ mod tests {
 
         // Create a state with a valid sentence boundary
         let mut state = PartialState::new(20);
-        state.add_boundary_candidate(11, vec![0], BoundaryFlags::WEAK);
+        state.add_boundary_candidate(11, DepthVec::from_vec(vec![0]), BoundaryFlags::WEAK);
 
         let text = "Hello world. This is a test.";
         let refined_state = state.apply_language_rules(text, 0, &rules);

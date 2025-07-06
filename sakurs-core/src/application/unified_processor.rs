@@ -13,6 +13,7 @@ use crate::domain::{
     prefix_sum::{ChunkStartState, PrefixSumComputer},
     reduce::BoundaryReducer,
     state::{Boundary, PartialState},
+    types::DeltaVec,
 };
 use rayon::prelude::*;
 use std::sync::Arc;
@@ -95,10 +96,13 @@ impl UnifiedProcessor {
             PrefixSumComputer::compute_prefix_sum(&partial_states)
         } else {
             vec![ChunkStartState {
-                cumulative_deltas: vec![
-                    crate::domain::state::DeltaEntry { net: 0, min: 0 };
+                cumulative_deltas: DeltaVec::from_vec(vec![
+                    crate::domain::state::DeltaEntry {
+                        net: 0,
+                        min: 0
+                    };
                     partial_states[0].deltas.len()
-                ],
+                ]),
                 global_offset: 0,
             }]
         };

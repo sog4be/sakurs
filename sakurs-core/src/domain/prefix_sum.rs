@@ -5,12 +5,13 @@
 //! boundary candidate evaluation in the reduce phase.
 
 use crate::domain::state::{DeltaEntry, PartialState};
+use crate::domain::types::DeltaVec;
 
 /// Represents the cumulative state at the start of a chunk.
 #[derive(Debug, Clone)]
 pub struct ChunkStartState {
     /// Cumulative delta values at chunk start
-    pub cumulative_deltas: Vec<DeltaEntry>,
+    pub cumulative_deltas: DeltaVec,
     /// Global offset of this chunk
     pub global_offset: usize,
 }
@@ -37,7 +38,10 @@ impl PrefixSumComputer {
         let n = states.len();
         let mut result = vec![
             ChunkStartState {
-                cumulative_deltas: vec![DeltaEntry { net: 0, min: 0 }; states[0].deltas.len()],
+                cumulative_deltas: DeltaVec::from_vec(vec![
+                    DeltaEntry { net: 0, min: 0 };
+                    states[0].deltas.len()
+                ]),
                 global_offset: 0,
             };
             n
@@ -46,7 +50,8 @@ impl PrefixSumComputer {
         // Sequential implementation for small inputs
         if n <= 4 {
             let mut cumulative_offset = 0;
-            let mut cumulative_deltas = vec![DeltaEntry { net: 0, min: 0 }; states[0].deltas.len()];
+            let mut cumulative_deltas =
+                DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; states[0].deltas.len()]);
 
             for (i, state) in states.iter().enumerate() {
                 result[i] = ChunkStartState {
@@ -79,12 +84,13 @@ impl PrefixSumComputer {
 
         // Up-sweep phase (reduction)
         let tree_depth = (n as f64).log2().ceil() as usize;
-        let mut tree = vec![vec![DeltaEntry { net: 0, min: 0 }; enclosure_count]; n];
+        let mut tree =
+            vec![DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; enclosure_count]); n];
         let mut offsets = vec![0usize; n];
 
         // Initialize leaf nodes
         for (i, state) in states.iter().enumerate() {
-            tree[i] = state.deltas.clone();
+            tree[i] = state.deltas.to_vec().into();
             offsets[i] = state.chunk_length;
         }
 
@@ -117,7 +123,7 @@ impl PrefixSumComputer {
 
         // Down-sweep phase
         if n > 0 {
-            tree[n - 1] = vec![DeltaEntry { net: 0, min: 0 }; enclosure_count];
+            tree[n - 1] = DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; enclosure_count]);
             offsets[n - 1] = 0;
         }
 
@@ -189,6 +195,7 @@ impl PrefixSumComputer {
 mod tests {
     use super::*;
     use crate::domain::state::BoundaryCandidate;
+    use crate::domain::types::{BoundaryVec, DepthVec};
     use crate::domain::BoundaryFlags;
 
     #[test]
@@ -201,8 +208,8 @@ mod tests {
     #[test]
     fn test_single_chunk_prefix_sum() {
         let state = PartialState {
-            boundary_candidates: vec![],
-            deltas: vec![DeltaEntry { net: 1, min: 0 }],
+            boundary_candidates: BoundaryVec::new(),
+            deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 1, min: 0 }]),
             abbreviation: Default::default(),
             chunk_length: 100,
         };
@@ -217,20 +224,20 @@ mod tests {
     fn test_multiple_chunks_prefix_sum() {
         let states = vec![
             PartialState {
-                boundary_candidates: vec![],
-                deltas: vec![DeltaEntry { net: 1, min: 0 }],
+                boundary_candidates: BoundaryVec::new(),
+                deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 1, min: 0 }]),
                 abbreviation: Default::default(),
                 chunk_length: 100,
             },
             PartialState {
-                boundary_candidates: vec![],
-                deltas: vec![DeltaEntry { net: -1, min: -1 }],
+                boundary_candidates: BoundaryVec::new(),
+                deltas: DeltaVec::from_vec(vec![DeltaEntry { net: -1, min: -1 }]),
                 abbreviation: Default::default(),
                 chunk_length: 150,
             },
             PartialState {
-                boundary_candidates: vec![],
-                deltas: vec![DeltaEntry { net: 2, min: 0 }],
+                boundary_candidates: BoundaryVec::new(),
+                deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 2, min: 0 }]),
                 abbreviation: Default::default(),
                 chunk_length: 200,
             },
@@ -256,18 +263,18 @@ mod tests {
     #[test]
     fn test_apply_cumulative_state() {
         let state = PartialState {
-            boundary_candidates: vec![BoundaryCandidate {
+            boundary_candidates: BoundaryVec::from_vec(vec![BoundaryCandidate {
                 local_offset: 10,
-                local_depths: vec![1],
+                local_depths: DepthVec::from_vec(vec![1]),
                 flags: BoundaryFlags::WEAK,
-            }],
-            deltas: vec![DeltaEntry { net: 1, min: 0 }],
+            }]),
+            deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 1, min: 0 }]),
             abbreviation: Default::default(),
             chunk_length: 100,
         };
 
         let chunk_start = ChunkStartState {
-            cumulative_deltas: vec![DeltaEntry { net: 2, min: 0 }],
+            cumulative_deltas: DeltaVec::from_vec(vec![DeltaEntry { net: 2, min: 0 }]),
             global_offset: 200,
         };
 

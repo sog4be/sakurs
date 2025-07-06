@@ -10,6 +10,7 @@ pub mod parser;
 pub mod prefix_sum;
 pub mod reduce;
 pub mod state;
+pub mod types;
 
 pub use enclosure::*;
 pub use language::*;
@@ -18,3 +19,4 @@ pub use parser::*;
 pub use prefix_sum::*;
 pub use reduce::*;
 pub use state::*;
+pub use types::*;
