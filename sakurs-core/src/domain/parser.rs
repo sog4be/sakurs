@@ -16,7 +16,6 @@ pub struct ParserConfig {
     pub enclosure_rules: Box<dyn EnclosureRules>,
 }
 
-#[allow(dead_code)]
 impl Default for ParserConfig {
     fn default() -> Self {
         Self {

@@ -302,62 +302,6 @@ impl PartialState {
     ) -> Self {
         // Language rule refinement is handled by the reduce phase
         self.clone()
-        /*
-        use crate::domain::language::{BoundaryContext, BoundaryDecision};
-
-        let mut refined_boundaries = std::collections::BTreeSet::new();
-
-        for boundary in &self.boundaries {
-            let absolute_position = text_offset + boundary.offset;
-
-            // Skip if position is out of bounds
-            if absolute_position >= text.len() {
-                refined_boundaries.insert(boundary.clone());
-                continue;
-            }
-
-            let boundary_char = text.chars().nth(absolute_position).unwrap_or('.');
-
-            // Create context for language rules
-            let preceding_start = absolute_position.saturating_sub(10);
-            let following_end = (absolute_position + 11).min(text.len());
-
-            let preceding_context = text[preceding_start..absolute_position].to_string();
-            let following_context = text[absolute_position + 1..following_end].to_string();
-
-            let context = BoundaryContext {
-                text: text.to_string(),
-                position: absolute_position,
-                boundary_char,
-                preceding_context,
-                following_context,
-            };
-
-            // Apply language rules
-            match rules.detect_sentence_boundary(&context) {
-                BoundaryDecision::Boundary(new_flags) => {
-                    refined_boundaries.insert(Boundary {
-                        offset: boundary.offset,
-                        flags: new_flags,
-                    });
-                }
-                BoundaryDecision::NotBoundary => {
-                    // Language rules determined this is not a boundary, skip it
-                }
-                BoundaryDecision::NeedsMoreContext => {
-                    // Keep original boundary when uncertain
-                    refined_boundaries.insert(boundary.clone());
-                }
-            }
-        }
-
-        Self {
-            boundaries: refined_boundaries,
-            deltas: self.deltas.clone(),
-            abbreviation: self.abbreviation.clone(),
-            chunk_length: self.chunk_length,
-        }
-        */
     }
 
     /// Create a PartialState with language rule analysis for a text chunk
@@ -380,23 +324,6 @@ impl PartialState {
         // Language rule processing is handled by scan and reduce phases
         use crate::domain::parser::scan_chunk;
         scan_chunk(text, rules)
-        /*
-        // Start with a basic analysis (this would normally come from the parser)
-        let mut state = Self::new(text.len());
-
-        // Add basic punctuation boundaries
-        for (i, ch) in text.char_indices() {
-            if matches!(ch, '.' | '!' | '?') {
-                state.boundaries.insert(Boundary {
-                    offset: i,
-                    flags: crate::domain::BoundaryFlags::WEAK,
-                });
-            }
-        }
-
-        // Apply language rules to refine the boundaries
-        state.apply_language_rules(text, text_offset, rules)
-        */
     }
 }
 
