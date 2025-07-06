@@ -51,6 +51,18 @@ impl UnifiedProcessor {
         }
     }
 
+    /// Creates a processor for English text.
+    pub fn english() -> Self {
+        use crate::domain::language::EnglishLanguageRules;
+        Self::new(Arc::new(EnglishLanguageRules::new()))
+    }
+
+    /// Creates a processor for Japanese text.
+    pub fn japanese() -> Self {
+        use crate::domain::language::JapaneseLanguageRules;
+        Self::new(Arc::new(JapaneseLanguageRules::new()))
+    }
+
     /// Processes text with specified number of threads.
     ///
     /// # Arguments
@@ -134,6 +146,16 @@ impl UnifiedProcessor {
     pub fn process(&self, text: &str) -> ProcessingResult<UnifiedProcessingOutput> {
         let thread_count = self.determine_thread_count(text.len());
         self.process_with_threads(text, thread_count)
+    }
+
+    /// Processes text using adaptive strategy selection.
+    /// This method automatically selects between sequential and parallel processing
+    /// based on input characteristics for optimal performance.
+    pub fn process_adaptive(&self, text: &str) -> ProcessingResult<Vec<usize>> {
+        use crate::processing::AdaptiveProcessor;
+
+        let adaptive = AdaptiveProcessor::new(self.language_rules.clone());
+        adaptive.process(text)
     }
 
     /// Scans chunks in parallel using rayon.

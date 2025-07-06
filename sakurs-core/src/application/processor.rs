@@ -156,6 +156,55 @@ impl TextProcessor {
         })
     }
 
+    /// Processes text using adaptive strategy selection for optimal performance
+    pub fn process_text_adaptive(&self, text: &str) -> ProcessingResult<ProcessingOutput> {
+        use crate::processing::AdaptiveProcessor;
+
+        let start_time = Instant::now();
+        let mut metrics = ProcessingMetrics::default();
+
+        // Check text size limits
+        if text.len() > self.config.max_text_size {
+            return Err(ProcessingError::TextTooLarge {
+                size: text.len(),
+                max: self.config.max_text_size,
+            });
+        }
+
+        // Empty text handling
+        if text.is_empty() {
+            return Ok(ProcessingOutput {
+                boundaries: Vec::new(),
+                text_length: 0,
+                metrics,
+            });
+        }
+
+        metrics.bytes_processed = text.len();
+
+        // Use adaptive processor
+        let adaptive = AdaptiveProcessor::new(self.language_rules.clone());
+        let boundary_offsets = adaptive.process(text)?;
+
+        // Convert offsets to Boundary objects
+        let boundaries: Vec<Boundary> = boundary_offsets
+            .into_iter()
+            .map(|offset| Boundary {
+                offset,
+                flags: crate::domain::state::BoundaryFlags::STRONG,
+            })
+            .collect();
+
+        metrics.boundaries_found = boundaries.len();
+        metrics.total_time_us = start_time.elapsed().as_micros() as u64;
+
+        Ok(ProcessingOutput {
+            boundaries,
+            text_length: text.len(),
+            metrics,
+        })
+    }
+
     /// Sequential processing for small texts
     fn process_sequential(
         &self,
