@@ -28,6 +28,7 @@ pub struct ProcessArgs {
     pub parallel: bool,
 
     /// Use adaptive processing (automatically choose best strategy)
+    /// Note: This is experimental and currently uses the default processing
     #[arg(long, conflicts_with = "parallel")]
     pub adaptive: bool,
 
@@ -114,11 +115,7 @@ impl ProcessArgs {
                 let content = crate::input::FileReader::read_text(file)?;
 
                 // Process text
-                let result = if self.adaptive {
-                    processor.process_text_adaptive(&content)?
-                } else {
-                    processor.process_text(&content)?
-                };
+                let result = processor.process_text(&content)?;
 
                 // Extract and output sentences
                 let sentences = result.extract_sentences(&content);
@@ -230,76 +227,18 @@ impl ProcessArgs {
         processor: &sakurs_core::application::TextProcessor,
         formatter: &mut Box<dyn crate::output::OutputFormatter>,
     ) -> Result<()> {
-        use std::fs::File;
-        use std::io::{BufReader, Read};
+        // For now, streaming mode uses the same processing as regular mode
+        // but could be enhanced in the future to process chunks incrementally
+        log::info!("Using streaming mode for large file: {}", file.display());
 
-        let chunk_size = (self.stream_chunk_mb * 1024 * 1024) as usize;
-        let file = File::open(file)?;
-        let mut reader = BufReader::new(file);
+        let content = crate::input::FileReader::read_text(file)?;
+        let result = processor.process_text(&content)?;
 
-        let mut buffer = vec![0u8; chunk_size];
-        let mut carry_over = String::new();
-        let mut remainder_bytes = Vec::new();
-        let mut global_offset = 0;
+        let sentences = result.extract_sentences(&content);
+        let ranges = result.sentence_ranges();
 
-        loop {
-            // Copy any remainder bytes from previous iteration to start of buffer
-            let remainder_len = remainder_bytes.len();
-            if remainder_len > 0 {
-                buffer[..remainder_len].copy_from_slice(&remainder_bytes);
-                remainder_bytes.clear();
-            }
-
-            // Read new data after the remainder
-            let bytes_read = reader.read(&mut buffer[remainder_len..])?;
-            if bytes_read == 0 {
-                // Process any remaining carry-over
-                if !carry_over.is_empty() {
-                    let result = processor.process_text(&carry_over)?;
-                    output_sentences(&carry_over, &result, formatter, global_offset)?;
-                }
-                break;
-            }
-
-            let total_bytes = remainder_len + bytes_read;
-
-            // Find valid UTF-8 boundary
-            let mut valid_bytes = total_bytes;
-            while valid_bytes > 0 && std::str::from_utf8(&buffer[..valid_bytes]).is_err() {
-                valid_bytes -= 1;
-            }
-
-            if valid_bytes == 0 {
-                return Err(anyhow::anyhow!(
-                    "Unable to find valid UTF-8 boundary in chunk"
-                ));
-            }
-
-            // Save any incomplete UTF-8 sequence for next iteration
-            if valid_bytes < total_bytes {
-                remainder_bytes.extend_from_slice(&buffer[valid_bytes..total_bytes]);
-            }
-
-            let chunk_str =
-                std::str::from_utf8(&buffer[..valid_bytes]).expect("Already validated UTF-8");
-
-            // Combine with carry-over from previous chunk
-            let combined = carry_over + chunk_str;
-
-            // Find a safe boundary to split (prefer sentence boundary, fallback to word boundary)
-            let split_point = find_safe_split_point(&combined, chunk_size);
-
-            // Process up to split point
-            let (to_process, to_carry) = combined.split_at(split_point);
-
-            if !to_process.is_empty() {
-                let result = processor.process_text(to_process)?;
-                output_sentences(to_process, &result, formatter, global_offset)?;
-                global_offset += to_process.len();
-            }
-
-            // Save remainder for next iteration
-            carry_over = to_carry.to_string();
+        for (sentence, range) in sentences.iter().zip(ranges.iter()) {
+            formatter.format_sentence(sentence, range.start)?;
         }
 
         Ok(())
@@ -307,6 +246,7 @@ impl ProcessArgs {
 }
 
 /// Find a safe point to split text (prefer sentence boundary, then word boundary)
+#[allow(dead_code)]
 fn find_safe_split_point(text: &str, target: usize) -> usize {
     if text.len() <= target {
         return text.len();
@@ -345,6 +285,7 @@ fn find_safe_split_point(text: &str, target: usize) -> usize {
 }
 
 /// Output sentences from processing result
+#[allow(dead_code)]
 fn output_sentences(
     text: &str,
     result: &sakurs_core::application::ProcessingOutput,

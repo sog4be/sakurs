@@ -30,7 +30,9 @@ pub mod parallel;
 pub mod selector;
 pub mod sequential;
 pub mod strategy;
+pub mod streaming;
 
 pub use adaptive::AdaptiveProcessor;
 pub use selector::StrategySelector;
 pub use strategy::{InputCharacteristics, ProcessingConfig, ProcessingStrategy};
+pub use streaming::StreamingStrategy;

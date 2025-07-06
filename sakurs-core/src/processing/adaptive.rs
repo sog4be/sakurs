@@ -1,8 +1,8 @@
 //! Adaptive processor that automatically selects optimal strategy
 
 use super::{
-    parallel::ParallelStrategy, sequential::SequentialStrategy, InputCharacteristics,
-    ProcessingStrategy, StrategySelector,
+    parallel::ParallelStrategy, sequential::SequentialStrategy, streaming::StreamingStrategy,
+    InputCharacteristics, ProcessingStrategy, StrategySelector,
 };
 use crate::application::config::ProcessingResult as Result;
 use std::time::Instant;
@@ -18,7 +18,8 @@ impl AdaptiveProcessor {
     pub fn new(language_rules: std::sync::Arc<dyn crate::domain::language::LanguageRules>) -> Self {
         let strategies: Vec<Box<dyn ProcessingStrategy>> = vec![
             Box::new(SequentialStrategy::new(language_rules.clone())),
-            Box::new(ParallelStrategy::new(language_rules)),
+            Box::new(ParallelStrategy::new(language_rules.clone())),
+            Box::new(StreamingStrategy::new(language_rules)),
         ];
 
         Self {

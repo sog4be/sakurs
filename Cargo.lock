@@ -1012,6 +1012,7 @@ dependencies = [
  "glob",
  "indicatif",
  "log",
+ "num_cpus",
  "predicates",
  "rayon",
  "sakurs-core",
