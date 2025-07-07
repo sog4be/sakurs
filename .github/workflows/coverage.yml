@@ -78,21 +78,24 @@ jobs:
           cargo llvm-cov report --summary-only > coverage-summary.txt
           
           # Generate per-package coverage for PR comment
-          # Note: Use the overall summary and extract package-specific data from it
-          cargo llvm-cov report --summary-only > coverage-full.txt
+          # Note: cargo-llvm-cov's --package flag includes dependencies, so both packages show the same coverage
+          # This is a known limitation. For accurate per-package coverage, we would need to run tests separately
+          # For now, we'll use the overall workspace coverage for both to avoid confusion
           
-          # Extract sakurs-core coverage
-          grep "sakurs-core" coverage-full.txt > coverage-core.txt || echo "N/A" > coverage-core.txt
+          # Get the overall workspace coverage (this is accurate)
+          overall_coverage=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "N/A")
           
-          # Extract sakurs-cli coverage  
-          grep "sakurs-cli" coverage-full.txt > coverage-cli.txt || echo "N/A" > coverage-cli.txt
+          # TODO: Implement proper per-package coverage calculation
+          # For now, report "See details above" to direct users to the file-by-file breakdown
+          echo "See details above" > coverage-core.txt
+          echo "See details above" > coverage-cli.txt
           
           # Display coverage per crate
           echo ""
           echo "📦 Coverage by Crate:"
           echo "===================="
-          cargo llvm-cov report --summary-only --package sakurs-core || echo "⚠️ sakurs-core coverage failed"
-          cargo llvm-cov report --summary-only --package sakurs-cli || echo "⚠️ sakurs-cli coverage failed"
+          echo "sakurs-core: $(cat coverage-core.txt)"
+          echo "sakurs-cli: $(cat coverage-cli.txt)"
           
           # For PRs, get main branch coverage for comparison
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -257,12 +260,8 @@ jobs:
               const readPackageCoverage = (filename) => {
                 try {
                   const content = fs.readFileSync(filename, 'utf8').trim();
-                  if (content === 'N/A' || content === '') return 'N/A';
-                  
-                  // Extract percentage from line-based coverage report
-                  // Format: "sakurs-core/src/...    XX.XX%    ..."
-                  const match = content.match(/(\d+\.\d+)%/);
-                  return match ? `${match[1]}%` : 'N/A';
+                  // Content should already be in format "XX.X%" or "N/A"
+                  return content || 'N/A';
                 } catch (error) {
                   return 'N/A';
                 }
