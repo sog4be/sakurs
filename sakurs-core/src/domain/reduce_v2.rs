@@ -4,6 +4,7 @@
 //! the quote suppression logic for more intelligent boundary evaluation.
 
 use crate::domain::{
+    cross_chunk::{CrossChunkValidator, ValidationResult},
     language::LanguageRules,
     prefix_sum::ChunkStartState,
     quote_suppression::{
@@ -20,6 +21,8 @@ pub struct BoundaryReducerV2 {
     language_rules: Arc<dyn LanguageRules>,
     /// Quote suppression configuration
     suppression_config: QuoteSuppressionConfig,
+    /// Cross-chunk validator
+    cross_chunk_validator: CrossChunkValidator,
 }
 
 impl BoundaryReducerV2 {
@@ -28,6 +31,7 @@ impl BoundaryReducerV2 {
         Self {
             language_rules,
             suppression_config: QuoteSuppressionConfig::default(),
+            cross_chunk_validator: CrossChunkValidator::new(256), // Default overlap
         }
     }
 
@@ -39,6 +43,20 @@ impl BoundaryReducerV2 {
         Self {
             language_rules,
             suppression_config,
+            cross_chunk_validator: CrossChunkValidator::new(256),
+        }
+    }
+    
+    /// Create with custom configurations
+    pub fn with_full_config(
+        language_rules: Arc<dyn LanguageRules>,
+        suppression_config: QuoteSuppressionConfig,
+        overlap_size: usize,
+    ) -> Self {
+        Self {
+            language_rules,
+            suppression_config,
+            cross_chunk_validator: CrossChunkValidator::new(overlap_size),
         }
     }
 
@@ -114,6 +132,85 @@ impl BoundaryReducerV2 {
         boundaries.dedup_by_key(|b| b.offset);
 
         boundaries
+    }
+    
+    /// Reduce all chunks with cross-chunk validation
+    pub fn reduce_all_with_validation(
+        &self,
+        states: &[PartialState],
+        chunk_starts: &[ChunkStartState],
+    ) -> Vec<Boundary> {
+        assert_eq!(states.len(), chunk_starts.len());
+
+        let mut all_boundaries = Vec::new();
+        
+        // Process each chunk with cross-chunk awareness
+        for (i, (state, chunk_start)) in states.iter().zip(chunk_starts.iter()).enumerate() {
+            let next_state = states.get(i + 1);
+            
+            for candidate in &state.boundary_candidates {
+                // First check cross-chunk validation
+                let validation_result = self.cross_chunk_validator.validate_chunk_boundary(
+                    candidate,
+                    state,
+                    next_state,
+                    self.language_rules.as_ref(),
+                );
+                
+                // Skip invalid boundaries
+                if matches!(validation_result, ValidationResult::Invalid(_)) {
+                    continue;
+                }
+                
+                // Calculate global depths for quote suppression
+                let global_depths: Vec<i32> = candidate
+                    .local_depths
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &local_depth)| chunk_start.cumulative_deltas[i].net + local_depth)
+                    .collect();
+
+                // Create suppression context
+                let context = QuoteSuppressionContext {
+                    candidate,
+                    language_rules: self.language_rules.as_ref(),
+                    enclosure_depths: &global_depths,
+                    config: &self.suppression_config,
+                };
+
+                // Evaluate suppression decision
+                let mut final_flags = candidate.flags;
+                
+                // Apply weakening from cross-chunk validation if needed
+                if let ValidationResult::Weakened(flags) = validation_result {
+                    final_flags = flags;
+                }
+                
+                match QuoteSuppressor::evaluate(context) {
+                    SuppressionDecision::Keep => {
+                        all_boundaries.push(Boundary {
+                            offset: chunk_start.global_offset + candidate.local_offset,
+                            flags: final_flags,
+                        });
+                    }
+                    SuppressionDecision::Weaken { new_flags } => {
+                        all_boundaries.push(Boundary {
+                            offset: chunk_start.global_offset + candidate.local_offset,
+                            flags: new_flags,
+                        });
+                    }
+                    SuppressionDecision::Suppress { .. } => {
+                        // Suppress this boundary
+                    }
+                }
+            }
+        }
+        
+        // Sort and deduplicate
+        all_boundaries.sort_by_key(|b| b.offset);
+        all_boundaries.dedup_by_key(|b| b.offset);
+        
+        all_boundaries
     }
 
     /// Reduce a single partial state (for sequential processing)
