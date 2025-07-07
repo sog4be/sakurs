@@ -28,8 +28,8 @@ graph TB
     subgraph "Adapters (Outer Layer)"
         ADP_CLI[CLI Adapter]
         ADP_PY[Python Adapter]
-        ADP_WASM[WASM Adapter]
-        ADP_STRM[Streaming Adapter]
+        ADP_WASM[WASM Adapter - Future]
+        ADP_STRM[Streaming Adapter - Future]
     end
     
     subgraph "API Layer (Public Interface)"
@@ -176,7 +176,9 @@ Key features:
 - Hides internal implementation complexity
 - Provides intuitive, type-safe API
 - Supports configuration presets (fast, balanced, accurate)
-- Unified error handling
+- Unified error handling with domain-specific error types
+- Rich output metadata including performance metrics
+- Support for various input sources (text, files, readers, bytes)
 
 ### Domain Layer (`src/domain/`)
 
@@ -210,8 +212,11 @@ pub struct UnifiedProcessor {
 
 // Processing strategies
 pub trait ProcessingStrategy: Send + Sync {
-    fn process(&self, input: StrategyInput) -> Result<StrategyOutput>;
-    fn is_suitable(&self, context: &AnalysisContext) -> SuitabilityScore;
+    fn process(&self, input: StrategyInput, 
+               language_rules: Arc<dyn LanguageRules>,
+               config: &ProcessingConfig) -> Result<StrategyOutput>;
+    fn suitability_score(&self, characteristics: &InputCharacteristics) -> f32;
+    fn supports_streaming(&self) -> bool;
 }
 ```
 
@@ -225,10 +230,12 @@ Key responsibilities:
 
 Each adapter provides a different interface to the API layer:
 
-- **CLI** (`sakurs-cli/`): Command-line tool with file globbing and stdin support
-- **Python** (`sakurs-py/`): PyO3 bindings with NLTK-compatible API
+- **CLI** (`sakurs-cli/`): Command-line tool with file globbing, stdin support, and multiple output formats
+- **Python** (`sakurs-py/`): PyO3 bindings with NLTK-compatible API and streaming support
 - **WASM** (future): Browser-compatible with streaming support
 - **C API** (future): For integration with other languages
+
+Note: Streaming functionality is currently implemented as a processing strategy within the application layer, accessible through all adapters.
 
 ## Performance Characteristics
 
@@ -257,15 +264,27 @@ Each adapter provides a different interface to the API layer:
 ### Basic Usage (via API Layer)
 
 ```rust
-use sakurs::{SentenceProcessor, Input};
+use sakurs_core::api::{SentenceProcessor, Input};
 
 // Simple usage
 let processor = SentenceProcessor::for_language("en")?;
 let output = processor.process(Input::from_text("Hello world. How are you?"))?;
 
 for boundary in &output.boundaries {
-    println!("Sentence ends at: {}", boundary.offset);
+    println!("Sentence ends at byte offset: {}", boundary.offset);
+    println!("Sentence ends at char offset: {}", boundary.char_offset);
 }
+
+// Advanced usage with custom configuration
+use sakurs_core::api::Config;
+
+let config = Config::builder()
+    .language("ja")
+    .threads(4)
+    .accurate()  // Use accurate preset
+    .build()?;
+
+let processor = SentenceProcessor::with_config(config)?;
 ```
 
 ### CLI Usage
@@ -316,6 +335,28 @@ Yes! The library is designed for production use with:
 - Extensive testing
 - Performance monitoring hooks
 
+## Implementation Status
+
+### Current Features (v0.1.0)
+- ✅ Core Delta-Stack Monoid algorithm
+- ✅ Parallel processing with rayon
+- ✅ English and Japanese language support
+- ✅ Unified API layer with clean public interface
+- ✅ CLI adapter with stdin/file/glob support
+- ✅ Python bindings with NLTK compatibility
+- ✅ Streaming processing strategy
+- ✅ Adaptive strategy selection
+- ✅ Cross-chunk boundary handling
+- ✅ UTF-8 safe chunking
+- ✅ Configuration presets (fast/balanced/accurate)
+
+### Planned Features
+- 🚧 WASM adapter for browser support
+- 🚧 C API for other language bindings
+- 🚧 Additional language rules (German, French, Spanish)
+- 🚧 Runtime plugin system for language rules
+- 🚧 GPU acceleration for very large texts
+
 ## Contributing
 
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup and guidelines.
@@ -325,3 +366,4 @@ Key areas for contribution:
 - Performance optimizations
 - Documentation improvements
 - Test coverage expansion
+- WASM adapter implementation
