@@ -148,3 +148,114 @@ impl<T: LanguageRules> BoundaryAnalyzer for LanguageRulesAdapter<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::language::english::EnglishLanguageRules;
+
+    #[test]
+    fn test_language_rules_adapter_character_classification() {
+        let rules = EnglishLanguageRules::new();
+        let adapter = LanguageRulesAdapter::new(rules);
+
+        // Test sentence terminals
+        assert_eq!(adapter.classify('.'), CharacterClass::SentenceTerminal);
+        assert_eq!(adapter.classify('?'), CharacterClass::SentenceTerminal);
+        assert_eq!(adapter.classify('!'), CharacterClass::SentenceTerminal);
+
+        // Test whitespace
+        assert_eq!(adapter.classify(' '), CharacterClass::Whitespace);
+        assert_eq!(adapter.classify('\t'), CharacterClass::Whitespace);
+        assert_eq!(adapter.classify('\n'), CharacterClass::Whitespace);
+
+        // Test alphabetic
+        assert_eq!(adapter.classify('a'), CharacterClass::Alphabetic);
+        assert_eq!(adapter.classify('Z'), CharacterClass::Alphabetic);
+
+        // Test numeric
+        assert_eq!(adapter.classify('0'), CharacterClass::Numeric);
+        assert_eq!(adapter.classify('9'), CharacterClass::Numeric);
+
+        // Test delimiters
+        assert_eq!(adapter.classify('('), CharacterClass::DelimiterOpen);
+        assert_eq!(adapter.classify(')'), CharacterClass::DelimiterClose);
+        assert_eq!(adapter.classify('"'), CharacterClass::DelimiterOpen);
+
+        // Test other punctuation
+        assert_eq!(adapter.classify(','), CharacterClass::OtherPunctuation);
+        assert_eq!(adapter.classify(';'), CharacterClass::OtherPunctuation);
+    }
+
+    #[test]
+    fn test_language_specific_rules_adapter() {
+        let rules = EnglishLanguageRules::new();
+        let adapter = LanguageRulesAdapter::new(rules);
+
+        // Test abbreviation detection
+        assert!(adapter.is_abbreviation("Dr"));
+        assert!(adapter.is_abbreviation("Mr"));
+        assert!(!adapter.is_abbreviation("Hello"));
+
+        // Test language code
+        assert_eq!(adapter.language_code(), "en");
+
+        // Test quote behavior
+        assert!(matches!(
+            adapter.quote_behavior(QuoteType::Double),
+            QuoteBehavior::Contextual
+        ));
+    }
+
+    #[test]
+    fn test_boundary_analyzer_adapter() {
+        let rules = EnglishLanguageRules::new();
+        let adapter = LanguageRulesAdapter::new(rules);
+
+        let context = NewBoundaryContext {
+            text_before: "Hello".to_string(),
+            text_after: " World".to_string(),
+            position: 5,
+            boundary_char: '.',
+            enclosure_depth: 0,
+        };
+
+        // Test candidate analysis
+        let candidate = adapter.analyze_candidate(&context);
+        assert_eq!(candidate.position, 5);
+        assert_eq!(candidate.confidence, 0.7); // Period gets 0.7
+        assert!(matches!(candidate.marker_type, BoundaryMarkerType::Period));
+
+        // Test with question mark
+        let context_question = NewBoundaryContext {
+            boundary_char: '?',
+            ..context.clone()
+        };
+        let candidate_question = adapter.analyze_candidate(&context_question);
+        assert_eq!(candidate_question.confidence, 0.9); // Question gets 0.9
+
+        // Test boundary evaluation
+        let state = PartialState::default();
+        let decision = adapter.evaluate_boundary(&candidate, &state);
+        assert!(matches!(decision, NewBoundaryDecision::Confirmed { .. }));
+    }
+
+    #[test]
+    fn test_japanese_character_classification() {
+        use crate::domain::language::japanese::JapaneseLanguageRules;
+
+        let rules = JapaneseLanguageRules::new();
+        let adapter = LanguageRulesAdapter::new(rules);
+
+        // Test Japanese sentence terminals
+        assert_eq!(adapter.classify('。'), CharacterClass::SentenceTerminal);
+        assert_eq!(adapter.classify('？'), CharacterClass::SentenceTerminal);
+        assert_eq!(adapter.classify('！'), CharacterClass::SentenceTerminal);
+
+        // Test Japanese brackets
+        assert_eq!(adapter.classify('「'), CharacterClass::DelimiterOpen);
+        assert_eq!(adapter.classify('」'), CharacterClass::DelimiterClose);
+        assert_eq!(adapter.classify('（'), CharacterClass::DelimiterOpen);
+        assert_eq!(adapter.classify('）'), CharacterClass::DelimiterClose);
+    }
+}
