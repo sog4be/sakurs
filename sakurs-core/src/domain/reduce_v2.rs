@@ -46,7 +46,7 @@ impl BoundaryReducerV2 {
             cross_chunk_validator: CrossChunkValidator::new(256),
         }
     }
-    
+
     /// Create with custom configurations
     pub fn with_full_config(
         language_rules: Arc<dyn LanguageRules>,
@@ -133,7 +133,7 @@ impl BoundaryReducerV2 {
 
         boundaries
     }
-    
+
     /// Reduce all chunks with cross-chunk validation
     pub fn reduce_all_with_validation(
         &self,
@@ -143,11 +143,11 @@ impl BoundaryReducerV2 {
         assert_eq!(states.len(), chunk_starts.len());
 
         let mut all_boundaries = Vec::new();
-        
+
         // Process each chunk with cross-chunk awareness
         for (i, (state, chunk_start)) in states.iter().zip(chunk_starts.iter()).enumerate() {
             let next_state = states.get(i + 1);
-            
+
             for candidate in &state.boundary_candidates {
                 // First check cross-chunk validation
                 let validation_result = self.cross_chunk_validator.validate_chunk_boundary(
@@ -156,12 +156,12 @@ impl BoundaryReducerV2 {
                     next_state,
                     self.language_rules.as_ref(),
                 );
-                
+
                 // Skip invalid boundaries
                 if matches!(validation_result, ValidationResult::Invalid(_)) {
                     continue;
                 }
-                
+
                 // Calculate global depths for quote suppression
                 let global_depths: Vec<i32> = candidate
                     .local_depths
@@ -180,12 +180,12 @@ impl BoundaryReducerV2 {
 
                 // Evaluate suppression decision
                 let mut final_flags = candidate.flags;
-                
+
                 // Apply weakening from cross-chunk validation if needed
                 if let ValidationResult::Weakened(flags) = validation_result {
                     final_flags = flags;
                 }
-                
+
                 match QuoteSuppressor::evaluate(context) {
                     SuppressionDecision::Keep => {
                         all_boundaries.push(Boundary {
@@ -205,11 +205,11 @@ impl BoundaryReducerV2 {
                 }
             }
         }
-        
+
         // Sort and deduplicate
         all_boundaries.sort_by_key(|b| b.offset);
         all_boundaries.dedup_by_key(|b| b.offset);
-        
+
         all_boundaries
     }
 
