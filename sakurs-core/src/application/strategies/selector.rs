@@ -107,7 +107,7 @@ impl StrategySelector {
                         characteristics.size_bytes
                     )
                 } else {
-                    format!("Sequential strategy selected (score: {:.2})", score)
+                    format!("Sequential strategy selected (score: {score:.2})")
                 }
             }
             "parallel" => {
@@ -117,7 +117,7 @@ impl StrategySelector {
                         characteristics.size_bytes, characteristics.cpu_count
                     )
                 } else {
-                    format!("Parallel strategy selected (score: {:.2})", score)
+                    format!("Parallel strategy selected (score: {score:.2})")
                 }
             }
             "streaming" => {
@@ -131,11 +131,11 @@ impl StrategySelector {
                         )
                     }
                 } else {
-                    format!("Streaming strategy selected (score: {:.2})", score)
+                    format!("Streaming strategy selected (score: {score:.2})")
                 }
             }
             "adaptive" => "Adaptive strategy selected".to_string(),
-            _ => format!("{} strategy selected (score: {:.2})", strategy_name, score),
+            _ => format!("{strategy_name} strategy selected (score: {score:.2})"),
         }
     }
 }

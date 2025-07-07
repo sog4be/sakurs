@@ -165,7 +165,7 @@ impl ParseStrategy for StreamingParser {
                     let combined = if overlap.is_empty() {
                         chunk.to_string()
                     } else {
-                        format!("{}{}", overlap, chunk)
+                        format!("{overlap}{chunk}")
                     };
 
                     if !combined.is_empty() {

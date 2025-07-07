@@ -101,7 +101,7 @@ impl ProcessingStrategy for AdaptiveStrategy {
             StrategyInput::Text(text) => InputCharacteristics::from_text(text),
             StrategyInput::File(path) => {
                 let metadata = std::fs::metadata(path).map_err(|e| {
-                    ProcessingError::Other(format!("Failed to read file metadata: {}", e))
+                    ProcessingError::Other(format!("Failed to read file metadata: {e}"))
                 })?;
                 InputCharacteristics::from_file_metadata(&metadata)
             }

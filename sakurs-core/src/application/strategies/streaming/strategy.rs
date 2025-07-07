@@ -114,7 +114,7 @@ impl StreamingStrategy {
         config: &ProcessingConfig,
     ) -> Result<Vec<usize>> {
         let file = std::fs::File::open(&path)
-            .map_err(|e| ProcessingError::Other(format!("Failed to open file: {}", e)))?;
+            .map_err(|e| ProcessingError::Other(format!("Failed to open file: {e}")))?;
         let mut reader = std::io::BufReader::new(file);
         self.process_reader(&mut reader, language_rules, config)
     }

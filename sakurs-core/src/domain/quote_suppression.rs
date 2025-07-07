@@ -98,7 +98,7 @@ impl QuoteSuppressor {
             EnclosureType::DoubleQuote => {
                 if config.suppress_in_double_quotes {
                     Some(SuppressionDecision::Suppress {
-                        reason: format!("Inside double quotes (depth: {})", depth),
+                        reason: format!("Inside double quotes (depth: {depth})"),
                     })
                 } else if depth > 1 && config.max_nesting_level > 0 {
                     // Nested quotes - weaken boundary
@@ -112,7 +112,7 @@ impl QuoteSuppressor {
             EnclosureType::SingleQuote => {
                 if config.suppress_in_single_quotes {
                     Some(SuppressionDecision::Suppress {
-                        reason: format!("Inside single quotes (depth: {})", depth),
+                        reason: format!("Inside single quotes (depth: {depth})"),
                     })
                 } else {
                     None
@@ -125,7 +125,7 @@ impl QuoteSuppressor {
                 if !candidate.flags.is_strong {
                     // But suppress weak boundaries
                     Some(SuppressionDecision::Suppress {
-                        reason: format!("Weak boundary inside {:?}", enclosure_type),
+                        reason: format!("Weak boundary inside {enclosure_type:?}"),
                     })
                 } else {
                     // Strong boundaries are kept
@@ -135,7 +135,7 @@ impl QuoteSuppressor {
             EnclosureType::JapaneseQuote | EnclosureType::JapaneseDoubleQuote => {
                 // Japanese quotes typically suppress boundaries
                 Some(SuppressionDecision::Suppress {
-                    reason: format!("Inside Japanese quotes (depth: {})", depth),
+                    reason: format!("Inside Japanese quotes (depth: {depth})"),
                 })
             }
             _ => {
