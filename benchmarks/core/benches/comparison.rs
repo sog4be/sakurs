@@ -9,7 +9,6 @@ use sakurs_benchmarks::data::brown_corpus;
 use sakurs_benchmarks::harness::configure_criterion;
 use sakurs_benchmarks::{calculate_complete_metrics, create_default_processor, extract_boundaries};
 use std::hint::black_box;
-use std::time::Instant;
 
 /// Run comparative accuracy evaluation
 fn bench_accuracy_comparison(c: &mut Criterion) {
@@ -94,6 +93,7 @@ fn bench_throughput_comparison(c: &mut Criterion) {
 }
 
 /// Print comparison results at the end
+#[allow(dead_code)]
 fn print_comparison_summary() {
     println!("\n=== Comparison Summary ===");
 

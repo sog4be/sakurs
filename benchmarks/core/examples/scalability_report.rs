@@ -31,12 +31,14 @@ fn main() {
             continue;
         }
 
-        let mut config = ProcessorConfig::default();
-        config.max_threads = Some(thread_count);
-        config.parallel_threshold = if thread_count == 1 {
-            usize::MAX
-        } else {
-            DEFAULT_PARALLEL_THRESHOLD
+        let config = ProcessorConfig {
+            max_threads: Some(thread_count),
+            parallel_threshold: if thread_count == 1 {
+                usize::MAX
+            } else {
+                DEFAULT_PARALLEL_THRESHOLD
+            },
+            ..Default::default()
         };
 
         let processor = create_processor_with_config(config);

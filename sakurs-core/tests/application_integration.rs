@@ -73,9 +73,11 @@ fn test_large_text_parallel_processing() {
 #[test]
 fn test_cross_chunk_boundary_detection() {
     // Configure small chunks to force boundary crossing
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 50; // Very small chunks
-    config.overlap_size = 10; // Small overlap
+    let config = ProcessorConfig {
+        chunk_size: 50,   // Very small chunks
+        overlap_size: 10, // Small overlap
+        ..Default::default()
+    };
 
     let rules = Arc::new(EnglishLanguageRules::new());
     let processor = TextProcessor::with_config(config, rules);
@@ -97,9 +99,11 @@ fn test_cross_chunk_boundary_detection() {
 #[test]
 fn test_abbreviation_handling_across_chunks() {
     // Configure to split text around abbreviations
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 40;
-    config.overlap_size = 15;
+    let config = ProcessorConfig {
+        chunk_size: 40,
+        overlap_size: 15,
+        ..Default::default()
+    };
 
     let rules = Arc::new(EnglishLanguageRules::new());
     let processor = TextProcessor::with_config(config, rules);
@@ -208,9 +212,11 @@ fn test_quoted_text_handling() {
 #[test]
 fn test_performance_metrics_accuracy() {
     let rules = Arc::new(MockLanguageRules::english());
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 1000;
-    config.overlap_size = 100;
+    let config = ProcessorConfig {
+        chunk_size: 1000,
+        overlap_size: 100,
+        ..Default::default()
+    };
 
     let processor = TextProcessor::with_config(config, rules);
 
@@ -231,8 +237,10 @@ fn test_performance_metrics_accuracy() {
 
 #[test]
 fn test_configuration_limits() {
-    let mut config = ProcessorConfig::default();
-    config.max_text_size = 100; // Very small limit
+    let config = ProcessorConfig {
+        max_text_size: 100, // Very small limit
+        ..Default::default()
+    };
 
     let rules = Arc::new(MockLanguageRules::english());
     let processor = TextProcessor::with_config(config, rules);

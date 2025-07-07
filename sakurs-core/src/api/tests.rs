@@ -1,7 +1,7 @@
 //! Tests for the new unified API
 
 #[cfg(test)]
-mod tests {
+mod api_tests {
     use crate::api::*;
 
     #[test]

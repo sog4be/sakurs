@@ -281,9 +281,11 @@ mod tests {
 
     #[test]
     fn test_nested_quote_weakening() {
-        let mut config = QuoteSuppressionConfig::default();
-        config.suppress_in_double_quotes = false;
-        config.max_nesting_level = 2;
+        let config = QuoteSuppressionConfig {
+            suppress_in_double_quotes: false,
+            max_nesting_level: 2,
+            ..Default::default()
+        };
 
         let rules = MockLanguageRules::english();
         let candidate = BoundaryCandidate {

@@ -202,14 +202,14 @@ mod tests {
     #[test]
     fn test_ud_english_ewt_format() {
         // Test data format expectations
-        let expected_genres = vec![
+        let expected_genres = [
             "weblogs",
             "newsgroups",
             "emails",
             "reviews",
             "yahoo_answers",
         ];
-        let expected_splits = vec!["train", "dev", "test"];
+        let expected_splits = ["train", "dev", "test"];
 
         // These are the expected data characteristics
         assert_eq!(expected_genres.len(), 5);

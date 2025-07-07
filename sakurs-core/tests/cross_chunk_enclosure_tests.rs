@@ -132,9 +132,11 @@ fn test_nested_quotes_across_chunks() {
     let rules = Arc::new(EnglishLanguageRules::new());
 
     // Configure for small chunks to ensure splits occur within quotes
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 1024; // Small chunks to force splits
-    config.overlap_size = 50; // Reasonable overlap
+    let config = ProcessorConfig {
+        chunk_size: 1024, // Small chunks to force splits
+        overlap_size: 50, // Reasonable overlap
+        ..Default::default()
+    };
 
     let processor = UnifiedProcessor::with_config(rules, config);
 
@@ -165,9 +167,11 @@ fn test_japanese_nested_quotes_across_chunks() {
     let text = generate_japanese_style_nested_quotes();
     let rules = Arc::new(EnglishLanguageRules::new()); // Note: using English rules for now
 
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 2048; // Larger chunks to avoid UTF-8 boundary issues
-    config.overlap_size = 50;
+    let config = ProcessorConfig {
+        chunk_size: 2048, // Larger chunks to avoid UTF-8 boundary issues
+        overlap_size: 50,
+        ..Default::default()
+    };
 
     let processor = UnifiedProcessor::with_config(rules, config);
     let result = processor.process(&text).unwrap();
@@ -184,9 +188,11 @@ fn test_mixed_enclosures_across_chunks() {
     let text = generate_mixed_enclosures();
     let rules = Arc::new(EnglishLanguageRules::new());
 
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 800;
-    config.overlap_size = 40;
+    let config = ProcessorConfig {
+        chunk_size: 800,
+        overlap_size: 40,
+        ..Default::default()
+    };
 
     let processor = UnifiedProcessor::with_config(rules, config);
     let result = processor.process(&text).unwrap();
@@ -225,8 +231,10 @@ fn test_enclosure_depth_tracking_across_chunks() {
     }
 
     let rules = Arc::new(EnglishLanguageRules::new());
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 400; // Force chunk split in the middle of nested quotes
+    let config = ProcessorConfig {
+        chunk_size: 400, // Force chunk split in the middle of nested quotes
+        ..Default::default()
+    };
 
     let processor = UnifiedProcessor::with_config(rules, config);
     let result = processor.process(&text).unwrap();
@@ -246,8 +254,10 @@ fn test_parallel_vs_sequential_consistency_with_nested_quotes() {
     let rules = Arc::new(EnglishLanguageRules::new());
 
     // Process with parallel enabled
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 1024;
+    let config = ProcessorConfig {
+        chunk_size: 1024,
+        ..Default::default()
+    };
 
     let processor = UnifiedProcessor::with_config(rules, config);
 
@@ -295,7 +305,7 @@ fn test_quote_at_exact_chunk_boundary() {
 
     // Position quote right at boundary
     text.push_str("He said");
-    text.push_str("\""); // This quote should be right at/near boundary
+    text.push('"'); // This quote should be right at/near boundary
 
     // Continue quote content
     text.push_str("This quote spans across the chunk boundary and continues for a while. ");
@@ -307,9 +317,11 @@ fn test_quote_at_exact_chunk_boundary() {
     }
 
     let rules = Arc::new(EnglishLanguageRules::new());
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = chunk_size;
-    config.overlap_size = 10;
+    let config = ProcessorConfig {
+        chunk_size,
+        overlap_size: 10,
+        ..Default::default()
+    };
 
     let processor = UnifiedProcessor::with_config(rules, config);
     let result = processor.process(&text).unwrap();

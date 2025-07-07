@@ -2,9 +2,10 @@
 //!
 //! Run with: cargo bench --bench application_benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use sakurs_core::application::{ProcessorConfig, TextProcessor};
 use sakurs_core::domain::language::EnglishLanguageRules;
+use std::hint::black_box;
 use std::sync::Arc;
 
 /// Generate test text of specified size
@@ -32,8 +33,10 @@ fn bench_processing_modes(c: &mut Criterion) {
 
         // Sequential processing
         group.bench_with_input(BenchmarkId::new("sequential", size), &text, |b, text| {
-            let mut config = ProcessorConfig::default();
-            config.parallel_threshold = usize::MAX; // Force sequential
+            let config = ProcessorConfig {
+                parallel_threshold: usize::MAX, // Force sequential
+                ..Default::default()
+            };
             let processor = TextProcessor::with_config(config, rules.clone());
 
             b.iter(|| {
@@ -44,9 +47,11 @@ fn bench_processing_modes(c: &mut Criterion) {
         // Parallel processing
         #[cfg(feature = "parallel")]
         group.bench_with_input(BenchmarkId::new("parallel", size), &text, |b, text| {
-            let mut config = ProcessorConfig::default();
-            config.parallel_threshold = 1024; // Low threshold for parallel
-            config.chunk_size = 8192;
+            let config = ProcessorConfig {
+                parallel_threshold: 1024, // Low threshold for parallel
+                chunk_size: 8192,
+                ..Default::default()
+            };
             let processor = TextProcessor::with_config(config, rules.clone());
 
             b.iter(|| {
@@ -73,9 +78,11 @@ fn bench_chunk_sizes(c: &mut Criterion) {
             BenchmarkId::new("chunk_size", chunk_size),
             &text,
             |b, text| {
-                let mut config = ProcessorConfig::default();
-                config.chunk_size = chunk_size;
-                config.parallel_threshold = 50_000; // Enable parallel for this size
+                let config = ProcessorConfig {
+                    chunk_size,
+                    parallel_threshold: 50_000, // Enable parallel for this size
+                    ..Default::default()
+                };
                 let processor = TextProcessor::with_config(config, rules.clone());
 
                 b.iter(|| {
@@ -103,9 +110,11 @@ fn bench_overlap_sizes(c: &mut Criterion) {
             BenchmarkId::new("overlap", overlap_size),
             &text,
             |b, text| {
-                let mut config = ProcessorConfig::default();
-                config.chunk_size = 4096;
-                config.overlap_size = overlap_size;
+                let config = ProcessorConfig {
+                    chunk_size: 4096,
+                    overlap_size,
+                    ..Default::default()
+                };
                 let processor = TextProcessor::with_config(config, rules.clone());
 
                 b.iter(|| {
@@ -195,7 +204,8 @@ fn bench_memory_patterns(c: &mut Criterion) {
     let rules = Arc::new(EnglishLanguageRules::new());
 
     // Reduced test sizes for CI - only test up to 1MB
-    for size_mb in [1] {
+    {
+        let size_mb = 1;
         let size = size_mb * 1024 * 1024;
         let text = generate_text(size);
 
@@ -231,10 +241,12 @@ fn bench_thread_scaling(c: &mut Criterion) {
             BenchmarkId::new("threads", num_threads),
             &text,
             |b, text| {
-                let mut config = ProcessorConfig::default();
-                config.max_threads = Some(num_threads);
-                config.parallel_threshold = 1024; // Low threshold
-                config.chunk_size = text.len() / (num_threads * 4); // Ensure enough chunks
+                let config = ProcessorConfig {
+                    max_threads: Some(num_threads),
+                    parallel_threshold: 1024, // Low threshold
+                    chunk_size: text.len() / (num_threads * 4), // Ensure enough chunks
+                    ..Default::default()
+                };
 
                 let processor = TextProcessor::with_config(config, rules.clone());
 

@@ -9,7 +9,7 @@ use std::hint::black_box;
 
 /// Generate test text with specified number of sentences
 fn generate_text(num_sentences: usize) -> String {
-    let sentences = vec![
+    let sentences = [
         "This is a simple sentence.",
         "Dr. Smith works at the hospital.",
         "The company earned $1.5 million last year.",

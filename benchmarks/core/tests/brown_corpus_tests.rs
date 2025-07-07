@@ -95,7 +95,7 @@ fn test_subset_consistency() {
     let subset_20 = brown_corpus::load_subset(20).unwrap();
 
     // The first 10 sentences should be identical
-    if subset_10.boundaries.len() > 0 {
+    if !subset_10.boundaries.is_empty() {
         let text_10 = &subset_10.text;
         let text_20_prefix = &subset_20.text[..text_10.len()];
 
