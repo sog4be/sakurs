@@ -15,6 +15,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
+  UV_CACHE_DIR: /tmp/.uv-cache
 
 jobs:
   coverage:
@@ -52,6 +53,31 @@ jobs:
         with:
           tool: nextest
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "sakurs-py/pyproject.toml"
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.uv-cache
+          key: uv-${{ runner.os }}-${{ hashFiles('sakurs-py/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ hashFiles('sakurs-py/pyproject.toml') }}
+            uv-${{ runner.os }}
+
+      - name: Install Python dependencies
+        run: |
+          cd sakurs-py
+          uv sync --dev
+
       - name: Run tests with coverage
         run: |
           set -euo pipefail
@@ -62,6 +88,7 @@ jobs:
           # Use nextest if available, otherwise fall back to regular test
           # Note: sakurs-benchmarks is excluded as it's benchmark code
           # benchmarks/ directory is also excluded via ignore-filename-regex
+          # sakurs-py is included and requires Python environment setup above
           if command -v cargo-nextest >/dev/null 2>&1; then
             cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           else
