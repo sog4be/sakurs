@@ -77,6 +77,7 @@ jobs:
         run: |
           cd sakurs-py
           uv sync --dev
+          cd ..
 
       - name: Run tests with coverage
         run: |
@@ -88,17 +89,30 @@ jobs:
           # Use nextest if available, otherwise fall back to regular test
           # Note: sakurs-benchmarks is excluded as it's benchmark code
           # benchmarks/ directory is also excluded via ignore-filename-regex
-          # sakurs-py is included and requires Python environment setup above
+          # sakurs-py is excluded from regular tests as it's a Python extension module
           if command -v cargo-nextest >/dev/null 2>&1; then
-            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
+            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           else
-            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
+            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           fi
           
           echo ""
           echo "📊 Coverage Summary:"
           echo "==================="
           cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/'
+          
+          # Test sakurs-py separately as a Python extension module
+          echo ""
+          echo "🐍 Testing sakurs-py Python extension..."
+          cd sakurs-py
+          
+          # Build the extension module with maturin
+          uv run maturin develop
+          
+          # Run Python tests with pytest
+          uv run pytest tests/ -v
+          
+          cd ..
 
       - name: Generate detailed reports
         run: |
