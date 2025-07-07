@@ -7,14 +7,12 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: write  # Required for updating README badge on main branch
   actions: read
-  pull-requests: write
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
 jobs:
   coverage:
@@ -52,41 +50,45 @@ jobs:
         with:
           tool: nextest
 
+
       - name: Run tests with coverage
         run: |
           set -euo pipefail
           echo "🧪 Running tests with coverage instrumentation..."
-          # Note: Branch coverage (--branch flag) requires Rust nightly toolchain
-          # Since this project uses stable Rust, branch coverage is not available
-          # This is why "Branches" column shows 0 in coverage reports
-          # Use nextest if available, otherwise fall back to regular test
-          # Note: sakurs-py requires Python runtime for PyO3 bindings
-          # Excluding it from coverage to avoid CI complexity
+          # Coverage configuration notes:
+          # - Branch coverage requires Rust nightly (not available with stable)
+          # - sakurs-benchmarks is excluded as it contains benchmark code
+          # - benchmarks/ directory is excluded via ignore-filename-regex
+          # - sakurs-py is excluded because it's a PyO3 extension module that requires
+          #   Python runtime and cannot be tested with regular cargo test commands.
+          #   PyO3 extension modules are meant to be imported by Python, not executed
+          #   as standalone Rust binaries, making them incompatible with cargo test.
+          
           if command -v cargo-nextest >/dev/null 2>&1; then
-            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --lcov --output-path lcov.info
+            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           else
-            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --lcov --output-path lcov.info
+            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           fi
           
           echo ""
           echo "📊 Coverage Summary:"
           echo "==================="
-          cargo llvm-cov report --summary-only
+          cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/'
 
       - name: Generate detailed reports
         run: |
           set -euo pipefail
           # Generate HTML report for visual inspection
-          cargo llvm-cov report --html
+          cargo llvm-cov report --html --ignore-filename-regex='benchmarks/'
           
           # Generate summary for PR comment
-          cargo llvm-cov report --summary-only > coverage-summary.txt
+          cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/' > coverage-summary.txt
           
           # Display overall coverage summary
           echo ""
           echo "📦 Workspace Coverage Summary:"
           echo "=============================="
-          cargo llvm-cov report --summary-only
+          cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/'
           
           # For PRs, get main branch coverage for comparison
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -94,7 +96,7 @@ jobs:
             echo "🔄 Fetching main branch coverage for comparison..."
             
             # Save current coverage percentages
-            current_overall=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
+            current_overall=$(cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/' | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
             
             echo "current_overall=$current_overall" > coverage-current.txt
             
@@ -129,7 +131,7 @@ jobs:
                   total_changed_files=$((total_changed_files + 1))
                   
                   # Check if file appears in coverage report
-                  file_coverage=$(cargo llvm-cov report --summary-only | grep "$file" | head -1 || echo "")
+                  file_coverage=$(cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/' | grep "$file" | head -1 || echo "")
                   
                   if [ -n "$file_coverage" ]; then
                     covered_changed_files=$((covered_changed_files + 1))
@@ -174,7 +176,7 @@ jobs:
           echo "🏷️ Updating README coverage badge..."
           
           # Extract overall coverage percentage from TOTAL line (Lines Cover column)
-          overall_percentage=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 | sed 's/%//' || echo "0.0")
+          overall_percentage=$(cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/' | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 | sed 's/%//' || echo "0.0")
           
           # Determine badge color based on coverage
           if (( $(echo "$overall_percentage >= 90" | bc -l) )); then
@@ -220,140 +222,39 @@ jobs:
             coverage-summary.txt
           retention-days: 30
 
-      - name: Comment PR with coverage (update existing)
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7.0.1
-        with:
-          script: |
-            const fs = require('fs');
-            
-            try {
-              // Read coverage summary
-              const summary = fs.readFileSync('coverage-summary.txt', 'utf8');
-              
-              // Read comparison data if available for overall coverage
-              const readComparisonData = () => {
-                try {
-                  const current = fs.readFileSync('coverage-current.txt', 'utf8');
-                  const main = fs.readFileSync('coverage-main.txt', 'utf8');
-                  
-                  const parseData = (content) => {
-                    const lines = content.trim().split('\n');
-                    const data = {};
-                    lines.forEach(line => {
-                      const [key, value] = line.split('=');
-                      data[key] = value;
-                    });
-                    return data;
-                  };
-                  
-                  return {
-                    current: parseData(current),
-                    main: parseData(main)
-                  };
-                } catch (error) {
-                  return null;
-                }
-              };
-              
-              const comparison = readComparisonData();
-              
-              // Create overall coverage summary with optional comparison
-              let coverageSummary = '';
-              if (comparison && comparison.main.main_overall !== 'N/A') {
-                const formatDelta = (current, main) => {
-                  if (main === 'N/A' || current === 'N/A') return '';
-                  const currentNum = parseFloat(current.replace('%', ''));
-                  const mainNum = parseFloat(main.replace('%', ''));
-                  const delta = currentNum - mainNum;
-                  if (Math.abs(delta) < 0.1) return '';
-                  const sign = delta > 0 ? '+' : '';
-                  const emoji = delta > 0 ? '📈' : '📉';
-                  return ` ${emoji} ${sign}${delta.toFixed(1)}% vs main`;
-                };
-                
-                const currentOverall = comparison.current.current_overall || 'N/A';
-                const deltaText = formatDelta(currentOverall, comparison.main.main_overall);
-                coverageSummary = `\n**Overall Coverage: ${currentOverall}**${deltaText}\n`;
-              }
-              
-              // Create coverage comment with unique identifier
-              const commentIdentifier = '<!-- SAKURS_COVERAGE_COMMENT -->';
-              
-              // Add changed files coverage for PRs
-              let changedFilesSection = '';
-              try {
-                const diffCoverage = fs.readFileSync('coverage-diff.txt', 'utf8');
-                if (diffCoverage && diffCoverage.trim() !== 'No changed Rust files found') {
-                  changedFilesSection = `
-              
-              ### 🔍 Changed Files Coverage
-              \`\`\`
-              ${diffCoverage.trim()}
-              \`\`\``;
-                }
-              } catch (error) {
-                // coverage-diff.txt not available (not a PR or no changed files)
-              }
-              
-              const body = `${commentIdentifier}
-              ## 📊 Test Coverage Report
-              ${coverageSummary}
-              ### Detailed Report
-              \`\`\`
-              ${summary.trim()}
-              \`\`\`${changedFilesSection}
-              
-              📎 [View detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-              
-              ---
-              _Automated coverage report • Updated: ${new Date().toISOString()}_`;
-              
-              // Check for existing coverage comment
-              const comments = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number
-              });
-              
-              const existingComment = comments.data.find(comment => 
-                comment.body.includes(commentIdentifier)
-              );
-              
-              if (existingComment) {
-                // Update existing comment
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: existingComment.id,
-                  body: body
-                });
-                console.log('✅ Coverage comment updated successfully');
-              } else {
-                // Create new comment
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: body
-                });
-                console.log('✅ Coverage comment created successfully');
-              }
-              
-            } catch (error) {
-              console.error('❌ Failed to handle coverage comment:', error);
-              // Don't fail the workflow if comment posting fails
-            }
 
       - name: Display coverage in job summary
         if: always()
         run: |
           echo "## Test Coverage Report 📊" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Add comparison if available (for PRs)
+          if [ -f coverage-current.txt ] && [ -f coverage-main.txt ]; then
+            current=$(grep "current_overall=" coverage-current.txt | cut -d'=' -f2 || echo "N/A")
+            echo "**Current Coverage: $current**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "### Overall Coverage" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY || echo "Coverage summary not available" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          # Add changed files coverage for PRs
+          if [ -f coverage-diff.txt ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+            if grep -q "No changed Rust files found" coverage-diff.txt; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "_No Rust files were modified in this PR._" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 🔍 Changed Files Coverage" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat coverage-diff.txt >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📎 [Download detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
 
@@ -362,9 +263,9 @@ jobs:
           set -euo pipefail
           echo "🎯 Checking coverage threshold..."
           # Fail if coverage drops below 80%
-          cargo llvm-cov report --fail-under-lines 80 || {
+          cargo llvm-cov report --fail-under-lines 80 --ignore-filename-regex='benchmarks/' || {
             echo "❌ Coverage below 80% threshold"
-            echo "⚠️ Coverage report has been updated in the PR comment above"
+            echo "⚠️ Check the job summary for the full coverage report"
             exit 1
           }
           echo "✅ Coverage meets the 80% threshold"
