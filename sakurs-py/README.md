@@ -2,18 +2,15 @@
 
 High-performance sentence boundary detection for Python using the Delta-Stack Monoid algorithm.
 
-## Features
-
-- **High Performance**: 5-10x faster than NLTK, competitive with spaCy
-- **Parallel Processing**: Automatic thread management for large texts
-- **Multiple Languages**: English and Japanese support
-- **Memory Efficient**: Streaming processing for large documents
-- **Type Safe**: Full type hints and mypy compatibility
-
 ## Installation
 
+**Coming Soon** - Will be available on PyPI.
+
+For now, build from source:
 ```bash
-pip install sakurs
+git clone https://github.com/sog4be/sakurs.git
+cd sakurs/sakurs-py
+pip install -e .
 ```
 
 **Requirements**: Python 3.9 or later
@@ -120,18 +117,6 @@ Configuration for text processing.
    # For very long documents
    config = sakurs.ProcessorConfig(chunk_size=32768)
    ```
-
-## Migration from NLTK
-
-```python
-# NLTK style
-import nltk
-sentences = nltk.sent_tokenize(text)
-
-# Sakurs equivalent
-import sakurs
-sentences = sakurs.split(text)
-```
 
 ## Error Handling
 
