@@ -20,7 +20,6 @@ def test_import():
 
     assert hasattr(sakurs, "__version__")
     assert hasattr(sakurs, "split")
-    assert hasattr(sakurs, "sent_tokenize")  # Legacy support
     assert hasattr(sakurs, "load")
     assert hasattr(sakurs, "Processor")
 
@@ -68,10 +67,6 @@ def test_basic_sentence_tokenization():
     assert isinstance(sentences, list)
     assert len(sentences) > 0
     assert all(isinstance(s, str) for s in sentences)
-
-    # Test legacy API still works
-    legacy_sentences = sakurs.sent_tokenize(text)
-    assert legacy_sentences == sentences
 
 
 @pytest.mark.parametrize(

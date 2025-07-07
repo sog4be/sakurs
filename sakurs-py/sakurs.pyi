@@ -58,12 +58,6 @@ def split(
     config: ProcessorConfig | None = None,
     threads: int | None = None,
 ) -> list[str]: ...
-def sent_tokenize(
-    text: str,
-    language: str = "en",
-    config: ProcessorConfig | None = None,
-    threads: int | None = None,
-) -> list[str]: ...  # Deprecated: use split() instead
 def load(
     language: str,
     config: ProcessorConfig | None = None,

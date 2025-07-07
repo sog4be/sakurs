@@ -36,19 +36,6 @@ fn load(language: &str, config: Option<PyProcessorConfig>) -> PyResult<PyProcess
     PyProcessor::new(language, config)
 }
 
-/// Convenience function for direct sentence tokenization (legacy NLTK-style API)
-/// Deprecated: Use split() instead
-#[pyfunction]
-#[pyo3(signature = (text, language="en", config=None, threads=None))]
-fn sent_tokenize(
-    text: &str,
-    language: &str,
-    config: Option<PyProcessorConfig>,
-    threads: Option<usize>,
-    py: Python,
-) -> PyResult<Vec<String>> {
-    split(text, language, config, threads, py)
-}
 
 /// Get list of supported languages
 #[pyfunction]
@@ -69,9 +56,6 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(split, m)?)?;
     m.add_function(wrap_pyfunction!(load, m)?)?;
     m.add_function(wrap_pyfunction!(supported_languages, m)?)?;
-
-    // Legacy aliases (for backward compatibility)
-    m.add_function(wrap_pyfunction!(sent_tokenize, m)?)?;
 
     // Exception classes
     m.add(
