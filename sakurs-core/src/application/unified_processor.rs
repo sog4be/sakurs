@@ -3,13 +3,13 @@
 //! This module provides a unified interface that handles both sequential and
 //! parallel processing using the three-phase algorithm: Scan, Prefix-sum, Reduce.
 
+use crate::application::parser::TextParser;
 use crate::application::{
     chunking::{ChunkManager, TextChunk},
     config::{ProcessingError, ProcessingMetrics, ProcessingResult, ProcessorConfig},
 };
 use crate::domain::{
     language::LanguageRules,
-    parser::Parser,
     prefix_sum::{ChunkStartState, PrefixSumComputer},
     reduce::BoundaryReducer,
     state::{Boundary, PartialState},
@@ -29,7 +29,7 @@ pub struct UnifiedProcessingOutput {
 
 /// Unified processor implementing the complete Δ-Stack Monoid algorithm.
 pub struct UnifiedProcessor {
-    parser: Parser,
+    parser: TextParser,
     chunk_manager: ChunkManager,
     language_rules: Arc<dyn LanguageRules>,
     config: ProcessorConfig,
@@ -44,7 +44,7 @@ impl UnifiedProcessor {
     /// Creates a new processor with custom configuration.
     pub fn with_config(language_rules: Arc<dyn LanguageRules>, config: ProcessorConfig) -> Self {
         Self {
-            parser: Parser::new(),
+            parser: TextParser::new(),
             chunk_manager: ChunkManager::new(config.chunk_size, config.overlap_size),
             language_rules,
             config,
@@ -152,10 +152,20 @@ impl UnifiedProcessor {
     /// This method automatically selects between sequential and parallel processing
     /// based on input characteristics for optimal performance.
     pub fn process_adaptive(&self, text: &str) -> ProcessingResult<Vec<usize>> {
-        use crate::processing::AdaptiveProcessor;
+        use crate::application::strategies::{AdaptiveStrategy, ProcessingStrategy, StrategyInput};
 
-        let adaptive = AdaptiveProcessor::new(self.language_rules.clone());
-        adaptive.process(text)
+        let adaptive = AdaptiveStrategy::new();
+        let config = crate::application::strategies::ProcessingConfig::default();
+        let result = adaptive.process(
+            StrategyInput::Text(text),
+            self.language_rules.clone(),
+            &config,
+        )?;
+
+        match result {
+            crate::application::strategies::StrategyOutput::Boundaries(offsets) => Ok(offsets),
+            _ => Err(ProcessingError::Other("Unexpected output type".to_string())),
+        }
     }
 
     /// Scans chunks in parallel using rayon.

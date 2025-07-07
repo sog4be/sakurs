@@ -1,13 +1,19 @@
-//! Core parser implementation for the Δ-Stack Monoid algorithm.
+//! Text parsing implementation for sentence boundary detection
 //!
-//! This module implements the character-by-character parsing logic that builds
-//! the partial state representation for text segmentation.
+//! This module implements the character-by-character parsing logic in the
+//! application layer, converting text into partial states for the domain layer.
 
 use crate::domain::{
     enclosure::{EnclosureRules, StandardEnclosureRules},
     language::{BoundaryContext, BoundaryDecision, LanguageRules},
     state::{AbbreviationState, BoundaryFlags, DeltaEntry, PartialState},
     types::DepthVec,
+};
+
+mod strategies;
+
+pub use strategies::{
+    ParseStrategy, ParsingInput, ParsingOutput, SequentialParser, StreamingParser,
 };
 
 /// Parser configuration options.
@@ -24,13 +30,16 @@ impl Default for ParserConfig {
     }
 }
 
-/// Core parser for converting text into partial states.
-pub struct Parser {
+/// Text parser for converting text into partial states
+///
+/// This parser lives in the application layer and orchestrates
+/// the parsing process using different strategies.
+pub struct TextParser {
     #[allow(dead_code)]
     config: ParserConfig,
 }
 
-impl Parser {
+impl TextParser {
     /// Creates a new parser with default configuration.
     pub fn new() -> Self {
         Self {
@@ -156,7 +165,7 @@ impl Parser {
     }
 }
 
-impl Default for Parser {
+impl Default for TextParser {
     fn default() -> Self {
         Self::new()
     }
@@ -198,7 +207,7 @@ fn build_boundary_context(
 
 /// Convenient function for scanning a chunk of text with default settings.
 pub fn scan_chunk(text: &str, language_rules: &dyn LanguageRules) -> PartialState {
-    let parser = Parser::new();
+    let parser = TextParser::new();
     parser.scan_chunk(text, language_rules)
 }
 
@@ -209,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_basic_parsing() {
-        let parser = Parser::new();
+        let parser = TextParser::new();
         let rules = MockLanguageRules::english();
 
         let text = "Hello world. This is a test.";
@@ -222,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_enclosure_handling() {
-        let parser = Parser::new();
+        let parser = TextParser::new();
         let rules = MockLanguageRules::english();
 
         let text = "He said (Hello. World). Done.";
@@ -242,7 +251,7 @@ mod tests {
 
     #[test]
     fn test_delta_stack_building() {
-        let parser = Parser::new();
+        let parser = TextParser::new();
         let rules = MockLanguageRules::english();
 
         let text = "Test (nested) text.";
@@ -258,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_abbreviation_detection() {
-        let parser = Parser::new();
+        let parser = TextParser::new();
         let rules = MockLanguageRules::english();
 
         let text = "Dr. Smith arrived.";
@@ -275,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_quotation_handling() {
-        let parser = Parser::new();
+        let parser = TextParser::new();
         let rules = MockLanguageRules::english();
 
         let text = r#"She said "Hello." Then left."#;
@@ -293,7 +302,7 @@ mod tests {
     fn test_integration_with_english_rules() {
         use crate::domain::language::EnglishLanguageRules;
 
-        let parser = Parser::new();
+        let parser = TextParser::new();
         let rules = EnglishLanguageRules::new();
 
         // Complex text with abbreviations, numbers, and nested punctuation
@@ -319,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_complex_enclosure_nesting() {
-        let parser = Parser::new();
+        let parser = TextParser::new();
         let rules = MockLanguageRules::english();
 
         // Text with nested enclosures and a sentence boundary outside them
@@ -341,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_parser_determinism() {
-        let parser = Parser::new();
+        let parser = TextParser::new();
         let rules = MockLanguageRules::english();
 
         let text = "First sentence. Second sentence! Third sentence?";
@@ -360,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_empty_and_edge_cases() {
-        let parser = Parser::new();
+        let parser = TextParser::new();
         let rules = MockLanguageRules::english();
 
         // Empty text

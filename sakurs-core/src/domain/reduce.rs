@@ -3,35 +3,17 @@
 //! This module implements the reduce phase that evaluates boundary candidates
 //! based on global enclosure depths to produce confirmed sentence boundaries.
 //!
-//! ## Quote Suppression Status
+//! ## Quote Suppression
 //!
-//! **TODO: Complete Quote Suppression Integration**
+//! The reduce phase now includes enhanced quote suppression that:
+//! - Applies language-specific rules for different quote types
+//! - Supports configurable suppression behavior
+//! - Handles nested quotes with appropriate weakening
+//! - Validates quote pairing when enabled
 //!
-//! The current implementation provides the foundation for quote suppression but
-//! requires additional integration work:
-//!
-//! ### Current State:
-//! - ✅ Boundary candidates are correctly detected inside quotes during scan phase
-//! - ✅ Global enclosure depths are computed via prefix-sum
-//! - ✅ Basic depth-based filtering is implemented
-//! - ❌ Advanced quote suppression rules are not yet integrated
-//!
-//! ### Missing Features:
-//! 1. **Language-Specific Quote Rules**: Integration with language rules for
-//!    quote-specific suppression patterns (e.g., nested quote handling)
-//! 2. **Quote Pair Matching**: Validation that opening/closing quotes are properly paired
-//! 3. **Context-Aware Suppression**: Suppression based on quote context and nesting levels
-//!
-//! ### Implementation Plan:
-//! 1. Extend `LanguageRules` trait with quote suppression methods
-//! 2. Add quote pair validation to the reduce phase
-//! 3. Implement context-aware suppression logic
-//! 4. Add comprehensive tests for nested quote scenarios
-//!
-//! ### Current Behavior:
-//! - All boundary candidates inside any enclosure (depth > 0) are suppressed
-//! - This provides basic quote suppression but may be overly aggressive
-//! - Language-specific rules will refine this behavior when implemented
+//! The implementation uses the `quote_suppression` module for intelligent
+//! decision-making about which boundaries to suppress or weaken based on
+//! their enclosure context.
 
 use crate::domain::prefix_sum::ChunkStartState;
 use crate::domain::state::{Boundary, BoundaryCandidate, PartialState};

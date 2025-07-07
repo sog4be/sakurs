@@ -3,11 +3,12 @@
 //! This module provides parallel processing capabilities using rayon,
 //! with proper fallback for environments that don't support parallelism.
 
+use crate::application::parser::TextParser;
 use crate::application::{
     chunking::TextChunk,
     config::{ProcessingError, ProcessingResult, ThreadPoolConfig},
 };
-use crate::domain::{language::LanguageRules, parser::Parser, state::PartialState};
+use crate::domain::{language::LanguageRules, state::PartialState};
 use rayon::prelude::*;
 use std::sync::Arc;
 
@@ -20,7 +21,7 @@ pub struct ParallelProcessor {
     min_chunks_for_parallel: usize,
 
     /// Parser instance
-    parser: Parser,
+    parser: TextParser,
 }
 
 impl ParallelProcessor {
@@ -48,7 +49,7 @@ impl ParallelProcessor {
         Ok(Self {
             thread_pool: Arc::new(thread_pool),
             min_chunks_for_parallel: 2,
-            parser: Parser::new(),
+            parser: TextParser::new(),
         })
     }
 

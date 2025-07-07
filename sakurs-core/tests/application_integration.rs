@@ -40,9 +40,11 @@ fn test_end_to_end_english_processing() {
 #[test]
 fn test_large_text_parallel_processing() {
     // Configure for parallel processing with low threshold
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 1024; // 1KB chunks
-    config.parallel_threshold = 2048; // 2KB threshold
+    let config = ProcessorConfig {
+        chunk_size: 1024,         // 1KB chunks
+        parallel_threshold: 2048, // 2KB threshold
+        ..Default::default()
+    };
 
     let rules = Arc::new(MockLanguageRules::english());
     let processor = TextProcessor::with_config(config, rules);

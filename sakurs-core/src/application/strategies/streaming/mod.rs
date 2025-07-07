@@ -10,3 +10,8 @@ pub mod state;
 pub mod strategy;
 
 pub use strategy::StreamingStrategy;
+
+// Re-export for convenience
+pub use self::buffer::StreamingBuffer;
+pub use self::detector::BoundaryDetector;
+pub use self::state::StreamingState;

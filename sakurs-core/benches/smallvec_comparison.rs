@@ -1,8 +1,9 @@
 //! Benchmark to compare performance before and after SmallVec optimization
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use sakurs_core::domain::{
-    language::EnglishLanguageRules, parser::scan_chunk, state::PartialState, MonoidReduce,
+use sakurs_core::{
+    application::parser::scan_chunk,
+    domain::{language::EnglishLanguageRules, state::PartialState, MonoidReduce},
 };
 use std::hint::black_box;
 

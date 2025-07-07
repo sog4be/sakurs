@@ -3,13 +3,13 @@
 //! This module provides the core TextProcessor that coordinates all aspects
 //! of text processing including chunking, parallel execution, and result merging.
 
+use crate::application::parser::TextParser;
 use crate::application::{
     chunking::{ChunkManager, TextChunk},
     config::{ProcessingError, ProcessingMetrics, ProcessingResult, ProcessorConfig},
 };
 use crate::domain::{
     language::LanguageRules,
-    parser::Parser,
     state::{Boundary, PartialState},
     Monoid,
 };
@@ -70,7 +70,7 @@ pub struct TextProcessor {
     language_rules: Arc<dyn LanguageRules>,
 
     /// Parser instance
-    parser: Parser,
+    parser: TextParser,
 
     /// Chunk manager
     chunk_manager: ChunkManager,
@@ -93,7 +93,7 @@ impl TextProcessor {
         Self {
             config,
             language_rules,
-            parser: Parser::new(),
+            parser: TextParser::new(),
             chunk_manager,
         }
     }
@@ -158,7 +158,7 @@ impl TextProcessor {
 
     /// Processes text using adaptive strategy selection for optimal performance
     pub fn process_text_adaptive(&self, text: &str) -> ProcessingResult<ProcessingOutput> {
-        use crate::processing::AdaptiveProcessor;
+        use crate::application::strategies::{AdaptiveStrategy, ProcessingStrategy, StrategyInput};
 
         let start_time = Instant::now();
         let mut metrics = ProcessingMetrics::default();
@@ -182,9 +182,19 @@ impl TextProcessor {
 
         metrics.bytes_processed = text.len();
 
-        // Use adaptive processor
-        let adaptive = AdaptiveProcessor::new(self.language_rules.clone());
-        let boundary_offsets = adaptive.process(text)?;
+        // Use adaptive strategy
+        let adaptive = AdaptiveStrategy::new();
+        let config = self.config.to_processing_config();
+        let result = adaptive.process(
+            StrategyInput::Text(text),
+            self.language_rules.clone(),
+            &config,
+        )?;
+
+        let boundary_offsets = match result {
+            crate::application::strategies::StrategyOutput::Boundaries(offsets) => offsets,
+            _ => return Err(ProcessingError::Other("Unexpected output type".to_string())),
+        };
 
         // Convert offsets to Boundary objects
         let boundaries: Vec<Boundary> = boundary_offsets

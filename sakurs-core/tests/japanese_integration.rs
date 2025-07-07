@@ -3,9 +3,9 @@
 //! This module contains comprehensive tests for Japanese sentence boundary detection,
 //! including punctuation handling, quote processing, and mixed Japanese-English text.
 
+use sakurs_core::application::parser::scan_chunk;
 use sakurs_core::application::{ProcessorConfig, TextProcessor};
 use sakurs_core::domain::language::{JapaneseLanguageRules, LanguageRules};
-use sakurs_core::domain::parser::scan_chunk;
 use std::sync::Arc;
 
 #[test]

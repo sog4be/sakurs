@@ -134,6 +134,7 @@ fn bench_memory_patterns(c: &mut Criterion) {
 }
 
 /// Measure sentences per second for reporting
+#[allow(dead_code)]
 fn measure_sentences_per_second() {
     println!("\n=== Sakurs Performance Metrics ===\n");
 

@@ -168,7 +168,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             report.push_str("- ❌ Poor scaling\n");
         }
-        report.push_str("\n");
+        report.push('\n');
     }
 
     // Calculate overall throughput consistency

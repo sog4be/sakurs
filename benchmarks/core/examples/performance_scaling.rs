@@ -172,7 +172,7 @@ fn analyze_scaling(results: &[BenchmarkResult]) -> String {
             } else {
                 analysis.push_str("  - ❌ Poor scaling performance\n");
             }
-            analysis.push_str("\n");
+            analysis.push('\n');
         }
     }
 
@@ -263,7 +263,7 @@ fn generate_report(results: &[BenchmarkResult]) -> String {
         ));
     }
 
-    report.push_str("\n");
+    report.push('\n');
 
     // Detailed results for each size
     report.push_str("## Detailed Results\n\n");
@@ -295,7 +295,7 @@ fn generate_report(results: &[BenchmarkResult]) -> String {
             "- Time per sentence: {:.3} ms\n",
             result.avg_processing_time_ms() / result.sentence_count as f64
         ));
-        report.push_str("\n");
+        report.push('\n');
     }
 
     // Add scaling analysis
