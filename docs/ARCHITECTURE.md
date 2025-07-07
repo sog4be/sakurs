@@ -21,61 +21,94 @@ graph TB
         USER[Users]
         PY[Python Apps]
         CLI[Command Line]
-        WEB[Web Browser]
-        STREAM[Streaming Apps]
     end
     
-    subgraph "Adapters (Outer Layer)"
-        ADP_CLI[CLI Adapter]
-        ADP_PY[Python Adapter]
-        ADP_WASM[WASM Adapter - Future]
-        ADP_STRM[Streaming Adapter - Future]
+    subgraph "Adapters (Outer Layer) - Implemented"
+        ADP_CLI[CLI Adapter<br/>sakurs-cli]
+        ADP_PY[Python Adapter<br/>sakurs-py]
     end
     
     subgraph "API Layer (Public Interface)"
         API[SentenceProcessor]
-        CFG[Config Builder]
+        CFG[Config & ConfigBuilder]
         IN[Input Abstraction]
         OUT[Output & Metadata]
+        ERR[Error Types]
+        LANG[Language Enum]
     end
     
-    subgraph "Application (Middle Layer)"
+    subgraph "Application Layer"
         APP[UnifiedProcessor]
-        STRAT[Processing Strategies]
-        CHUNK[Chunk Manager]
-        POOL[Thread Pool]
+        STRAT[Processing Strategies<br/>- Sequential<br/>- Parallel<br/>- Streaming<br/>- Adaptive]
+        CHUNK[Chunking Functions]
+        PARSER[Text Parser]
     end
     
     subgraph "Domain Core (Inner Layer)"
-        ALGO[Delta-Stack Algorithm]
-        RULES[Language Rules]
-        STATE[State Machine]
+        ALGO[Delta-Stack Monoid]
+        RULES[Language Rules<br/>- English<br/>- Japanese]
+        STATE[State Machine<br/>- PartialState<br/>- DeltaVec]
+        CROSS[Cross-Chunk Logic]
+        QUOTE[Quote Suppression]
     end
     
-    USER --> CLI --> ADP_CLI
+    USER --> CLI
+    CLI --> ADP_CLI
     PY --> ADP_PY
-    WEB --> ADP_WASM
-    STREAM --> ADP_STRM
     
     ADP_CLI --> API
     ADP_PY --> API
-    ADP_WASM --> API
-    ADP_STRM --> API
     
+    API --> CFG
+    API --> IN
+    API --> OUT
+    API --> ERR
+    API --> LANG
     API --> APP
-    CFG --> APP
-    IN --> APP
-    OUT --> APP
     
     APP --> STRAT
+    APP --> PARSER
     STRAT --> CHUNK
-    STRAT --> POOL
+    PARSER --> ALGO
     
-    CHUNK --> ALGO
-    POOL --> ALGO
+    CHUNK --> STATE
+    PARSER --> STATE
+    STATE --> ALGO
     ALGO --> RULES
-    ALGO --> STATE
+    ALGO --> CROSS
+    RULES --> QUOTE
 ```
+
+### Future Architecture (Planned)
+
+```mermaid
+graph TB
+    subgraph "Future External World"
+        WEB[Web Browser]
+        STREAM[Streaming Apps]
+        C_APP[C/C++ Apps]
+    end
+    
+    subgraph "Future Adapters"
+        ADP_WASM[WASM Adapter]
+        ADP_C[C API Adapter]
+    end
+    
+    WEB --> ADP_WASM
+    STREAM --> API
+    C_APP --> ADP_C
+    
+    ADP_WASM --> API[Existing API Layer]
+    ADP_C --> API
+    
+    style ADP_WASM stroke-dasharray: 5 5
+    style ADP_C stroke-dasharray: 5 5
+    style WEB stroke-dasharray: 5 5
+    style STREAM stroke-dasharray: 5 5
+    style C_APP stroke-dasharray: 5 5
+```
+
+Note: Streaming functionality is currently available through the existing adapters via the streaming processing strategy.
 
 ## Core Algorithm
 
