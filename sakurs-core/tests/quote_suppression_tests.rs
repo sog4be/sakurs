@@ -48,9 +48,11 @@ fn test_basic_quote_suppression() {
 #[test]
 fn test_nested_quote_handling() {
     let rules = Arc::new(EnglishLanguageRules::new());
-    let mut config = QuoteSuppressionConfig::default();
-    config.suppress_in_double_quotes = false; // Allow boundaries in quotes
-    config.max_nesting_level = 2;
+    let config = QuoteSuppressionConfig {
+        suppress_in_double_quotes: false, // Allow boundaries in quotes
+        max_nesting_level: 2,
+        ..Default::default()
+    };
 
     let reducer = BoundaryReducerV2::with_config(rules, config);
 
@@ -152,8 +154,10 @@ fn test_custom_suppression_configuration() {
     let rules = Arc::new(EnglishLanguageRules::new());
 
     // Test with single quotes not suppressed
-    let mut config = QuoteSuppressionConfig::default();
-    config.suppress_in_single_quotes = false;
+    let config = QuoteSuppressionConfig {
+        suppress_in_single_quotes: false,
+        ..Default::default()
+    };
 
     let reducer = BoundaryReducerV2::with_config(rules, config);
 

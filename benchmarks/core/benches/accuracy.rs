@@ -120,6 +120,7 @@ fn bench_brown_corpus_accuracy(c: &mut Criterion) {
 }
 
 /// Generate a summary report of accuracy metrics
+#[allow(dead_code)]
 fn generate_accuracy_report() {
     println!("\n=== Sakurs Accuracy Report ===\n");
 
