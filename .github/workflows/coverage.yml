@@ -56,6 +56,9 @@ jobs:
         run: |
           set -euo pipefail
           echo "🧪 Running tests with coverage instrumentation..."
+          # Note: Branch coverage (--branch flag) requires Rust nightly toolchain
+          # Since this project uses stable Rust, branch coverage is not available
+          # This is why "Branches" column shows 0 in coverage reports
           # Use nextest if available, otherwise fall back to regular test
           if command -v cargo-nextest >/dev/null 2>&1; then
             cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --lcov --output-path lcov.info
