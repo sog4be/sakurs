@@ -32,9 +32,16 @@ graph TB
         ADP_STRM[Streaming Adapter]
     end
     
+    subgraph "API Layer (Public Interface)"
+        API[SentenceProcessor]
+        CFG[Config Builder]
+        IN[Input Abstraction]
+        OUT[Output & Metadata]
+    end
+    
     subgraph "Application (Middle Layer)"
-        APP[Application Service]
-        ORCH[Orchestrator]
+        APP[UnifiedProcessor]
+        STRAT[Processing Strategies]
         CHUNK[Chunk Manager]
         POOL[Thread Pool]
     end
@@ -50,14 +57,19 @@ graph TB
     WEB --> ADP_WASM
     STREAM --> ADP_STRM
     
-    ADP_CLI --> APP
-    ADP_PY --> APP
-    ADP_WASM --> APP
-    ADP_STRM --> APP
+    ADP_CLI --> API
+    ADP_PY --> API
+    ADP_WASM --> API
+    ADP_STRM --> API
     
-    APP --> ORCH
-    ORCH --> CHUNK
-    ORCH --> POOL
+    API --> APP
+    CFG --> APP
+    IN --> APP
+    OUT --> APP
+    
+    APP --> STRAT
+    STRAT --> CHUNK
+    STRAT --> POOL
     
     CHUNK --> ALGO
     POOL --> ALGO
@@ -105,18 +117,66 @@ The system is built around the **Delta-Stack Monoid** algorithm for parallel sen
 
 **Trade-off**: Not available in WASM (we fall back to sequential).
 
-### 4. Language Rules as Plugins
+### 4. Language Rules as Traits
 
-**Decision**: Define `SentenceRule` trait for language-specific logic.
+**Decision**: Define `LanguageRules` trait for language-specific logic.
 
 **Rationale**:
 - Easy to add new languages without modifying core
-- Community can contribute language packs
-- Compile-time or runtime plugin selection
+- Community can contribute language implementations
+- Compile-time type safety
+- Future support for runtime plugin loading
 
-**Trade-off**: Requires careful API design to remain stable.
+**Trade-off**: Requires careful trait design to remain stable.
+
+### 5. Unified Public API
+
+**Decision**: Create a separate API layer (`src/api/`) as the public interface.
+
+**Rationale**:
+- Stable public interface independent of internal changes
+- Simplified usage for external consumers
+- Better encapsulation of implementation details
+- Easier to maintain backward compatibility
+
+**Trade-off**: Additional abstraction layer to maintain.
 
 ## Component Structure
+
+### API Layer (`src/api/`)
+
+The public interface that provides a clean, stable API for external consumers:
+
+```rust
+// Main entry point
+pub struct SentenceProcessor {
+    // Internal implementation details hidden
+}
+
+// Unified input handling
+pub enum Input {
+    Text(String),
+    File(PathBuf),
+    Bytes(Vec<u8>),
+    Reader(Box<dyn Read>),
+}
+
+// Configuration with builder pattern
+pub struct Config { /* fields */ }
+pub struct ConfigBuilder { /* builder */ }
+
+// Rich output information
+pub struct Output {
+    pub boundaries: Vec<Boundary>,
+    pub metadata: ProcessingMetadata,
+}
+```
+
+Key features:
+- Hides internal implementation complexity
+- Provides intuitive, type-safe API
+- Supports configuration presets (fast, balanced, accurate)
+- Unified error handling
 
 ### Domain Layer (`src/domain/`)
 
@@ -130,39 +190,45 @@ pub trait Monoid {
 }
 
 // Language-specific rules
-pub trait SentenceRule: Send + Sync {
-    fn is_terminal(&self, ch: char, context: &Context) -> bool;
-    fn is_delimiter_open(&self, ch: char) -> Option<DelimiterType>;
-    fn is_delimiter_close(&self, ch: char) -> Option<DelimiterType>;
+pub trait LanguageRules: Send + Sync {
+    fn is_sentence_boundary(&self, state: &PartialState, offset: usize) -> BoundaryDecision;
+    fn process_character(&self, ch: char, context: &ProcessingContext) -> CharacterEffect;
+    // ... other methods
 }
 ```
 
 ### Application Layer (`src/application/`)
 
-Orchestrates the domain logic:
+Orchestrates the domain logic with various processing strategies:
 
 ```rust
-pub struct TextProcessor {
-    chunk_size: usize,
-    parallel_threshold: usize,
-    thread_pool: Option<ThreadPool>,
-    rule_registry: Arc<RuleRegistry>,
+// Unified processor that delegates to strategies
+pub struct UnifiedProcessor {
+    rules: Arc<dyn LanguageRules>,
+    config: ProcessingConfig,
+}
+
+// Processing strategies
+pub trait ProcessingStrategy: Send + Sync {
+    fn process(&self, input: StrategyInput) -> Result<StrategyOutput>;
+    fn is_suitable(&self, context: &AnalysisContext) -> SuitabilityScore;
 }
 ```
 
 Key responsibilities:
-- Decides sequential vs parallel processing based on text size
-- Manages chunk splitting at valid UTF-8 boundaries
-- Handles cross-chunk abbreviations
+- Strategy selection (sequential, parallel, streaming, adaptive)
+- Chunk management at valid UTF-8 boundaries
+- Cross-chunk boundary resolution
+- Performance optimization
 
-### Adapter Layer (`src/adapters/`)
+### Adapter Layer
 
-Each adapter provides a different interface to the core:
+Each adapter provides a different interface to the API layer:
 
-- **CLI**: Command-line tool with file globbing support
-- **Python**: PyO3 bindings with NumPy-style API
-- **WASM**: Browser-compatible with streaming support
-- **Streaming**: Async API for real-time processing
+- **CLI** (`sakurs-cli/`): Command-line tool with file globbing and stdin support
+- **Python** (`sakurs-py/`): PyO3 bindings with NLTK-compatible API
+- **WASM** (future): Browser-compatible with streaming support
+- **C API** (future): For integration with other languages
 
 ## Performance Characteristics
 
@@ -186,6 +252,48 @@ Each adapter provides a different interface to the core:
 4. **Lock-free combining** - Tree reduction without mutexes
 
 
+## Usage Examples
+
+### Basic Usage (via API Layer)
+
+```rust
+use sakurs::{SentenceProcessor, Input};
+
+// Simple usage
+let processor = SentenceProcessor::for_language("en")?;
+let output = processor.process(Input::from_text("Hello world. How are you?"))?;
+
+for boundary in &output.boundaries {
+    println!("Sentence ends at: {}", boundary.offset);
+}
+```
+
+### CLI Usage
+
+```bash
+# Process files
+sakurs process -i "*.txt" -f json
+
+# Process from stdin
+echo "Hello world." | sakurs process -i -
+
+# Japanese text with custom settings
+sakurs process -i doc.txt -l japanese --parallel
+```
+
+### Python Usage
+
+```python
+import sakurs
+
+# NLTK-compatible API
+sentences = sakurs.sent_tokenize(text, "en")
+
+# Advanced usage
+processor = sakurs.load("ja")
+result = processor.process(text)
+```
+
 ## FAQ
 
 ### Q: Why not use regex for sentence detection?
@@ -195,6 +303,10 @@ Regex cannot handle nested delimiters (parentheses within quotes within parenthe
 ### Q: How does cross-chunk abbreviation detection work?
 
 We track "dangling dots" at chunk boundaries and look ahead in the next chunk for alphabetic characters. If found, we merge the boundary.
+
+### Q: Why a separate API layer?
+
+The API layer provides a stable public interface that shields users from internal implementation changes. This allows us to refactor and optimize internals without breaking existing code.
 
 ### Q: Can I use this in production?
 
