@@ -320,7 +320,7 @@ fn generate_report(results: &[BenchmarkResult]) -> String {
         .fold(f64::NEG_INFINITY, f64::max);
     let throughput_variation = (max_throughput - min_throughput) / min_throughput * 100.0;
 
-    report.push_str(&format!("Actual results:\n"));
+    report.push_str("Actual results:\n");
     report.push_str(&format!(
         "- Throughput variation: {:.1}% (min: {:.2} MB/s, max: {:.2} MB/s)\n",
         throughput_variation, min_throughput, max_throughput

@@ -35,9 +35,11 @@ fn bench_thread_scaling(c: &mut Criterion) {
             BenchmarkId::new("threads", thread_count),
             &test_data.text,
             |b, text| {
-                let mut config = ProcessorConfig::default();
-                config.max_threads = Some(thread_count);
-                config.parallel_threshold = DEFAULT_PARALLEL_THRESHOLD; // Low threshold to ensure parallel execution
+                let config = ProcessorConfig {
+                    max_threads: Some(thread_count),
+                    parallel_threshold: DEFAULT_PARALLEL_THRESHOLD, // Low threshold to ensure parallel execution
+                    ..Default::default()
+                };
 
                 let processor = create_processor_with_config(config);
 
@@ -69,10 +71,12 @@ fn bench_chunk_size_impact(c: &mut Criterion) {
             BenchmarkId::new("chunk_size", chunk_size),
             &test_data.text,
             |b, text| {
-                let mut config = ProcessorConfig::default();
-                config.chunk_size = chunk_size;
-                config.parallel_threshold = 10_000;
-                config.max_threads = Some(4); // Fixed thread count
+                let config = ProcessorConfig {
+                    chunk_size,
+                    parallel_threshold: 10_000,
+                    max_threads: Some(4), // Fixed thread count
+                    ..Default::default()
+                };
 
                 let processor = create_processor_with_config(config);
 
@@ -100,14 +104,18 @@ fn bench_parallel_efficiency(c: &mut Criterion) {
         let test_data = generators::large_text(size);
 
         // Measure sequential performance
-        let mut seq_config = ProcessorConfig::default();
-        seq_config.parallel_threshold = usize::MAX; // Force sequential
+        let seq_config = ProcessorConfig {
+            parallel_threshold: usize::MAX, // Force sequential
+            ..Default::default()
+        };
         let seq_processor = create_processor_with_config(seq_config);
 
         // Measure parallel performance with optimal threads
-        let mut par_config = ProcessorConfig::default();
-        par_config.parallel_threshold = 10_000;
-        par_config.max_threads = Some(num_cpus::get());
+        let par_config = ProcessorConfig {
+            parallel_threshold: 10_000,
+            max_threads: Some(num_cpus::get()),
+            ..Default::default()
+        };
         let par_processor = create_processor_with_config(par_config);
 
         group.throughput(Throughput::Bytes(size as u64));
@@ -146,6 +154,7 @@ fn bench_parallel_efficiency(c: &mut Criterion) {
 
 /// Measure and report scalability metrics
 #[cfg(feature = "parallel")]
+#[allow(dead_code)]
 fn measure_scalability_metrics() {
     println!("\n=== Sakurs Scalability Report ===\n");
 
@@ -172,12 +181,14 @@ fn measure_scalability_metrics() {
             continue;
         }
 
-        let mut config = ProcessorConfig::default();
-        config.max_threads = Some(thread_count);
-        config.parallel_threshold = if thread_count == 1 {
-            usize::MAX
-        } else {
-            10_000
+        let config = ProcessorConfig {
+            max_threads: Some(thread_count),
+            parallel_threshold: if thread_count == 1 {
+                usize::MAX
+            } else {
+                10_000
+            },
+            ..Default::default()
         };
 
         let processor = create_processor_with_config(config);

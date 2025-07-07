@@ -77,7 +77,10 @@ impl UnifiedProcessor {
         thread_count: usize,
     ) -> ProcessingResult<UnifiedProcessingOutput> {
         let start_time = Instant::now();
-        let mut metrics = ProcessingMetrics::default();
+        let mut metrics = ProcessingMetrics {
+            bytes_processed: text.len(),
+            ..Default::default()
+        };
 
         // Phase 0: Chunking
         let chunk_start = Instant::now();

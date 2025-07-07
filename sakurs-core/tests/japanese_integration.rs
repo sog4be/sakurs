@@ -237,9 +237,11 @@ fn test_full_width_parentheses() {
 #[test]
 fn test_cross_chunk_japanese_processing() {
     let rules = Arc::new(JapaneseLanguageRules::new());
-    let mut config = ProcessorConfig::default();
-    config.chunk_size = 150; // Force multiple chunks, larger to avoid multibyte boundary issues
-    config.overlap_size = 30; // Ensure overlap is less than chunk size
+    let config = ProcessorConfig {
+        chunk_size: 150,  // Force multiple chunks, larger to avoid multibyte boundary issues
+        overlap_size: 30, // Ensure overlap is less than chunk size
+        ..Default::default()
+    };
 
     let processor = TextProcessor::with_config(config, rules);
 

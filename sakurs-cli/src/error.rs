@@ -76,12 +76,16 @@ mod tests {
         // Test successful result
         let success: CliResult<String> = Ok("test".to_string());
         assert!(success.is_ok());
-        assert_eq!(success.unwrap(), "test");
+        assert_eq!(success.as_ref().unwrap(), "test");
 
         // Test error result
         let failure: CliResult<String> = Err(anyhow::anyhow!("test error"));
         assert!(failure.is_err());
-        assert!(failure.unwrap_err().to_string().contains("test error"));
+        assert!(failure
+            .as_ref()
+            .unwrap_err()
+            .to_string()
+            .contains("test error"));
     }
 
     #[test]

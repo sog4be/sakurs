@@ -38,6 +38,9 @@ harness = false
 name = "streaming_benchmark"
 harness = false
 
+[[example]]
+name = "unified_api"
+
 [features]
 default = ["std", "parallel"]
 std = []
