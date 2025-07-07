@@ -77,25 +77,11 @@ jobs:
           # Generate summary for PR comment
           cargo llvm-cov report --summary-only > coverage-summary.txt
           
-          # Generate per-package coverage for PR comment
-          # Note: cargo-llvm-cov's --package flag includes dependencies, so both packages show the same coverage
-          # This is a known limitation. For accurate per-package coverage, we would need to run tests separately
-          # For now, we'll use the overall workspace coverage for both to avoid confusion
-          
-          # Get the overall workspace coverage (this is accurate)
-          overall_coverage=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "N/A")
-          
-          # TODO: Implement proper per-package coverage calculation
-          # For now, report "See details above" to direct users to the file-by-file breakdown
-          echo "See details above" > coverage-core.txt
-          echo "See details above" > coverage-cli.txt
-          
-          # Display coverage per crate
+          # Display overall coverage summary
           echo ""
-          echo "📦 Coverage by Crate:"
-          echo "===================="
-          echo "sakurs-core: $(cat coverage-core.txt)"
-          echo "sakurs-cli: $(cat coverage-cli.txt)"
+          echo "📦 Workspace Coverage Summary:"
+          echo "=============================="
+          cargo llvm-cov report --summary-only
           
           # For PRs, get main branch coverage for comparison
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -104,17 +90,11 @@ jobs:
             
             # Save current coverage percentages
             current_overall=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
-            current_core=$(cargo llvm-cov report --summary-only --package sakurs-core | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
-            current_cli=$(cargo llvm-cov report --summary-only --package sakurs-cli | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
             
             echo "current_overall=$current_overall" > coverage-current.txt
-            echo "current_core=$current_core" >> coverage-current.txt
-            echo "current_cli=$current_cli" >> coverage-current.txt
             
             # Try to get main branch coverage (may fail if no previous run)
             echo "main_overall=N/A" > coverage-main.txt
-            echo "main_core=N/A" >> coverage-main.txt
-            echo "main_cli=N/A" >> coverage-main.txt
             
             echo "✅ Coverage comparison data prepared"
           fi
@@ -256,21 +236,7 @@ jobs:
               // Read coverage summary
               const summary = fs.readFileSync('coverage-summary.txt', 'utf8');
               
-              // Read per-package coverage
-              const readPackageCoverage = (filename) => {
-                try {
-                  const content = fs.readFileSync(filename, 'utf8').trim();
-                  // Content should already be in format "XX.X%" or "N/A"
-                  return content || 'N/A';
-                } catch (error) {
-                  return 'N/A';
-                }
-              };
-              
-              const corePercentage = readPackageCoverage('coverage-core.txt');
-              const cliPercentage = readPackageCoverage('coverage-cli.txt');
-              
-              // Read comparison data if available
+              // Read comparison data if available for overall coverage
               const readComparisonData = () => {
                 try {
                   const current = fs.readFileSync('coverage-current.txt', 'utf8');
@@ -297,30 +263,23 @@ jobs:
               
               const comparison = readComparisonData();
               
-              // Create package table with optional comparison
-              let packageTable;
+              // Create overall coverage summary with optional comparison
+              let coverageSummary = '';
               if (comparison && comparison.main.main_overall !== 'N/A') {
                 const formatDelta = (current, main) => {
                   if (main === 'N/A' || current === 'N/A') return '';
                   const currentNum = parseFloat(current.replace('%', ''));
                   const mainNum = parseFloat(main.replace('%', ''));
                   const delta = currentNum - mainNum;
-                  if (Math.abs(delta) < 0.1) return ' (no change)';
+                  if (Math.abs(delta) < 0.1) return '';
                   const sign = delta > 0 ? '+' : '';
-                  return ` (${sign}${delta.toFixed(1)}%)`;
+                  const emoji = delta > 0 ? '📈' : '📉';
+                  return ` ${emoji} ${sign}${delta.toFixed(1)}% vs main`;
                 };
                 
-                packageTable = `
-              | Package | Coverage | vs main |
-              |---------|----------|---------|
-              | sakurs-core | ${corePercentage} | ${formatDelta(comparison.current.current_core, comparison.main.main_core)} |
-              | sakurs-cli | ${cliPercentage} | ${formatDelta(comparison.current.current_cli, comparison.main.main_cli)} |`;
-              } else {
-                packageTable = `
-              | Package | Coverage |
-              |---------|----------|
-              | sakurs-core | ${corePercentage} |
-              | sakurs-cli | ${cliPercentage} |`;
+                const currentOverall = comparison.current.current_overall || 'N/A';
+                const deltaText = formatDelta(currentOverall, comparison.main.main_overall);
+                coverageSummary = `\n**Overall Coverage: ${currentOverall}**${deltaText}\n`;
               }
               
               // Create coverage comment with unique identifier
@@ -344,12 +303,11 @@ jobs:
               
               const body = `${commentIdentifier}
               ## 📊 Test Coverage Report
-              
-              ### Overall Coverage
+              ${coverageSummary}
+              ### Detailed Report
               \`\`\`
               ${summary.trim()}
-              \`\`\`
-              ${packageTable}${changedFilesSection}
+              \`\`\`${changedFilesSection}
               
               📎 [View detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
               
