@@ -77,6 +77,8 @@ jobs:
         run: |
           cd sakurs-py
           uv sync --dev
+          # Install maturin for building the extension module
+          uv pip install maturin
           cd ..
 
       - name: Run tests with coverage
@@ -100,16 +102,19 @@ jobs:
           echo "📊 Coverage Summary:"
           echo "==================="
           cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/'
-          
-          # Test sakurs-py separately as a Python extension module
-          echo ""
+
+      - name: Test sakurs-py Python extension
+        run: |
+          set -euo pipefail
           echo "🐍 Testing sakurs-py Python extension..."
           cd sakurs-py
           
           # Build the extension module with maturin
-          uv run maturin develop
+          echo "Building sakurs-py extension module..."
+          uv run maturin develop --features extension-module
           
           # Run Python tests with pytest
+          echo "Running Python tests..."
           uv run pytest tests/ -v
           
           cd ..
