@@ -167,16 +167,6 @@ jobs:
             echo "✅ Changed files analysis complete"
           fi
 
-      - name: Check coverage threshold
-        run: |
-          set -euo pipefail
-          echo "🎯 Checking coverage threshold..."
-          # Fail if coverage drops below 80%
-          cargo llvm-cov report --fail-under-lines 80 || {
-            echo "❌ Coverage below 80% threshold"
-            exit 1
-          }
-
       - name: Update README coverage badge
         if: github.ref == 'refs/heads/main'
         run: |
@@ -366,3 +356,15 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📎 [Download detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check coverage threshold
+        run: |
+          set -euo pipefail
+          echo "🎯 Checking coverage threshold..."
+          # Fail if coverage drops below 80%
+          cargo llvm-cov report --fail-under-lines 80 || {
+            echo "❌ Coverage below 80% threshold"
+            echo "⚠️ Coverage report has been updated in the PR comment above"
+            exit 1
+          }
+          echo "✅ Coverage meets the 80% threshold"
