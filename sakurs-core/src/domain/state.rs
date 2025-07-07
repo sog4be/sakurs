@@ -39,6 +39,17 @@ impl BoundaryFlags {
         is_strong: true,
         from_abbreviation: true,
     };
+
+    /// Check if this flags contains the STRONG flag
+    pub fn contains(&self, other: Self) -> bool {
+        if other.is_strong && !self.is_strong {
+            return false;
+        }
+        if other.from_abbreviation && !self.from_abbreviation {
+            return false;
+        }
+        true
+    }
 }
 
 impl Boundary {
@@ -277,56 +288,6 @@ impl Default for PartialState {
     }
 }
 
-// Language rule integration methods
-impl PartialState {
-    /// Apply language-specific rules to refine sentence boundaries
-    ///
-    /// This method allows language rules to post-process boundaries detected
-    /// by the basic algorithm, enabling language-specific logic for:
-    /// - Abbreviation handling
-    /// - Quotation mark processing
-    /// - Culture-specific punctuation rules
-    ///
-    /// # Arguments
-    /// * `text` - The original text being processed
-    /// * `text_offset` - Offset of this chunk within the original text
-    /// * `rules` - Language-specific rules to apply
-    ///
-    /// # Returns
-    /// A new PartialState with refined boundaries
-    pub fn apply_language_rules<R: crate::domain::language::LanguageRules>(
-        &self,
-        _text: &str,
-        _text_offset: usize,
-        _rules: &R,
-    ) -> Self {
-        // Language rule refinement is handled by the reduce phase
-        self.clone()
-    }
-
-    /// Create a PartialState with language rule analysis for a text chunk
-    ///
-    /// This is a convenience method that combines chunk processing with
-    /// immediate language rule application.
-    ///
-    /// # Arguments
-    /// * `text` - Text chunk to process
-    /// * `text_offset` - Offset within the original text
-    /// * `rules` - Language rules to apply
-    ///
-    /// # Returns
-    /// A PartialState with language-aware boundary detection
-    pub fn from_text_with_rules<R: crate::domain::language::LanguageRules>(
-        text: &str,
-        _text_offset: usize,
-        rules: &R,
-    ) -> Self {
-        // Language rule processing is handled by scan and reduce phases
-        use crate::domain::parser::scan_chunk;
-        scan_chunk(text, rules)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,7 +403,14 @@ mod tests {
 
         // Test text with abbreviation that should not be a sentence boundary
         let text = "Dr. Smith is here. This is a test.";
-        let state = PartialState::from_text_with_rules(text, 0, &rules);
+        // Use application parser for testing
+        use crate::application::parser::{ParseStrategy, ParsingInput, SequentialParser};
+        let parser = SequentialParser::new();
+        let result = parser.parse(ParsingInput::Text(text), &rules).unwrap();
+        let state = match result {
+            crate::application::parser::ParsingOutput::State(s) => *s,
+            _ => panic!("Expected single state"),
+        };
 
         // scan_chunk records ALL candidates - the reduce phase will filter them
         // So we should have candidates at all period positions
@@ -458,43 +426,5 @@ mod tests {
         assert_eq!(boundary_positions.len(), 2); // Should have 2 boundaries
         assert!(boundary_positions.contains(&18)); // After "here."
         assert!(boundary_positions.contains(&34)); // After "test."
-    }
-
-    #[test]
-    fn test_apply_language_rules() {
-        use crate::domain::language::MockLanguageRules;
-
-        let rules = MockLanguageRules::english();
-
-        // Create a state with a boundary after "Dr."
-        let mut state = PartialState::new(20);
-        state.add_boundary_candidate(2, DepthVec::from_vec(vec![0]), BoundaryFlags::WEAK);
-
-        let text = "Dr. Smith is here.";
-        let refined_state = state.apply_language_rules(text, 0, &rules);
-
-        // apply_language_rules is temporarily disabled, so it returns a clone
-        assert_eq!(refined_state.boundary_candidates.len(), 1);
-    }
-
-    #[test]
-    fn test_language_rules_preserve_valid_boundaries() {
-        use crate::domain::language::MockLanguageRules;
-
-        let rules = MockLanguageRules::english();
-
-        // Create a state with a valid sentence boundary
-        let mut state = PartialState::new(20);
-        state.add_boundary_candidate(11, DepthVec::from_vec(vec![0]), BoundaryFlags::WEAK);
-
-        let text = "Hello world. This is a test.";
-        let refined_state = state.apply_language_rules(text, 0, &rules);
-
-        // The valid boundary should be preserved
-        assert_eq!(refined_state.boundary_candidates.len(), 1);
-        assert!(refined_state
-            .boundary_candidates
-            .iter()
-            .any(|b| b.local_offset == 11));
     }
 }

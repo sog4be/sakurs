@@ -3,13 +3,13 @@
 //! This module provides the core TextProcessor that coordinates all aspects
 //! of text processing including chunking, parallel execution, and result merging.
 
+use crate::application::parser::TextParser;
 use crate::application::{
     chunking::{ChunkManager, TextChunk},
     config::{ProcessingError, ProcessingMetrics, ProcessingResult, ProcessorConfig},
 };
 use crate::domain::{
     language::LanguageRules,
-    parser::Parser,
     state::{Boundary, PartialState},
     Monoid,
 };
@@ -70,7 +70,7 @@ pub struct TextProcessor {
     language_rules: Arc<dyn LanguageRules>,
 
     /// Parser instance
-    parser: Parser,
+    parser: TextParser,
 
     /// Chunk manager
     chunk_manager: ChunkManager,
@@ -93,7 +93,7 @@ impl TextProcessor {
         Self {
             config,
             language_rules,
-            parser: Parser::new(),
+            parser: TextParser::new(),
             chunk_manager,
         }
     }

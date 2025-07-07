@@ -3,6 +3,10 @@
 use super::{BoundaryCandidate, DeltaEntry};
 use smallvec::SmallVec;
 
+pub mod boundary;
+
+pub use boundary::{AbbreviationContext, ConfirmedBoundary};
+
 /// Optimized vector for boundary candidates
 /// Most chunks have < 32 boundary candidates
 pub type BoundaryVec = SmallVec<[BoundaryCandidate; 32]>;

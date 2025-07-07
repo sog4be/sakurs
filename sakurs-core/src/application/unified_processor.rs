@@ -3,13 +3,13 @@
 //! This module provides a unified interface that handles both sequential and
 //! parallel processing using the three-phase algorithm: Scan, Prefix-sum, Reduce.
 
+use crate::application::parser::TextParser;
 use crate::application::{
     chunking::{ChunkManager, TextChunk},
     config::{ProcessingError, ProcessingMetrics, ProcessingResult, ProcessorConfig},
 };
 use crate::domain::{
     language::LanguageRules,
-    parser::Parser,
     prefix_sum::{ChunkStartState, PrefixSumComputer},
     reduce::BoundaryReducer,
     state::{Boundary, PartialState},
@@ -29,7 +29,7 @@ pub struct UnifiedProcessingOutput {
 
 /// Unified processor implementing the complete Δ-Stack Monoid algorithm.
 pub struct UnifiedProcessor {
-    parser: Parser,
+    parser: TextParser,
     chunk_manager: ChunkManager,
     language_rules: Arc<dyn LanguageRules>,
     config: ProcessorConfig,
@@ -44,7 +44,7 @@ impl UnifiedProcessor {
     /// Creates a new processor with custom configuration.
     pub fn with_config(language_rules: Arc<dyn LanguageRules>, config: ProcessorConfig) -> Self {
         Self {
-            parser: Parser::new(),
+            parser: TextParser::new(),
             chunk_manager: ChunkManager::new(config.chunk_size, config.overlap_size),
             language_rules,
             config,

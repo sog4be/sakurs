@@ -6,17 +6,17 @@
 pub mod enclosure;
 pub mod language;
 pub mod monoid;
-pub mod parser;
 pub mod prefix_sum;
 pub mod reduce;
 pub mod state;
+pub mod traits;
 pub mod types;
 
 pub use enclosure::*;
 pub use language::*;
 pub use monoid::*;
-pub use parser::*;
 pub use prefix_sum::*;
 pub use reduce::*;
 pub use state::*;
+pub use traits::*;
 pub use types::*;
