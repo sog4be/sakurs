@@ -68,7 +68,7 @@ impl Input {
             Input::Reader(mut reader) => {
                 let mut buffer = Vec::new();
                 reader.read_to_end(&mut buffer).map_err(|e| {
-                    crate::api::Error::Infrastructure(format!("Failed to read from reader: {}", e))
+                    crate::api::Error::Infrastructure(format!("Failed to read from reader: {e}"))
                 })?;
                 Ok(buffer)
             }
@@ -78,8 +78,7 @@ impl Input {
     /// Get text content from input
     pub(crate) fn into_text(self) -> Result<String, crate::api::Error> {
         let bytes = self.into_bytes()?;
-        String::from_utf8(bytes).map_err(|e| {
-            crate::api::Error::Infrastructure(format!("Invalid UTF-8 encoding: {}", e))
-        })
+        String::from_utf8(bytes)
+            .map_err(|e| crate::api::Error::Infrastructure(format!("Invalid UTF-8 encoding: {e}")))
     }
 }
