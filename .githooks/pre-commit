@@ -77,6 +77,28 @@ if [ -d "sakurs-py" ]; then
     else
         echo "${YELLOW}⚠️  uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}"
     fi
+    
+    # Run pytest if not skipped
+    if [ "${SKIP_TESTS:-0}" != "1" ]; then
+        if command -v uv >/dev/null 2>&1; then
+            echo "🧪 Running Python tests..."
+            # Build the extension module first
+            if ! (cd sakurs-py && uv run maturin develop --release); then
+                echo "${RED}❌ Failed to build Python extension!${NC}"
+                echo "💡 Make sure maturin is installed: cd sakurs-py && uv pip install maturin"
+                exit 1
+            fi
+            # Run pytest
+            if ! (cd sakurs-py && uv run pytest -v); then
+                echo "${RED}❌ Python tests failed!${NC}"
+                exit 1
+            fi
+        else
+            echo "${YELLOW}⚠️  uv not found. Skipping Python tests.${NC}"
+        fi
+    else
+        echo "⏭️  Skipping Python tests (SKIP_TESTS=1)"
+    fi
 fi
 
 # 5. Check compilation
