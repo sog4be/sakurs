@@ -56,11 +56,16 @@ jobs:
         run: |
           set -euo pipefail
           echo "🧪 Running tests with coverage instrumentation..."
+          # Note: Branch coverage (--branch flag) requires Rust nightly toolchain
+          # Since this project uses stable Rust, branch coverage is not available
+          # This is why "Branches" column shows 0 in coverage reports
           # Use nextest if available, otherwise fall back to regular test
+          # Note: sakurs-py requires Python runtime for PyO3 bindings
+          # Excluding it from coverage to avoid CI complexity
           if command -v cargo-nextest >/dev/null 2>&1; then
-            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-py --lcov --output-path lcov.info
+            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --lcov --output-path lcov.info
           else
-            cargo llvm-cov test --all-features --workspace --exclude sakurs-py --lcov --output-path lcov.info
+            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --lcov --output-path lcov.info
           fi
           
           echo ""
@@ -77,22 +82,11 @@ jobs:
           # Generate summary for PR comment
           cargo llvm-cov report --summary-only > coverage-summary.txt
           
-          # Generate per-package coverage for PR comment
-          # Note: Use the overall summary and extract package-specific data from it
-          cargo llvm-cov report --summary-only > coverage-full.txt
-          
-          # Extract sakurs-core coverage
-          grep "sakurs-core" coverage-full.txt > coverage-core.txt || echo "N/A" > coverage-core.txt
-          
-          # Extract sakurs-cli coverage  
-          grep "sakurs-cli" coverage-full.txt > coverage-cli.txt || echo "N/A" > coverage-cli.txt
-          
-          # Display coverage per crate
+          # Display overall coverage summary
           echo ""
-          echo "📦 Coverage by Crate:"
-          echo "===================="
-          cargo llvm-cov report --summary-only --package sakurs-core || echo "⚠️ sakurs-core coverage failed"
-          cargo llvm-cov report --summary-only --package sakurs-cli || echo "⚠️ sakurs-cli coverage failed"
+          echo "📦 Workspace Coverage Summary:"
+          echo "=============================="
+          cargo llvm-cov report --summary-only
           
           # For PRs, get main branch coverage for comparison
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -101,17 +95,11 @@ jobs:
             
             # Save current coverage percentages
             current_overall=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
-            current_core=$(cargo llvm-cov report --summary-only --package sakurs-core | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
-            current_cli=$(cargo llvm-cov report --summary-only --package sakurs-cli | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
             
             echo "current_overall=$current_overall" > coverage-current.txt
-            echo "current_core=$current_core" >> coverage-current.txt
-            echo "current_cli=$current_cli" >> coverage-current.txt
             
             # Try to get main branch coverage (may fail if no previous run)
             echo "main_overall=N/A" > coverage-main.txt
-            echo "main_core=N/A" >> coverage-main.txt
-            echo "main_cli=N/A" >> coverage-main.txt
             
             echo "✅ Coverage comparison data prepared"
           fi
@@ -179,16 +167,6 @@ jobs:
             echo "✅ Changed files analysis complete"
           fi
 
-      - name: Check coverage threshold
-        run: |
-          set -euo pipefail
-          echo "🎯 Checking coverage threshold..."
-          # Fail if coverage drops below 80%
-          cargo llvm-cov report --fail-under-lines 80 || {
-            echo "❌ Coverage below 80% threshold"
-            exit 1
-          }
-
       - name: Update README coverage badge
         if: github.ref == 'refs/heads/main'
         run: |
@@ -253,25 +231,7 @@ jobs:
               // Read coverage summary
               const summary = fs.readFileSync('coverage-summary.txt', 'utf8');
               
-              // Read per-package coverage
-              const readPackageCoverage = (filename) => {
-                try {
-                  const content = fs.readFileSync(filename, 'utf8').trim();
-                  if (content === 'N/A' || content === '') return 'N/A';
-                  
-                  // Extract percentage from line-based coverage report
-                  // Format: "sakurs-core/src/...    XX.XX%    ..."
-                  const match = content.match(/(\d+\.\d+)%/);
-                  return match ? `${match[1]}%` : 'N/A';
-                } catch (error) {
-                  return 'N/A';
-                }
-              };
-              
-              const corePercentage = readPackageCoverage('coverage-core.txt');
-              const cliPercentage = readPackageCoverage('coverage-cli.txt');
-              
-              // Read comparison data if available
+              // Read comparison data if available for overall coverage
               const readComparisonData = () => {
                 try {
                   const current = fs.readFileSync('coverage-current.txt', 'utf8');
@@ -298,30 +258,23 @@ jobs:
               
               const comparison = readComparisonData();
               
-              // Create package table with optional comparison
-              let packageTable;
+              // Create overall coverage summary with optional comparison
+              let coverageSummary = '';
               if (comparison && comparison.main.main_overall !== 'N/A') {
                 const formatDelta = (current, main) => {
                   if (main === 'N/A' || current === 'N/A') return '';
                   const currentNum = parseFloat(current.replace('%', ''));
                   const mainNum = parseFloat(main.replace('%', ''));
                   const delta = currentNum - mainNum;
-                  if (Math.abs(delta) < 0.1) return ' (no change)';
+                  if (Math.abs(delta) < 0.1) return '';
                   const sign = delta > 0 ? '+' : '';
-                  return ` (${sign}${delta.toFixed(1)}%)`;
+                  const emoji = delta > 0 ? '📈' : '📉';
+                  return ` ${emoji} ${sign}${delta.toFixed(1)}% vs main`;
                 };
                 
-                packageTable = `
-              | Package | Coverage | vs main |
-              |---------|----------|---------|
-              | sakurs-core | ${corePercentage} | ${formatDelta(comparison.current.current_core, comparison.main.main_core)} |
-              | sakurs-cli | ${cliPercentage} | ${formatDelta(comparison.current.current_cli, comparison.main.main_cli)} |`;
-              } else {
-                packageTable = `
-              | Package | Coverage |
-              |---------|----------|
-              | sakurs-core | ${corePercentage} |
-              | sakurs-cli | ${cliPercentage} |`;
+                const currentOverall = comparison.current.current_overall || 'N/A';
+                const deltaText = formatDelta(currentOverall, comparison.main.main_overall);
+                coverageSummary = `\n**Overall Coverage: ${currentOverall}**${deltaText}\n`;
               }
               
               // Create coverage comment with unique identifier
@@ -345,12 +298,11 @@ jobs:
               
               const body = `${commentIdentifier}
               ## 📊 Test Coverage Report
-              
-              ### Overall Coverage
+              ${coverageSummary}
+              ### Detailed Report
               \`\`\`
               ${summary.trim()}
-              \`\`\`
-              ${packageTable}${changedFilesSection}
+              \`\`\`${changedFilesSection}
               
               📎 [View detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
               
@@ -404,3 +356,15 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📎 [Download detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check coverage threshold
+        run: |
+          set -euo pipefail
+          echo "🎯 Checking coverage threshold..."
+          # Fail if coverage drops below 80%
+          cargo llvm-cov report --fail-under-lines 80 || {
+            echo "❌ Coverage below 80% threshold"
+            echo "⚠️ Coverage report has been updated in the PR comment above"
+            exit 1
+          }
+          echo "✅ Coverage meets the 80% threshold"
