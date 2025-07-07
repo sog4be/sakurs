@@ -23,35 +23,130 @@ pip install sakurs
 ```python
 import sakurs
 
-# Simple sentence tokenization
-sentences = sakurs.sent_tokenize("Hello world. This is a test.")
+# Simple sentence splitting
+sentences = sakurs.split("Hello world. This is a test.")
 print(sentences)  # ['Hello world.', 'This is a test.']
 
-# Object-oriented interface
+# Specify language
+sentences = sakurs.split("これは日本語です。テストです。", language="ja")
+print(sentences)  # ['これは日本語です。', 'テストです。']
+
+# Object-oriented interface for repeated use
 processor = sakurs.Processor("en")
-result = processor.process("Hello world. This is a test.")
-print(f"Found {len(result.boundaries)} boundaries")
-print(f"Processing took {result.metrics.total_time_us}μs")
+sentences = processor.split("Hello world. This is a test.")
+print(sentences)  # ['Hello world.', 'This is a test.']
 
 # Custom configuration
-config = sakurs.ProcessorConfig(chunk_size=8192, max_threads=4)
+config = sakurs.ProcessorConfig(
+    chunk_size=16384,      # Chunk size in bytes
+    overlap_size=512,      # Overlap between chunks
+    num_threads=4          # Number of threads (None for auto)
+)
 processor = sakurs.Processor("en", config)
-sentences = processor.sentences("Your text here...")
+sentences = processor.split("Your text here...")
 ```
+
+## API Reference
+
+### Functions
+
+#### `sakurs.split(text, language="en", config=None)`
+Split text into sentences.
+
+**Parameters:**
+- `text` (str): The text to split
+- `language` (str): Language code ("en" or "ja", default: "en")
+- `config` (ProcessorConfig, optional): Custom configuration
+
+**Returns:** List[str] - List of sentences
+
+#### `sakurs.load(language, config=None)`
+Create a processor instance for repeated use.
+
+**Parameters:**
+- `language` (str): Language code ("en" or "ja")
+- `config` (ProcessorConfig, optional): Custom configuration
+
+**Returns:** Processor instance
+
+#### `sakurs.supported_languages()`
+Get list of supported languages.
+
+**Returns:** List[str] - Supported language codes
+
+### Classes
+
+#### `sakurs.Processor`
+Main processor class for sentence boundary detection.
+
+**Methods:**
+- `split(text)`: Split text into sentences
+- `language`: Get the configured language (property)
+- `supports_parallel`: Check if parallel processing is supported (property)
+
+#### `sakurs.ProcessorConfig`
+Configuration for text processing.
+
+**Attributes:**
+- `chunk_size`: Size of text chunks for parallel processing (default: 8192)
+- `overlap_size`: Overlap size between chunks (default: 256)
+- `num_threads`: Number of threads to use (None for automatic)
 
 ## Supported Languages
 
 - English (`en`, `english`)
 - Japanese (`ja`, `japanese`)
 
-## Performance
+## Performance Tips
 
-Sakurs is designed for high-performance text processing:
+1. **Reuse Processor instances**: Create once, use many times
+   ```python
+   processor = sakurs.Processor("en")
+   for text in documents:
+       sentences = processor.split(text)
+   ```
 
-- Automatic parallel processing for large texts
-- Memory-efficient chunking strategy
-- Zero-copy string operations where possible
-- SIMD optimizations for character scanning
+2. **Configure threads for your workload**: 
+   ```python
+   # For CPU-bound batch processing
+   config = sakurs.ProcessorConfig(num_threads=8)
+   
+   # For I/O-bound or interactive use
+   config = sakurs.ProcessorConfig(num_threads=2)
+   ```
+
+3. **Adjust chunk size for document length**:
+   ```python
+   # For very long documents
+   config = sakurs.ProcessorConfig(chunk_size=32768)
+   ```
+
+## Migration from NLTK
+
+```python
+# NLTK style
+import nltk
+sentences = nltk.sent_tokenize(text)
+
+# Sakurs equivalent
+import sakurs
+sentences = sakurs.split(text)
+```
+
+## Error Handling
+
+```python
+import sakurs
+
+try:
+    processor = sakurs.Processor("unsupported_language")
+except sakurs.SakursError as e:
+    print(f"Error: {e}")
+
+# The library will handle edge cases gracefully
+sentences = sakurs.split("")  # Returns []
+sentences = sakurs.split("No punctuation")  # Returns ["No punctuation"]
+```
 
 ## Development
 
