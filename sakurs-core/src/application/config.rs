@@ -20,7 +20,7 @@ pub struct ProcessorConfig {
     /// Size of overlap between chunks for cross-boundary detection
     pub overlap_size: usize,
 
-    /// Enable SIMD optimizations when available
+    /// Enable SIMD optimizations when available (not yet implemented)
     pub enable_simd: bool,
 
     /// Maximum text size to process (prevents OOM)
@@ -37,7 +37,7 @@ impl Default for ProcessorConfig {
             parallel_threshold: 1024 * 1024,   // 1MB threshold for parallel
             max_threads: None,                 // Use all available cores
             overlap_size: 256,                 // 256 char overlap
-            enable_simd: true,                 // Enable SIMD by default
+            enable_simd: false,                // SIMD not yet implemented
             max_text_size: 1024 * 1024 * 1024, // 1GB max
             use_mmap: false,                   // Memory mapping disabled by default
         }
@@ -223,7 +223,7 @@ impl ProcessorConfigBuilder {
         self
     }
 
-    /// Enables or disables SIMD optimizations
+    /// Enables or disables SIMD optimizations (not yet implemented)
     pub fn enable_simd(mut self, enable: bool) -> Self {
         self.config.enable_simd = enable;
         self

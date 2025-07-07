@@ -249,14 +249,19 @@ Note: Streaming functionality is currently implemented as a processing strategy 
 
 - **Sequential**: O(N) - Linear scan
 - **Parallel**: O(N/P + log P) - Near-linear speedup
-- **SIMD optimization**: ~4-8x faster for terminal detection
 
 ### Optimization Strategies
 
-1. **SIMD for character scanning** - Uses AVX2/NEON when available
-2. **Zero-copy string handling** - Minimizes allocations
-3. **Cache-aware chunking** - Chunks fit in L2 cache
-4. **Lock-free combining** - Tree reduction without mutexes
+1. **Zero-copy string handling** - Minimizes allocations
+2. **Cache-aware chunking** - Chunks fit in L2 cache
+3. **Lock-free combining** - Tree reduction without mutexes
+4. **UTF-8 safe chunking** - Ensures valid boundaries for all operations
+
+### Planned Optimizations
+
+1. **SIMD for character scanning** - Will use AVX2/NEON when available (not yet implemented)
+2. **Memory prefetching** - Optimize cache line usage
+3. **Vectorized terminal detection** - Batch process punctuation marks
 
 
 ## Usage Examples
@@ -355,6 +360,7 @@ Yes! The library is designed for production use with:
 - 🚧 C API for other language bindings
 - 🚧 Additional language rules (German, French, Spanish)
 - 🚧 Runtime plugin system for language rules
+- 🚧 SIMD optimizations for character scanning
 - 🚧 GPU acceleration for very large texts
 
 ## Contributing

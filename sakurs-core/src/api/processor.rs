@@ -77,14 +77,14 @@ impl SentenceProcessor {
             chunk_size: config.performance.chunk_size_kb * 1024,
             parallel_threshold: config.performance.chunk_size_kb * 1024,
             max_threads: config.performance.threads,
-            overlap_size: 256, // Default overlap size
-            enable_simd: true, // Default to enabled
+            overlap_size: 256,  // Default overlap size
+            enable_simd: false, // SIMD not yet implemented
             max_text_size: config
                 .performance
                 .memory_limit_mb
                 .map(|mb| mb * 1024 * 1024)
                 .unwrap_or(1024 * 1024 * 1024), // Default 1GB
-            use_mmap: false,   // Default to false
+            use_mmap: false,    // Default to false
         })
     }
 }
