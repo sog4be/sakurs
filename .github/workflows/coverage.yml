@@ -63,30 +63,30 @@ jobs:
           # Note: sakurs-py requires Python runtime for PyO3 bindings
           # Excluding it from coverage to avoid CI complexity
           if command -v cargo-nextest >/dev/null 2>&1; then
-            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --lcov --output-path lcov.info
+            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           else
-            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --lcov --output-path lcov.info
+            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           fi
           
           echo ""
           echo "📊 Coverage Summary:"
           echo "==================="
-          cargo llvm-cov report --summary-only
+          cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/'
 
       - name: Generate detailed reports
         run: |
           set -euo pipefail
           # Generate HTML report for visual inspection
-          cargo llvm-cov report --html
+          cargo llvm-cov report --html --ignore-filename-regex='benchmarks/'
           
           # Generate summary for PR comment
-          cargo llvm-cov report --summary-only > coverage-summary.txt
+          cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/' > coverage-summary.txt
           
           # Display overall coverage summary
           echo ""
           echo "📦 Workspace Coverage Summary:"
           echo "=============================="
-          cargo llvm-cov report --summary-only
+          cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/'
           
           # For PRs, get main branch coverage for comparison
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -94,7 +94,7 @@ jobs:
             echo "🔄 Fetching main branch coverage for comparison..."
             
             # Save current coverage percentages
-            current_overall=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
+            current_overall=$(cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/' | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 || echo "0.0%")
             
             echo "current_overall=$current_overall" > coverage-current.txt
             
@@ -129,7 +129,7 @@ jobs:
                   total_changed_files=$((total_changed_files + 1))
                   
                   # Check if file appears in coverage report
-                  file_coverage=$(cargo llvm-cov report --summary-only | grep "$file" | head -1 || echo "")
+                  file_coverage=$(cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/' | grep "$file" | head -1 || echo "")
                   
                   if [ -n "$file_coverage" ]; then
                     covered_changed_files=$((covered_changed_files + 1))
@@ -174,7 +174,7 @@ jobs:
           echo "🏷️ Updating README coverage badge..."
           
           # Extract overall coverage percentage from TOTAL line (Lines Cover column)
-          overall_percentage=$(cargo llvm-cov report --summary-only | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 | sed 's/%//' || echo "0.0")
+          overall_percentage=$(cargo llvm-cov report --summary-only --ignore-filename-regex='benchmarks/' | grep "TOTAL" | grep -o '[0-9]\+\.[0-9]\+%' | tail -1 | sed 's/%//' || echo "0.0")
           
           # Determine badge color based on coverage
           if (( $(echo "$overall_percentage >= 90" | bc -l) )); then
@@ -362,7 +362,7 @@ jobs:
           set -euo pipefail
           echo "🎯 Checking coverage threshold..."
           # Fail if coverage drops below 80%
-          cargo llvm-cov report --fail-under-lines 80 || {
+          cargo llvm-cov report --fail-under-lines 80 --ignore-filename-regex='benchmarks/' || {
             echo "❌ Coverage below 80% threshold"
             echo "⚠️ Coverage report has been updated in the PR comment above"
             exit 1

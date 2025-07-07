@@ -108,9 +108,9 @@ coverage: check-llvm-tools
 		cargo install cargo-llvm-cov || (echo "❌ Failed to install cargo-llvm-cov" && exit 1); \
 	fi
 	@if command -v cargo-nextest >/dev/null 2>&1; then \
-		cargo llvm-cov nextest --all-features --workspace || (echo "❌ Coverage generation failed" && exit 1); \
+		cargo llvm-cov nextest --all-features --workspace --ignore-filename-regex='benchmarks/' || (echo "❌ Coverage generation failed" && exit 1); \
 	else \
-		cargo llvm-cov test --all-features --workspace || (echo "❌ Coverage generation failed" && exit 1); \
+		cargo llvm-cov test --all-features --workspace --ignore-filename-regex='benchmarks/' || (echo "❌ Coverage generation failed" && exit 1); \
 	fi
 	@echo ""
 	cargo llvm-cov report --summary-only
@@ -121,7 +121,7 @@ coverage-html: check-llvm-tools
 		echo "❌ cargo-llvm-cov not found. Installing..."; \
 		cargo install cargo-llvm-cov || (echo "❌ Failed to install cargo-llvm-cov" && exit 1); \
 	fi
-	cargo llvm-cov report --html || (echo "❌ HTML coverage generation failed" && exit 1)
+	cargo llvm-cov report --html --ignore-filename-regex='benchmarks/' || (echo "❌ HTML coverage generation failed" && exit 1)
 	@echo "✅ Coverage report generated at: target/llvm-cov/html/index.html"
 	@if command -v open >/dev/null 2>&1; then \
 		open target/llvm-cov/html/index.html; \
@@ -135,7 +135,7 @@ coverage-threshold: check-llvm-tools
 		echo "❌ cargo-llvm-cov not found. Installing..."; \
 		cargo install cargo-llvm-cov || (echo "❌ Failed to install cargo-llvm-cov" && exit 1); \
 	fi
-	cargo llvm-cov report --fail-under-lines 80 || (echo "❌ Coverage below 80% threshold" && exit 1)
+	cargo llvm-cov report --fail-under-lines 80 --ignore-filename-regex='benchmarks/' || (echo "❌ Coverage below 80% threshold" && exit 1)
 
 coverage-clean:
 	@echo "🧹 Cleaning coverage data..."
