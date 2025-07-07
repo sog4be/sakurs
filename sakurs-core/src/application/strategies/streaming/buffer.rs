@@ -29,7 +29,7 @@ impl StreamingBuffer {
     }
 
     /// Fill buffer from reader, preserving look-ahead data
-    pub fn fill(&mut self, reader: &mut impl Read) -> io::Result<usize> {
+    pub fn fill(&mut self, reader: &mut dyn Read) -> io::Result<usize> {
         // Clear main buffer but preserve look-ahead
         self.data.clear();
         self.position = 0;

@@ -36,11 +36,10 @@
 
 pub mod application;
 pub mod domain;
-pub mod processing;
 
+pub use application::strategies::{AdaptiveStrategy, ProcessingStrategy};
 pub use application::{ProcessorConfig, UnifiedProcessor};
 pub use domain::*;
-pub use processing::{AdaptiveProcessor, ProcessingStrategy};
 
 #[cfg(test)]
 mod tests {
