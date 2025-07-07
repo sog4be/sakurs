@@ -10,7 +10,6 @@ pub mod monoid;
 pub mod prefix_sum;
 pub mod quote_suppression;
 pub mod reduce;
-pub mod reduce_v2;
 pub mod state;
 pub mod traits;
 pub mod types;
