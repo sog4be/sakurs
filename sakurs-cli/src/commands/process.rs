@@ -7,7 +7,7 @@ use std::path::PathBuf;
 /// Arguments for the process command
 #[derive(Debug, Args)]
 pub struct ProcessArgs {
-    /// Input files or patterns (supports glob)
+    /// Input files or patterns (supports glob, use '-' for stdin)
     #[arg(short, long, value_name = "FILE/PATTERN", required = true)]
     pub input: Vec<String>,
 
@@ -82,58 +82,66 @@ impl ProcessArgs {
         log::info!("Starting text processing");
         log::debug!("Arguments: {self:?}");
 
-        // Resolve file patterns
-        let files = crate::input::resolve_patterns(&self.input)?;
-        log::info!("Found {} files to process", files.len());
-
-        // Initialize progress reporter
-        let mut progress = crate::progress::ProgressReporter::new(self.quiet);
-        progress.init_files(files.len() as u64);
-
         // Create output formatter
         let mut formatter: Box<dyn crate::output::OutputFormatter> = self.create_formatter()?;
 
-        // Process each file
+        // Create processor
         let processor = self.create_processor()?;
 
-        for file in &files {
-            log::info!("Processing file: {}", file.display());
+        // Check if input is stdin
+        if self.input.len() == 1 && self.input[0] == "-" {
+            log::info!("Reading from stdin");
+            self.process_stdin(&processor, &mut formatter)?;
+        } else {
+            // Resolve file patterns
+            let files = crate::input::resolve_patterns(&self.input)?;
+            log::info!("Found {} files to process", files.len());
 
-            // Check if we should use streaming mode
-            let file_size_mb = crate::input::FileReader::file_size(file)? / (1024 * 1024);
-            let should_stream = self.stream || file_size_mb > 100; // Auto-stream for files > 100MB
+            // Initialize progress reporter
+            let mut progress = crate::progress::ProgressReporter::new(self.quiet);
+            progress.init_files(files.len() as u64);
 
-            if should_stream {
-                log::info!(
-                    "Using streaming mode for {} ({}MB)",
-                    file.display(),
-                    file_size_mb
-                );
-                self.process_file_streaming(file, &processor, &mut formatter)?;
-            } else {
-                // Read entire file content
-                let content = crate::input::FileReader::read_text(file)?;
+            for file in &files {
+                log::info!("Processing file: {}", file.display());
 
-                // Process text
-                let result = processor.process_text(&content)?;
+                // Check if we should use streaming mode
+                let file_size_mb = crate::input::FileReader::file_size(file)? / (1024 * 1024);
+                let should_stream = self.stream || file_size_mb > 100; // Auto-stream for files > 100MB
 
-                // Extract and output sentences
-                let sentences = result.extract_sentences(&content);
-                let ranges = result.sentence_ranges();
+                if should_stream {
+                    log::info!(
+                        "Using streaming mode for {} ({}MB)",
+                        file.display(),
+                        file_size_mb
+                    );
+                    self.process_file_streaming(file, &processor, &mut formatter)?;
+                } else {
+                    // Read entire file content
+                    let content = crate::input::FileReader::read_text(file)?;
 
-                for (sentence, range) in sentences.iter().zip(ranges.iter()) {
-                    formatter.format_sentence(sentence, range.start)?;
+                    // Process text
+                    let result = processor
+                        .process(sakurs_core::Input::from_text(content.clone()))
+                        .map_err(|e| anyhow::anyhow!("Processing failed: {}", e))?;
+
+                    // Extract and output sentences
+                    let mut last_offset = 0;
+                    for boundary in &result.boundaries {
+                        let sentence = &content[last_offset..boundary.offset];
+                        formatter.format_sentence(sentence.trim(), last_offset)?;
+                        last_offset = boundary.offset;
+                    }
                 }
+
+                progress.file_completed(&file.file_name().unwrap_or_default().to_string_lossy());
             }
 
-            progress.file_completed(&file.file_name().unwrap_or_default().to_string_lossy());
+            progress.finish();
+            log::info!("Processing complete. Processed {} files", files.len());
         }
 
         // Finalize output
         formatter.finish()?;
-        progress.finish();
-
-        log::info!("Processing complete. Processed {} files", files.len());
         Ok(())
     }
 
@@ -195,36 +203,39 @@ impl ProcessArgs {
     }
 
     /// Create text processor with appropriate language rules
-    fn create_processor(&self) -> Result<sakurs_core::application::TextProcessor> {
-        use sakurs_core::application::{ProcessorConfig, TextProcessor};
-        use sakurs_core::domain::language::{
-            EnglishLanguageRules, JapaneseLanguageRules, LanguageRules,
+    fn create_processor(&self) -> Result<sakurs_core::SentenceProcessor> {
+        use sakurs_core::{Config, SentenceProcessor};
+
+        let language_code = match self.language {
+            Language::English => "en",
+            Language::Japanese => "ja",
         };
-        use std::sync::Arc;
 
         let config = if self.parallel {
-            ProcessorConfig::builder()
-                .chunk_size(256 * 1024)
-                .parallel_threshold(0) // Force parallel
+            Config::builder()
+                .language(language_code)
+                .chunk_size(256) // 256KB
+                .threads(0) // Use all available threads
                 .build()
                 .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?
+        } else if self.adaptive {
+            Config::balanced()
         } else {
-            ProcessorConfig::default()
+            Config::builder()
+                .language(language_code)
+                .build()
+                .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?
         };
 
-        let language_rules: Arc<dyn LanguageRules> = match self.language {
-            Language::English => Arc::new(EnglishLanguageRules::new()),
-            Language::Japanese => Arc::new(JapaneseLanguageRules::new()),
-        };
-
-        Ok(TextProcessor::with_config(config, language_rules))
+        SentenceProcessor::with_config(config)
+            .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))
     }
 
     /// Process a file in streaming mode
     fn process_file_streaming(
         &self,
         file: &std::path::Path,
-        processor: &sakurs_core::application::TextProcessor,
+        processor: &sakurs_core::SentenceProcessor,
         formatter: &mut Box<dyn crate::output::OutputFormatter>,
     ) -> Result<()> {
         // For now, streaming mode uses the same processing as regular mode
@@ -232,13 +243,42 @@ impl ProcessArgs {
         log::info!("Using streaming mode for large file: {}", file.display());
 
         let content = crate::input::FileReader::read_text(file)?;
-        let result = processor.process_text(&content)?;
+        let result = processor
+            .process(sakurs_core::Input::from_text(content.clone()))
+            .map_err(|e| anyhow::anyhow!("Processing failed: {}", e))?;
 
-        let sentences = result.extract_sentences(&content);
-        let ranges = result.sentence_ranges();
+        let mut last_offset = 0;
+        for boundary in &result.boundaries {
+            let sentence = &content[last_offset..boundary.offset];
+            formatter.format_sentence(sentence.trim(), last_offset)?;
+            last_offset = boundary.offset;
+        }
 
-        for (sentence, range) in sentences.iter().zip(ranges.iter()) {
-            formatter.format_sentence(sentence, range.start)?;
+        Ok(())
+    }
+
+    /// Process stdin
+    fn process_stdin(
+        &self,
+        processor: &sakurs_core::SentenceProcessor,
+        formatter: &mut Box<dyn crate::output::OutputFormatter>,
+    ) -> Result<()> {
+        use std::io::Read;
+
+        let mut buffer = String::new();
+        std::io::stdin()
+            .read_to_string(&mut buffer)
+            .context("Failed to read from stdin")?;
+
+        let result = processor
+            .process(sakurs_core::Input::from_text(buffer.clone()))
+            .map_err(|e| anyhow::anyhow!("Processing failed: {}", e))?;
+
+        let mut last_offset = 0;
+        for boundary in &result.boundaries {
+            let sentence = &buffer[last_offset..boundary.offset];
+            formatter.format_sentence(sentence.trim(), last_offset)?;
+            last_offset = boundary.offset;
         }
 
         Ok(())
@@ -288,15 +328,15 @@ fn find_safe_split_point(text: &str, target: usize) -> usize {
 #[allow(dead_code)]
 fn output_sentences(
     text: &str,
-    result: &sakurs_core::application::ProcessingOutput,
+    result: &sakurs_core::Output,
     formatter: &mut Box<dyn crate::output::OutputFormatter>,
     base_offset: usize,
 ) -> Result<()> {
-    let sentences = result.extract_sentences(text);
-    let ranges = result.sentence_ranges();
-
-    for (sentence, range) in sentences.iter().zip(ranges.iter()) {
-        formatter.format_sentence(sentence, base_offset + range.start)?;
+    let mut last_offset = 0;
+    for boundary in &result.boundaries {
+        let sentence = &text[last_offset..boundary.offset];
+        formatter.format_sentence(sentence.trim(), base_offset + last_offset)?;
+        last_offset = boundary.offset;
     }
 
     Ok(())

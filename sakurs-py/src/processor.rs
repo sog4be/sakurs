@@ -5,14 +5,12 @@
 use crate::error::SakursError;
 use crate::types::{PyProcessingResult, PyProcessorConfig};
 use pyo3::prelude::*;
-use sakurs_core::application::UnifiedProcessor;
-use sakurs_core::domain::language::{EnglishLanguageRules, JapaneseLanguageRules, LanguageRules};
-use std::sync::Arc;
+use sakurs_core::{Config, Input, SentenceProcessor};
 
 /// Main processor class for sentence boundary detection
 #[pyclass]
 pub struct PyProcessor {
-    processor: UnifiedProcessor,
+    processor: SentenceProcessor,
     language: String,
 }
 
@@ -22,17 +20,25 @@ impl PyProcessor {
     #[new]
     #[pyo3(signature = (language="en", config=None))]
     pub fn new(language: &str, config: Option<PyProcessorConfig>) -> PyResult<Self> {
-        let language_rules: Arc<dyn LanguageRules> = match language.to_lowercase().as_str() {
-            "en" | "english" => Arc::new(EnglishLanguageRules::new()),
-            "ja" | "japanese" => Arc::new(JapaneseLanguageRules::new()),
+        // Validate language
+        let lang_code = match language.to_lowercase().as_str() {
+            "en" | "english" => "en",
+            "ja" | "japanese" => "ja",
             _ => return Err(SakursError::UnsupportedLanguage(language.to_string()).into()),
         };
 
         let processor = if let Some(cfg) = config {
-            UnifiedProcessor::with_config(language_rules, cfg.into())
+            let rust_config = Config::builder()
+                .language(lang_code)
+                .chunk_size(cfg.chunk_size / 1024) // Convert bytes to KB
+                .threads(cfg.num_threads.unwrap_or(0))
+                .build()
+                .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
+            SentenceProcessor::with_config(rust_config)
         } else {
-            UnifiedProcessor::new(language_rules)
-        };
+            SentenceProcessor::for_language(lang_code)
+        }
+        .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
 
         Ok(Self {
             processor,
@@ -51,17 +57,21 @@ impl PyProcessor {
         // Release GIL during processing for better performance
         let output = py
             .allow_threads(|| {
-                if let Some(thread_count) = threads {
-                    self.processor.process_with_threads(text, thread_count)
-                } else {
-                    self.processor.process(text)
+                // Note: The new API doesn't have explicit thread control per call
+                // Thread configuration is set during processor creation
+                if threads.is_some() {
+                    eprintln!("Warning: per-call thread count is not supported in the new API. Use config.num_threads instead.");
                 }
+                self.processor.process(Input::from_text(text))
             })
-            .map_err(SakursError::from)?;
+            .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
+
+        // Convert new API output to Python types
+        let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
 
         Ok(PyProcessingResult::new(
-            output.boundaries,
-            output.metrics,
+            boundaries,
+            output.metadata.stats.clone(),
             text.to_string(),
         ))
     }

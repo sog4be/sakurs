@@ -3,8 +3,7 @@
 #![allow(non_local_definitions)]
 
 use pyo3::prelude::*;
-use sakurs_core::application::{ProcessingMetrics, ProcessorConfig};
-use sakurs_core::Boundary;
+use sakurs_core::{Boundary as CoreBoundary, ProcessingStats};
 
 /// Python wrapper for sentence boundary information
 #[pyclass]
@@ -42,12 +41,12 @@ impl PyBoundary {
     }
 }
 
-impl From<Boundary> for PyBoundary {
-    fn from(boundary: Boundary) -> Self {
+impl From<&CoreBoundary> for PyBoundary {
+    fn from(boundary: &CoreBoundary) -> Self {
         Self {
             offset: boundary.offset,
             is_sentence_end: true, // All Boundary instances are sentence ends
-            confidence: 1.0,
+            confidence: boundary.confidence,
         }
     }
 }
@@ -67,6 +66,9 @@ pub struct PyProcessorConfig {
     /// Maximum number of threads to use (None for automatic)
     #[pyo3(get, set)]
     pub max_threads: Option<usize>,
+
+    /// Number of threads to use for processing
+    pub num_threads: Option<usize>,
 }
 
 #[pymethods]
@@ -78,6 +80,7 @@ impl PyProcessorConfig {
             chunk_size,
             overlap_size,
             max_threads,
+            num_threads: max_threads,
         }
     }
 
@@ -89,26 +92,7 @@ impl PyProcessorConfig {
     }
 }
 
-impl From<PyProcessorConfig> for ProcessorConfig {
-    fn from(py_config: PyProcessorConfig) -> Self {
-        ProcessorConfig::builder()
-            .chunk_size(py_config.chunk_size)
-            .overlap_size(py_config.overlap_size)
-            .max_threads(py_config.max_threads)
-            .build()
-            .expect("ProcessorConfig should be valid with these parameters")
-    }
-}
-
-impl From<ProcessorConfig> for PyProcessorConfig {
-    fn from(config: ProcessorConfig) -> Self {
-        Self {
-            chunk_size: config.chunk_size,
-            overlap_size: config.overlap_size,
-            max_threads: config.max_threads,
-        }
-    }
-}
+// Removed ProcessorConfig conversions since we're using the new API
 
 /// Python wrapper for processing metrics
 #[pyclass]
@@ -164,16 +148,16 @@ impl PyProcessingMetrics {
     }
 }
 
-impl From<ProcessingMetrics> for PyProcessingMetrics {
-    fn from(metrics: ProcessingMetrics) -> Self {
+impl From<ProcessingStats> for PyProcessingMetrics {
+    fn from(stats: ProcessingStats) -> Self {
         Self {
-            boundaries_found: metrics.boundaries_found,
-            chunk_count: metrics.chunk_count,
-            thread_count: metrics.thread_count,
-            total_time_us: metrics.total_time_us,
-            chunking_time_us: metrics.chunking_time_us,
-            parallel_time_us: metrics.parallel_time_us,
-            merge_time_us: metrics.merge_time_us,
+            boundaries_found: stats.sentence_count,
+            chunk_count: 1,      // Not available in new API
+            thread_count: 1,     // Not available in new API
+            total_time_us: 0,    // Not available in new API
+            chunking_time_us: 0, // Not available in new API
+            parallel_time_us: 0, // Not available in new API
+            merge_time_us: 0,    // Not available in new API
         }
     }
 }
@@ -254,14 +238,20 @@ impl PyProcessingResult {
 }
 
 impl PyProcessingResult {
-    pub fn new(
-        boundaries: Vec<Boundary>,
-        metrics: ProcessingMetrics,
-        original_text: String,
-    ) -> Self {
+    pub fn new(boundaries: Vec<usize>, stats: ProcessingStats, original_text: String) -> Self {
+        // Convert simple offsets to PyBoundary objects
+        let py_boundaries = boundaries
+            .into_iter()
+            .map(|offset| PyBoundary {
+                offset,
+                is_sentence_end: true,
+                confidence: 1.0,
+            })
+            .collect();
+
         Self {
-            boundaries: boundaries.into_iter().map(PyBoundary::from).collect(),
-            metrics: PyProcessingMetrics::from(metrics),
+            boundaries: py_boundaries,
+            metrics: PyProcessingMetrics::from(stats),
             original_text,
         }
     }
