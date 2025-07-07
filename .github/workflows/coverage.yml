@@ -7,15 +7,12 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: write  # Required for updating README badge on main branch
   actions: read
-  pull-requests: write
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
-  UV_CACHE_DIR: /tmp/.uv-cache
 
 jobs:
   coverage:
@@ -53,49 +50,24 @@ jobs:
         with:
           tool: nextest
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-          cache-dependency-glob: "sakurs-py/pyproject.toml"
-
-      - name: Restore uv cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.uv-cache
-          key: uv-${{ runner.os }}-${{ hashFiles('sakurs-py/pyproject.toml') }}
-          restore-keys: |
-            uv-${{ runner.os }}-${{ hashFiles('sakurs-py/pyproject.toml') }}
-            uv-${{ runner.os }}
-
-      - name: Install Python dependencies
-        run: |
-          cd sakurs-py
-          uv sync --dev
-          # Install maturin for building the extension module
-          uv pip install maturin
-          cd ..
 
       - name: Run tests with coverage
         run: |
           set -euo pipefail
           echo "🧪 Running tests with coverage instrumentation..."
-          # Note: Branch coverage (--branch flag) requires Rust nightly toolchain
-          # Since this project uses stable Rust, branch coverage is not available
-          # This is why "Branches" column shows 0 in coverage reports
-          # Use nextest if available, otherwise fall back to regular test
-          # Note: sakurs-benchmarks is excluded as it's benchmark code
-          # benchmarks/ directory is also excluded via ignore-filename-regex
-          # sakurs-py is included and requires Python environment setup above
+          # Coverage configuration notes:
+          # - Branch coverage requires Rust nightly (not available with stable)
+          # - sakurs-benchmarks is excluded as it contains benchmark code
+          # - benchmarks/ directory is excluded via ignore-filename-regex
+          # - sakurs-py is excluded because it's a PyO3 extension module that requires
+          #   Python runtime and cannot be tested with regular cargo test commands.
+          #   PyO3 extension modules are meant to be imported by Python, not executed
+          #   as standalone Rust binaries, making them incompatible with cargo test.
+          
           if command -v cargo-nextest >/dev/null 2>&1; then
-            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
+            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           else
-            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
+            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           fi
           
           echo ""
