@@ -60,12 +60,12 @@ jobs:
           # Since this project uses stable Rust, branch coverage is not available
           # This is why "Branches" column shows 0 in coverage reports
           # Use nextest if available, otherwise fall back to regular test
-          # Note: sakurs-py requires Python runtime for PyO3 bindings
-          # Excluding it from coverage to avoid CI complexity
+          # Note: sakurs-benchmarks is excluded as it's benchmark code
+          # benchmarks/ directory is also excluded via ignore-filename-regex
           if command -v cargo-nextest >/dev/null 2>&1; then
-            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
+            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           else
-            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
+            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           fi
           
           echo ""
