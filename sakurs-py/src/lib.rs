@@ -36,7 +36,6 @@ fn load(language: &str, config: Option<PyProcessorConfig>) -> PyResult<PyProcess
     PyProcessor::new(language, config)
 }
 
-
 /// Get list of supported languages
 #[pyfunction]
 fn supported_languages() -> Vec<&'static str> {
