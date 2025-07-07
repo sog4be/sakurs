@@ -46,37 +46,34 @@ impl PyProcessor {
         })
     }
 
-    /// Process text and return detailed results with boundaries and metrics
+    /// Split text into sentences
     #[pyo3(signature = (text, threads=None))]
-    fn process(
-        &self,
-        text: &str,
-        threads: Option<usize>,
-        py: Python,
-    ) -> PyResult<PyProcessingResult> {
+    pub fn split(&self, text: &str, threads: Option<usize>, py: Python) -> PyResult<Vec<String>> {
+        // Warn about deprecated threads parameter using Python warnings module
+        if threads.is_some() {
+            let warnings = py.import("warnings")?;
+            warnings.call_method1(
+                "warn",
+                (
+                    "The 'threads' parameter is deprecated. Configure threads when creating the Processor.",
+                    py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
+                )
+            )?;
+        }
+
         // Release GIL during processing for better performance
         let output = py
-            .allow_threads(|| {
-                // Note: The new API doesn't have explicit thread control per call
-                // Thread configuration is set during processor creation
-                if threads.is_some() {
-                    eprintln!("Warning: per-call thread count is not supported in the new API. Use config.num_threads instead.");
-                }
-                self.processor.process(Input::from_text(text))
-            })
+            .allow_threads(|| self.processor.process(Input::from_text(text)))
             .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
 
-        // Convert new API output to Python types
+        // Convert boundaries to sentence list
         let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
+        let result = PyProcessingResult::new(boundaries, output.metadata.stats, text.to_string());
 
-        Ok(PyProcessingResult::new(
-            boundaries,
-            output.metadata.stats.clone(),
-            text.to_string(),
-        ))
+        Ok(result.sentences())
     }
 
-    /// Extract sentences as a list of strings (convenience method)
+    /// Extract sentences as a list of strings (legacy method, use split() instead)
     #[pyo3(signature = (text, threads=None))]
     pub fn sentences(
         &self,
@@ -84,15 +81,7 @@ impl PyProcessor {
         threads: Option<usize>,
         py: Python,
     ) -> PyResult<Vec<String>> {
-        let result = self.process(text, threads, py)?;
-        Ok(result.sentences())
-    }
-
-    /// Get processor configuration (placeholder - needs to be implemented in UnifiedProcessor)
-    #[getter]
-    fn config(&self) -> PyProcessorConfig {
-        // For now, return default values until config() method is added to UnifiedProcessor
-        PyProcessorConfig::new(8192, 256, None)
+        self.split(text, threads, py)
     }
 
     /// Get supported language

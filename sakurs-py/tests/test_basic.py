@@ -19,7 +19,7 @@ def test_import():
         pytest.skip("sakurs module not built yet")
 
     assert hasattr(sakurs, "__version__")
-    assert hasattr(sakurs, "sent_tokenize")
+    assert hasattr(sakurs, "split")
     assert hasattr(sakurs, "load")
     assert hasattr(sakurs, "Processor")
 
@@ -44,8 +44,8 @@ def test_processor_creation(language):
 
     processor = sakurs.load(language)
     assert processor is not None
-    assert hasattr(processor, "sentences")
-    assert hasattr(processor, "process")
+    assert hasattr(processor, "split")
+    assert hasattr(processor, "sentences")  # Legacy support
 
 
 def test_unsupported_language_error():
@@ -63,7 +63,7 @@ def test_basic_sentence_tokenization():
         pytest.skip("sakurs module not built yet")
 
     text = "Hello world. How are you? I am fine!"
-    sentences = sakurs.sent_tokenize(text)
+    sentences = sakurs.split(text)
     assert isinstance(sentences, list)
     assert len(sentences) > 0
     assert all(isinstance(s, str) for s in sentences)
@@ -82,5 +82,5 @@ def test_sentence_count(text, min_sentences):
     if sakurs is None:
         pytest.skip("sakurs module not built yet")
 
-    sentences = sakurs.sent_tokenize(text)
+    sentences = sakurs.split(text)
     assert len(sentences) >= min_sentences

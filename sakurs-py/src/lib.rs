@@ -13,12 +13,12 @@ mod types;
 
 // use error::SakursError;
 use processor::PyProcessor;
-use types::{PyBoundary, PyProcessingMetrics, PyProcessingResult, PyProcessorConfig};
+use types::PyProcessorConfig;
 
-/// Convenience function for direct sentence tokenization (NLTK-style API)
+/// Split text into sentences
 #[pyfunction]
 #[pyo3(signature = (text, language="en", config=None, threads=None))]
-fn sent_tokenize(
+fn split(
     text: &str,
     language: &str,
     config: Option<PyProcessorConfig>,
@@ -26,7 +26,7 @@ fn sent_tokenize(
     py: Python,
 ) -> PyResult<Vec<String>> {
     let processor = PyProcessor::new(language, config)?;
-    processor.sentences(text, threads, py)
+    processor.split(text, threads, py)
 }
 
 /// Load a processor for the specified language (spaCy-style API)
@@ -34,19 +34,6 @@ fn sent_tokenize(
 #[pyo3(signature = (language, config=None))]
 fn load(language: &str, config: Option<PyProcessorConfig>) -> PyResult<PyProcessor> {
     PyProcessor::new(language, config)
-}
-
-/// Segment text into sentences (alias for sent_tokenize)
-#[pyfunction]
-#[pyo3(signature = (text, language="en", config=None, threads=None))]
-fn segment(
-    text: &str,
-    language: &str,
-    config: Option<PyProcessorConfig>,
-    threads: Option<usize>,
-    py: Python,
-) -> PyResult<Vec<String>> {
-    sent_tokenize(text, language, config, threads, py)
 }
 
 /// Get list of supported languages
@@ -62,15 +49,11 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Core classes
     m.add_class::<PyProcessor>()?;
-    m.add_class::<PyBoundary>()?;
-    m.add_class::<PyProcessingMetrics>()?;
     m.add_class::<PyProcessorConfig>()?;
-    m.add_class::<PyProcessingResult>()?;
 
-    // Convenience functions
-    m.add_function(wrap_pyfunction!(sent_tokenize, m)?)?;
+    // Main API functions
+    m.add_function(wrap_pyfunction!(split, m)?)?;
     m.add_function(wrap_pyfunction!(load, m)?)?;
-    m.add_function(wrap_pyfunction!(segment, m)?)?;
     m.add_function(wrap_pyfunction!(supported_languages, m)?)?;
 
     // Exception classes
@@ -131,7 +114,7 @@ mod tests {
         let config = PyProcessorConfig::new(4096, 128, Some(2));
         assert_eq!(config.chunk_size, 4096);
         assert_eq!(config.overlap_size, 128);
-        assert_eq!(config.max_threads, Some(2));
+        assert_eq!(config.num_threads, Some(2));
     }
 
     #[test]
