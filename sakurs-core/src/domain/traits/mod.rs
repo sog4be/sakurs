@@ -15,3 +15,6 @@ pub use boundary_analyzer::{
 };
 pub use character_classifier::{CharacterClass, CharacterClassifier};
 pub use language_specific_rules::{LanguageSpecificRules, QuoteBehavior, QuoteType};
+
+#[cfg(test)]
+mod tests;
