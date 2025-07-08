@@ -12,8 +12,11 @@ use crate::domain::{
 
 mod strategies;
 
+#[cfg(test)]
+mod tests;
+
 pub use strategies::{
-    ParseStrategy, ParsingInput, ParsingOutput, SequentialParser, StreamingParser,
+    ParseError, ParseStrategy, ParsingInput, ParsingOutput, SequentialParser, StreamingParser,
 };
 
 /// Parser configuration options.
@@ -212,7 +215,7 @@ pub fn scan_chunk(text: &str, language_rules: &dyn LanguageRules) -> PartialStat
 }
 
 #[cfg(test)]
-mod tests {
+mod parser_tests {
     use super::*;
     use crate::domain::language::MockLanguageRules;
 
