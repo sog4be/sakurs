@@ -12,8 +12,11 @@ use crate::domain::{
 
 mod strategies;
 
+#[cfg(test)]
+mod tests;
+
 pub use strategies::{
-    ParseStrategy, ParsingInput, ParsingOutput, SequentialParser, StreamingParser,
+    ParseError, ParseStrategy, ParsingInput, ParsingOutput, SequentialParser, StreamingParser,
 };
 
 /// Parser configuration options.
@@ -212,7 +215,7 @@ pub fn scan_chunk(text: &str, language_rules: &dyn LanguageRules) -> PartialStat
 }
 
 #[cfg(test)]
-mod tests {
+mod parser_tests {
     use super::*;
     use crate::domain::language::MockLanguageRules;
 
@@ -322,8 +325,10 @@ mod tests {
         assert!(!boundary_positions.contains(&72)); // After "Corp."
         assert!(!boundary_positions.contains(&95)); // After "$2.5" decimal
 
-        // Should create boundary candidates after real sentence endings
-        assert!(boundary_positions.len() >= 2); // At least two real boundary candidates
+        // Should create boundary candidates after real sentence endings:
+        // - After "billion!" (exclamation mark)
+        // - After "Amazing." (period at end)
+        assert_eq!(boundary_positions.len(), 2);
     }
 
     #[test]

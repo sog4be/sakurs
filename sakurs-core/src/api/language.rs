@@ -15,7 +15,7 @@ pub enum Language {
 impl Language {
     /// Create a Language from a language code
     pub fn from_code(code: &str) -> Self {
-        match code.to_lowercase().as_str() {
+        match code.trim().to_lowercase().as_str() {
             "en" | "eng" | "english" => Language::English,
             "ja" | "jpn" | "japanese" => Language::Japanese,
             _ => Language::English, // Default to English

@@ -21,3 +21,6 @@ pub type DepthVec = SmallVec<[i32; 8]>;
 
 /// Optimized vector for small integer collections
 pub type SmallIntVec = SmallVec<[i32; 4]>;
+
+#[cfg(test)]
+mod tests;

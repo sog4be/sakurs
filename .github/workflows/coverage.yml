@@ -36,9 +36,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}-v2
           restore-keys: |
-            ${{ runner.os }}-cargo-coverage-
+            ${{ runner.os }}-cargo-coverage-v2-
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2.56.6
@@ -50,6 +50,11 @@ jobs:
         with:
           tool: nextest
 
+      - name: Clean coverage data
+        run: |
+          echo "🧹 Cleaning any existing coverage data..."
+          cargo llvm-cov clean --workspace || true
+          rm -rf target/llvm-cov-target || true
 
       - name: Run tests with coverage
         run: |
@@ -254,9 +259,6 @@ jobs:
               echo '```' >> $GITHUB_STEP_SUMMARY
             fi
           fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 [Download detailed HTML report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
 
       - name: Check coverage threshold
         run: |

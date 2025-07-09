@@ -262,8 +262,6 @@ fn test_configuration_limits() {
 #[cfg(feature = "parallel")]
 #[test]
 fn test_parallel_efficiency() {
-    use std::time::Instant;
-
     // Configure for parallel processing
     let mut config = ProcessorConfig::large_text();
     config.chunk_size = 4096;
@@ -275,10 +273,8 @@ fn test_parallel_efficiency() {
     // Generate large text for meaningful parallel test
     let text = "This is a test sentence that contains enough words. ".repeat(1000);
 
-    // Time parallel processing
-    let start = Instant::now();
+    // Process in parallel
     let parallel_result = processor.process_text(&text).unwrap();
-    let parallel_time = start.elapsed();
 
     // Configure for sequential processing
     let mut seq_config = ProcessorConfig::large_text();
@@ -287,10 +283,8 @@ fn test_parallel_efficiency() {
 
     let seq_processor = TextProcessor::with_config(seq_config, rules);
 
-    // Time sequential processing
-    let start = Instant::now();
+    // Process sequentially
     let seq_result = seq_processor.process_text(&text).unwrap();
-    let seq_time = start.elapsed();
 
     // Results might vary slightly due to chunking differences
     // Just verify both found boundaries
@@ -303,12 +297,4 @@ fn test_parallel_efficiency() {
 
     // Parallel should generally be faster for large texts
     // (though this might not always be true in test environments)
-    println!(
-        "Parallel time: {:?}, Sequential time: {:?}",
-        parallel_time, seq_time
-    );
-    println!(
-        "Parallel efficiency: {:.2}",
-        parallel_result.metrics.parallel_efficiency()
-    );
 }

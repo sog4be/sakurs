@@ -2,6 +2,9 @@
 
 use crate::domain::{LanguageRules, PartialState};
 
+#[cfg(test)]
+mod tests;
+
 /// Input for parsing operations
 pub enum ParsingInput<'a> {
     /// Complete text in memory
@@ -80,15 +83,15 @@ impl ParseStrategy for SequentialParser {
                     return Err(ParseError::EmptyInput);
                 }
 
-                // Use scan_chunk from this module
-                let state = super::scan_chunk(text, rules);
+                // Use scan_chunk from parent module
+                let state = crate::application::parser::scan_chunk(text, rules);
                 Ok(ParsingOutput::State(Box::new(state)))
             }
             ParsingInput::Chunks(chunks) => {
                 let mut states = Vec::new();
                 for chunk in chunks {
                     if !chunk.is_empty() {
-                        let state = super::scan_chunk(chunk, rules);
+                        let state = crate::application::parser::scan_chunk(chunk, rules);
                         states.push(state);
                     }
                 }
@@ -153,7 +156,7 @@ impl ParseStrategy for StreamingParser {
 
                 // For streaming parser, we can still handle complete text
                 // by treating it as a single chunk
-                let state = super::scan_chunk(text, rules);
+                let state = crate::application::parser::scan_chunk(text, rules);
                 Ok(ParsingOutput::State(Box::new(state)))
             }
             ParsingInput::Chunks(chunks) => {
@@ -169,7 +172,7 @@ impl ParseStrategy for StreamingParser {
                     };
 
                     if !combined.is_empty() {
-                        let state = super::scan_chunk(&combined, rules);
+                        let state = crate::application::parser::scan_chunk(&combined, rules);
                         states.push(state);
 
                         // Keep overlap for next iteration
