@@ -25,7 +25,9 @@ impl MockLanguageRules {
 
     fn japanese() -> Self {
         Self {
-            abbreviations: vec!["株", "有", "社", "氏"],
+            // Japanese doesn't use period-based abbreviations in SBD context
+            // Real Japanese implementation handles English abbreviations within Japanese text
+            abbreviations: vec![],
             lang_code: "ja",
             custom_quote_behavior: Some(QuoteBehavior::SuppressBoundaries),
         }
@@ -184,13 +186,12 @@ mod language_specific_rules_tests {
     fn test_is_abbreviation_japanese() {
         let rules = MockLanguageRules::japanese();
 
-        // Japanese abbreviations
-        assert!(rules.is_abbreviation("株"));
-        assert!(rules.is_abbreviation("有"));
-        assert!(rules.is_abbreviation("社"));
-        assert!(rules.is_abbreviation("氏"));
-
-        // Not abbreviations
+        // Japanese doesn't use period-based abbreviations in SBD context
+        // This test verifies that Japanese rules don't have abbreviations
+        assert!(!rules.is_abbreviation("株"));
+        assert!(!rules.is_abbreviation("有"));
+        assert!(!rules.is_abbreviation("社"));
+        assert!(!rules.is_abbreviation("氏"));
         assert!(!rules.is_abbreviation("会社"));
         assert!(!rules.is_abbreviation("株式会社"));
         assert!(!rules.is_abbreviation("さん"));
