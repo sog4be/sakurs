@@ -809,12 +809,16 @@ mod language_tests {
 
         #[test]
         fn test_from_code_with_whitespace() {
-            // Test codes with whitespace
+            // Test codes with whitespace - should trim and match correctly
             assert_eq!(Language::from_code(" en "), Language::English);
             assert_eq!(Language::from_code("\ten\t"), Language::English);
-            assert_eq!(Language::from_code("\nja\n"), Language::English); // Doesn't trim
+            assert_eq!(Language::from_code("\nja\n"), Language::Japanese);
             assert_eq!(Language::from_code("en "), Language::English);
-            assert_eq!(Language::from_code(" ja"), Language::English); // Doesn't trim
+            assert_eq!(Language::from_code(" ja"), Language::Japanese);
+
+            // Test with multiple whitespace types
+            assert_eq!(Language::from_code("  \t english \n "), Language::English);
+            assert_eq!(Language::from_code("\r\njapanese\r\n"), Language::Japanese);
         }
 
         #[test]
