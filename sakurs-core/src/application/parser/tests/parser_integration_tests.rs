@@ -265,12 +265,13 @@ mod tests {
         let rules = RealisticMockRules::new();
         let text = "Test text. Another sentence.";
 
-        // Create different strategies
+        // Create different strategies with varying chunk sizes
+        // Using smaller chunk sizes to ensure chunking actually occurs with the test text
         let strategies: Vec<Box<dyn ParseStrategy>> = vec![
             Box::new(SequentialParser::new()),
             Box::new(StreamingParser::new()),
-            Box::new(SequentialParser::with_chunk_size(256)),
-            Box::new(StreamingParser::with_buffer_size(512, 64)),
+            Box::new(SequentialParser::with_chunk_size(16)), // Small chunk size for testing
+            Box::new(StreamingParser::with_buffer_size(20, 5)), // Small buffer with small overlap
         ];
 
         for (i, strategy) in strategies.iter().enumerate() {
