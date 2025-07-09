@@ -325,8 +325,10 @@ mod parser_tests {
         assert!(!boundary_positions.contains(&72)); // After "Corp."
         assert!(!boundary_positions.contains(&95)); // After "$2.5" decimal
 
-        // Should create boundary candidates after real sentence endings
-        assert!(boundary_positions.len() >= 2); // At least two real boundary candidates
+        // Should create boundary candidates after real sentence endings:
+        // - After "billion!" (exclamation mark)
+        // - After "Amazing." (period at end)
+        assert_eq!(boundary_positions.len(), 2);
     }
 
     #[test]

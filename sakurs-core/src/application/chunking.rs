@@ -611,8 +611,8 @@ mod tests {
 
         let chunks = manager.chunk_text(text).unwrap();
 
-        // Should create multiple small chunks
-        assert!(chunks.len() >= 2);
+        // Should create exactly 2 chunks (10 chars / 5 chars per chunk)
+        assert_eq!(chunks.len(), 2);
 
         // Each chunk should be valid
         for chunk in &chunks {
