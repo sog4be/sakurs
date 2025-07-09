@@ -195,9 +195,8 @@ fn test_nested_quotes_and_parentheses() {
     let text = r#"He said "She told me 'Hello there!' yesterday." Then he left. (This is important (very important) to note.) Done."#;
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // Complex nested structures might be handled differently
-    // For now, just verify it processes without errors
-    println!("Nested quotes boundaries: {}", result.boundaries.len());
+    // With nested quotes, the API returns 0 boundaries (quote suppression in effect)
+    assert_eq!(result.boundaries.len(), 0);
 }
 
 #[test]
