@@ -187,14 +187,10 @@ mod language_specific_rules_tests {
         let rules = MockLanguageRules::japanese();
 
         // Japanese doesn't use period-based abbreviations in SBD context
-        // This test verifies that Japanese rules don't have abbreviations
-        assert!(!rules.is_abbreviation("株"));
-        assert!(!rules.is_abbreviation("有"));
-        assert!(!rules.is_abbreviation("社"));
-        assert!(!rules.is_abbreviation("氏"));
-        assert!(!rules.is_abbreviation("会社"));
-        assert!(!rules.is_abbreviation("株式会社"));
-        assert!(!rules.is_abbreviation("さん"));
+        // Verify that any word returns false for Japanese
+        assert!(!rules.is_abbreviation("任意の単語"));
+        assert!(!rules.is_abbreviation("Dr")); // Even English abbreviations
+        assert!(!rules.is_abbreviation(""));
     }
 
     #[test]
