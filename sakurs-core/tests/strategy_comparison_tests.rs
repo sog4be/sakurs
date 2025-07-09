@@ -1,7 +1,6 @@
 //! Integration tests comparing different processing strategies
 
 use sakurs_core::{Config, Input, SentenceProcessor};
-use std::time::Instant;
 
 #[test]
 fn test_sequential_vs_parallel_consistency() {
@@ -41,17 +40,13 @@ fn test_different_configs_performance_characteristics() {
         let config_fast = Config::fast();
         let processor_fast = SentenceProcessor::with_config(config_fast).unwrap();
 
-        let start = Instant::now();
         let result_fast = processor_fast.process(Input::from_text(&text)).unwrap();
-        let _fast_time = start.elapsed();
 
         // Accurate config
         let config_accurate = Config::accurate();
         let processor_accurate = SentenceProcessor::with_config(config_accurate).unwrap();
 
-        let start = Instant::now();
         let result_accurate = processor_accurate.process(Input::from_text(&text)).unwrap();
-        let _accurate_time = start.elapsed();
 
         // Fast and accurate configs should produce identical results
         assert_eq!(
@@ -227,9 +222,7 @@ fn test_thread_scaling() {
 
         let processor = SentenceProcessor::with_config(config).unwrap();
 
-        let start = Instant::now();
         let result = processor.process(Input::from_text(&text)).unwrap();
-        let _duration = start.elapsed();
 
         // Verify correct processing
         assert!(result.boundaries.len() >= 10000);
