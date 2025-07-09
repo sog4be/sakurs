@@ -43,7 +43,7 @@ fn test_different_configs_performance_characteristics() {
 
         let start = Instant::now();
         let result_fast = processor_fast.process(Input::from_text(&text)).unwrap();
-        let fast_time = start.elapsed();
+        let _fast_time = start.elapsed();
 
         // Accurate config
         let config_accurate = Config::accurate();
@@ -51,7 +51,7 @@ fn test_different_configs_performance_characteristics() {
 
         let start = Instant::now();
         let result_accurate = processor_accurate.process(Input::from_text(&text)).unwrap();
-        let accurate_time = start.elapsed();
+        let _accurate_time = start.elapsed();
 
         // Fast and accurate configs should produce identical results
         assert_eq!(
@@ -59,14 +59,6 @@ fn test_different_configs_performance_characteristics() {
             result_accurate.boundaries.len(),
             "Fast and accurate configs should detect same number of boundaries for size {}",
             size
-        );
-
-        println!(
-            "Size {}: Fast {:?}, Accurate {:?}, Ratio: {:.2}x",
-            size,
-            fast_time,
-            accurate_time,
-            accurate_time.as_secs_f64() / fast_time.as_secs_f64()
         );
     }
 }
@@ -237,14 +229,7 @@ fn test_thread_scaling() {
 
         let start = Instant::now();
         let result = processor.process(Input::from_text(&text)).unwrap();
-        let duration = start.elapsed();
-
-        println!(
-            "Threads: {}, Time: {:?}, Boundaries: {}",
-            threads,
-            duration,
-            result.boundaries.len()
-        );
+        let _duration = start.elapsed();
 
         // Verify correct processing
         assert!(result.boundaries.len() >= 10000);

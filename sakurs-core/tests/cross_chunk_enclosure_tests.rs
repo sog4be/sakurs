@@ -154,10 +154,10 @@ fn test_nested_quotes_across_chunks() {
     assert!(sentences.len() > 100, "Should detect many sentences");
 
     // Verify chunk boundaries don't affect quote handling
-    println!("Processed {} chunks", result.metrics.chunk_count);
     assert!(
         result.metrics.chunk_count > 5,
-        "Text should be split into multiple chunks"
+        "Text should be split into multiple chunks: got {}",
+        result.metrics.chunk_count
     );
 }
 

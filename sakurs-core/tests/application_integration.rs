@@ -278,7 +278,7 @@ fn test_parallel_efficiency() {
     // Time parallel processing
     let start = Instant::now();
     let parallel_result = processor.process_text(&text).unwrap();
-    let parallel_time = start.elapsed();
+    let _parallel_time = start.elapsed();
 
     // Configure for sequential processing
     let mut seq_config = ProcessorConfig::large_text();
@@ -290,7 +290,7 @@ fn test_parallel_efficiency() {
     // Time sequential processing
     let start = Instant::now();
     let seq_result = seq_processor.process_text(&text).unwrap();
-    let seq_time = start.elapsed();
+    let _seq_time = start.elapsed();
 
     // Results might vary slightly due to chunking differences
     // Just verify both found boundaries
@@ -303,12 +303,4 @@ fn test_parallel_efficiency() {
 
     // Parallel should generally be faster for large texts
     // (though this might not always be true in test environments)
-    println!(
-        "Parallel time: {:?}, Sequential time: {:?}",
-        parallel_time, seq_time
-    );
-    println!(
-        "Parallel efficiency: {:.2}",
-        parallel_result.metrics.parallel_efficiency()
-    );
 }
