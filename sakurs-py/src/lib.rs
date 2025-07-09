@@ -122,6 +122,6 @@ mod tests {
         let languages = supported_languages();
         assert!(languages.contains(&"en"));
         assert!(languages.contains(&"ja"));
-        assert!(languages.len() >= 2);
+        assert_eq!(languages.len(), 4); // en, english, ja, japanese (short and long forms)
     }
 }
