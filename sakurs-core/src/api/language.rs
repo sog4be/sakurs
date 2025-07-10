@@ -54,10 +54,7 @@ impl FromStr for Language {
         match s.trim().to_lowercase().as_str() {
             "en" | "eng" | "english" => Ok(Language::English),
             "ja" | "jpn" | "japanese" => Ok(Language::Japanese),
-            _ => Err(Error::InvalidLanguage(format!(
-                "Unsupported language: {}",
-                s
-            ))),
+            _ => Err(Error::InvalidLanguage(format!("Unsupported language: {s}"))),
         }
     }
 }
