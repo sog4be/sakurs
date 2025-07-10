@@ -5,7 +5,7 @@ use std::io::Cursor;
 
 #[test]
 fn test_complete_english_processing_pipeline() {
-    let config = Config::builder().language("en").build().unwrap();
+    let config = Config::builder().language("en").unwrap().build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -26,7 +26,7 @@ fn test_complete_english_processing_pipeline() {
 
 #[test]
 fn test_complete_japanese_processing_pipeline() {
-    let config = Config::builder().language("ja").build().unwrap();
+    let config = Config::builder().language("ja").unwrap().build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -39,7 +39,7 @@ fn test_complete_japanese_processing_pipeline() {
 
 #[test]
 fn test_mixed_language_content() {
-    let config = Config::builder().language("en").build().unwrap();
+    let config = Config::builder().language("en").unwrap().build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -86,7 +86,7 @@ fn test_byte_input_processing() {
 
 #[test]
 fn test_large_text_processing() {
-    let config = Config::builder().threads(4).build().unwrap();
+    let config = Config::builder().threads(Some(4)).build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -159,9 +159,12 @@ fn test_sentence_metadata() {
 }
 
 #[test]
-fn test_config_presets() {
-    // Test fast config
-    let fast_config = Config::fast();
+fn test_different_configs() {
+    // Test with large chunks (similar to old "fast")
+    let fast_config = Config::builder()
+        .chunk_size(1024 * 1024) // 1MB
+        .build()
+        .unwrap();
     let processor = SentenceProcessor::with_config(fast_config).unwrap();
 
     let result = processor
@@ -169,17 +172,20 @@ fn test_config_presets() {
         .unwrap();
     assert_eq!(result.boundaries.len(), 2);
 
-    // Test balanced config
-    let balanced_config = Config::balanced();
-    let processor = SentenceProcessor::with_config(balanced_config).unwrap();
+    // Test with default config (similar to old "balanced")
+    let processor = SentenceProcessor::new();
 
     let result = processor
         .process(Input::from_text("Balanced approach. Good performance!"))
         .unwrap();
     assert_eq!(result.boundaries.len(), 2);
 
-    // Test accurate config
-    let accurate_config = Config::accurate();
+    // Test with small chunks and single thread (similar to old "accurate")
+    let accurate_config = Config::builder()
+        .chunk_size(256 * 1024) // 256KB
+        .threads(Some(1))
+        .build()
+        .unwrap();
     let processor = SentenceProcessor::with_config(accurate_config).unwrap();
 
     let result = processor
@@ -201,7 +207,7 @@ fn test_nested_quotes_and_parentheses() {
 
 #[test]
 fn test_processing_stats() {
-    let processor = SentenceProcessor::for_language("en").unwrap();
+    let processor = SentenceProcessor::with_language("en").unwrap();
 
     let text = "First sentence. Second one! Third?";
     let result = processor.process(Input::from_text(text)).unwrap();

@@ -7,12 +7,12 @@ fn test_sequential_vs_parallel_consistency() {
     let text = generate_test_text(1000);
 
     // Sequential processing (single thread)
-    let config_seq = Config::builder().threads(1).build().unwrap();
+    let config_seq = Config::builder().threads(Some(1)).build().unwrap();
     let processor_seq = SentenceProcessor::with_config(config_seq).unwrap();
     let result_seq = processor_seq.process(Input::from_text(&text)).unwrap();
 
     // Parallel processing (multiple threads)
-    let config_par = Config::builder().threads(4).build().unwrap();
+    let config_par = Config::builder().threads(Some(4)).build().unwrap();
     let processor_par = SentenceProcessor::with_config(config_par).unwrap();
     let result_par = processor_par.process(Input::from_text(&text)).unwrap();
 
@@ -36,23 +36,28 @@ fn test_different_configs_performance_characteristics() {
     for size in sizes {
         let text = generate_test_text(size);
 
-        // Fast config
-        let config_fast = Config::fast();
+        // Large chunk config (similar to old "fast")
+        let config_fast = Config::builder()
+            .chunk_size(1024 * 1024) // 1MB
+            .build()
+            .unwrap();
         let processor_fast = SentenceProcessor::with_config(config_fast).unwrap();
-
         let result_fast = processor_fast.process(Input::from_text(&text)).unwrap();
 
-        // Accurate config
-        let config_accurate = Config::accurate();
+        // Small chunk + single thread config (similar to old "accurate")
+        let config_accurate = Config::builder()
+            .chunk_size(256 * 1024) // 256KB
+            .threads(Some(1))
+            .build()
+            .unwrap();
         let processor_accurate = SentenceProcessor::with_config(config_accurate).unwrap();
-
         let result_accurate = processor_accurate.process(Input::from_text(&text)).unwrap();
 
-        // Fast and accurate configs should produce identical results
+        // Different chunk configs should produce identical results
         assert_eq!(
             result_fast.boundaries.len(),
             result_accurate.boundaries.len(),
-            "Fast and accurate configs should detect same number of boundaries for size {}",
+            "Different chunk configs should detect same number of boundaries for size {}",
             size
         );
     }
@@ -77,9 +82,19 @@ fn test_different_configs_same_text() {
     let text = r#"Dr. Smith went to the conference. He presented his research on A.I. systems. The audience asked questions. "How does it work?" they wondered. He explained carefully!"#;
 
     let configs = vec![
-        ("Fast", Config::fast()),
-        ("Balanced", Config::balanced()),
-        ("Accurate", Config::accurate()),
+        (
+            "Large chunks",
+            Config::builder().chunk_size(1024 * 1024).build().unwrap(),
+        ),
+        ("Default", Config::default()),
+        (
+            "Small chunks",
+            Config::builder()
+                .chunk_size(256 * 1024)
+                .threads(Some(1))
+                .build()
+                .unwrap(),
+        ),
     ];
 
     let mut results = Vec::new();
@@ -105,8 +120,8 @@ fn test_different_configs_same_text() {
 fn test_memory_constrained_processing() {
     // Configure for minimal memory usage
     let config = Config::builder()
-        .chunk_size(64) // Very small chunks (64KB)
-        .memory_limit(1) // 1MB limit
+        .chunk_size(64 * 1024) // Very small chunks (64KB)
+        // Memory limit removed - not implemented
         .build()
         .unwrap();
 
@@ -148,7 +163,15 @@ fn test_edge_case_handling_across_configs() {
         ("Dr. Smith and Mr. Jones arrived.", 1),
     ];
 
-    let configs = vec![Config::fast(), Config::balanced(), Config::accurate()];
+    let configs = vec![
+        Config::builder().chunk_size(1024 * 1024).build().unwrap(), // Large chunks
+        Config::default(),                                          // Default
+        Config::builder()
+            .chunk_size(256 * 1024)
+            .threads(Some(1))
+            .build()
+            .unwrap(), // Small chunks
+    ];
 
     for (text, expected_count) in edge_cases {
         for config in &configs {
@@ -172,7 +195,15 @@ fn test_unicode_handling_across_configs() {
         "Arrows: ←→↑↓. Shapes: ▲▼◆●. Finished!",
     ];
 
-    let configs = vec![Config::fast(), Config::balanced(), Config::accurate()];
+    let configs = vec![
+        Config::builder().chunk_size(1024 * 1024).build().unwrap(), // Large chunks
+        Config::default(),                                          // Default
+        Config::builder()
+            .chunk_size(256 * 1024)
+            .threads(Some(1))
+            .build()
+            .unwrap(), // Small chunks
+    ];
 
     for text in unicode_texts {
         let mut results = Vec::new();
@@ -195,7 +226,7 @@ fn test_unicode_handling_across_configs() {
 fn test_language_specific_optimization() {
     // English text
     let english_text = "The quick brown fox jumps. It jumps over the lazy dog. Amazing!";
-    let config_en = Config::builder().language("en").build().unwrap();
+    let config_en = Config::builder().language("en").unwrap().build().unwrap();
     let processor_en = SentenceProcessor::with_config(config_en).unwrap();
     let result_en = processor_en
         .process(Input::from_text(english_text))
@@ -204,7 +235,7 @@ fn test_language_specific_optimization() {
 
     // Japanese text
     let japanese_text = "速い茶色の狐がジャンプします。怠け者の犬を飛び越えます。素晴らしい！";
-    let config_ja = Config::builder().language("ja").build().unwrap();
+    let config_ja = Config::builder().language("ja").unwrap().build().unwrap();
     let processor_ja = SentenceProcessor::with_config(config_ja).unwrap();
     let result_ja = processor_ja
         .process(Input::from_text(japanese_text))
@@ -218,7 +249,7 @@ fn test_thread_scaling() {
     let thread_counts = vec![1, 2, 4, 8];
 
     for threads in thread_counts {
-        let config = Config::builder().threads(threads).build().unwrap();
+        let config = Config::builder().threads(Some(threads)).build().unwrap();
 
         let processor = SentenceProcessor::with_config(config).unwrap();
 

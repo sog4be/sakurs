@@ -1,6 +1,8 @@
 //! Language type for the API
 
+use crate::api::Error;
 use std::fmt;
+use std::str::FromStr;
 
 /// Supported languages for sentence segmentation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -42,5 +44,20 @@ impl Language {
 impl fmt::Display for Language {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name())
+    }
+}
+
+impl FromStr for Language {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "en" | "eng" | "english" => Ok(Language::English),
+            "ja" | "jpn" | "japanese" => Ok(Language::Japanese),
+            _ => Err(Error::InvalidLanguage(format!(
+                "Unsupported language: {}",
+                s
+            ))),
+        }
     }
 }

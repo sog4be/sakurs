@@ -1,11 +1,11 @@
-//! Example of using the new unified API
+//! Example of using the unified API
 
 use sakurs_core::{Config, Input, SentenceProcessor};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Example 1: Simple usage with default configuration
     println!("=== Example 1: Simple Usage ===");
-    let processor = SentenceProcessor::for_language("en")?;
+    let processor = SentenceProcessor::new();
     let text = "Dr. Smith went to the store. He bought milk. The price was $5.99.";
     let output = processor.process(Input::from_text(text))?;
 
@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 2: Japanese text processing
     println!("\n=== Example 2: Japanese Text ===");
-    let ja_processor = SentenceProcessor::for_language("ja")?;
+    let ja_processor = SentenceProcessor::with_language("ja")?;
     let ja_text = "これはテストです。日本語も正しく処理できます。素晴らしい！";
     let ja_output = ja_processor.process(Input::from_text(ja_text))?;
 
@@ -27,10 +27,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Example 3: Custom configuration
     println!("\n=== Example 3: Custom Configuration ===");
     let config = Config::builder()
-        .language("en")
-        .threads(4)
-        .chunk_size(512) // 512KB chunks
-        .abbreviations(false)
+        .language("en")?
+        .threads(Some(4))
+        .chunk_size(512 * 1024) // 512KB chunks in bytes
         .build()?;
 
     let custom_processor = SentenceProcessor::with_config(config)?;
@@ -62,25 +61,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Clean up
     std::fs::remove_file(temp_file)?;
 
-    // Example 5: Performance comparison
-    println!("\n=== Example 5: Performance Presets ===");
+    // Example 5: Performance comparison with different configurations
+    println!("\n=== Example 5: Different Configurations ===");
     let large_text = "This is a test. ".repeat(1000);
 
-    let fast_config = Config::fast();
+    // Large chunks for fast processing
+    let fast_config = Config::builder()
+        .chunk_size(1024 * 1024) // 1MB chunks
+        .build()?;
     let fast_processor = SentenceProcessor::with_config(fast_config)?;
     let start = std::time::Instant::now();
     let _ = fast_processor.process(Input::from_text(large_text.clone()))?;
     let fast_time = start.elapsed();
 
-    let accurate_config = Config::accurate();
+    // Small chunks with single thread for consistency
+    let accurate_config = Config::builder()
+        .chunk_size(256 * 1024) // 256KB chunks
+        .threads(Some(1)) // Single thread
+        .build()?;
     let accurate_processor = SentenceProcessor::with_config(accurate_config)?;
     let start = std::time::Instant::now();
     let _ = accurate_processor.process(Input::from_text(large_text))?;
     let accurate_time = start.elapsed();
 
     println!("Processing 1000 sentences:");
-    println!("  - Fast mode: {:?}", fast_time);
-    println!("  - Accurate mode: {:?}", accurate_time);
+    println!("  - Large chunks: {:?}", fast_time);
+    println!("  - Small chunks + single thread: {:?}", accurate_time);
 
     Ok(())
 }

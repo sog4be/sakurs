@@ -38,7 +38,11 @@ impl Read for ChunkedReader {
 
 #[test]
 fn test_streaming_with_small_chunks() {
-    let config = Config::fast(); // Fast config for streaming
+    // Use large chunk size config (similar to old "fast")
+    let config = Config::builder()
+        .chunk_size(1024 * 1024) // 1MB
+        .build()
+        .unwrap();
     let processor = SentenceProcessor::with_config(config).unwrap();
 
     let text = "First sentence. Second sentence! Third sentence? Fourth sentence.";
@@ -50,7 +54,10 @@ fn test_streaming_with_small_chunks() {
 
 #[test]
 fn test_streaming_with_sentence_boundary_at_chunk_edge() {
-    let config = Config::fast();
+    let config = Config::builder()
+        .chunk_size(1024 * 1024) // 1MB
+        .build()
+        .unwrap();
     let processor = SentenceProcessor::with_config(config).unwrap();
 
     // Carefully craft chunks that split at sentence boundaries
@@ -63,7 +70,7 @@ fn test_streaming_with_sentence_boundary_at_chunk_edge() {
 
 #[test]
 fn test_streaming_with_abbreviations_across_chunks() {
-    let config = Config::builder().language("en").build().unwrap();
+    let config = Config::builder().language("en").unwrap().build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -89,7 +96,7 @@ fn test_streaming_with_utf8_boundaries() {
 
 #[test]
 fn test_streaming_japanese_text() {
-    let config = Config::builder().language("ja").build().unwrap();
+    let config = Config::builder().language("ja").unwrap().build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -132,8 +139,8 @@ fn test_streaming_with_quotes_across_chunks() {
 
 #[test]
 fn test_streaming_memory_efficiency() {
-    let config = Config::balanced();
-    let processor = SentenceProcessor::with_config(config).unwrap();
+    // Use default config (similar to old "balanced")
+    let processor = SentenceProcessor::new();
 
     // Create a large text that would use significant memory if loaded entirely
     let mut large_text = String::new();
@@ -214,7 +221,7 @@ fn test_streaming_with_custom_chunk_sizes() {
 
 #[test]
 fn test_streaming_metadata() {
-    let processor = SentenceProcessor::for_language("en").unwrap();
+    let processor = SentenceProcessor::with_language("en").unwrap();
 
     let text = "Stream this. Process that! Done?";
     let reader = ChunkedReader::new(text, 10);
