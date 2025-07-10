@@ -5,7 +5,7 @@ use crate::domain::language::{
     AbbreviationResult, BoundaryContext, BoundaryDecision, LanguageRules, QuotationContext,
     QuotationDecision,
 };
-use crate::domain::state::BoundaryFlags;
+use crate::domain::types::BoundaryFlags;
 use crate::domain::EnclosureChar;
 
 /// Mock language rules for testing

@@ -3,7 +3,7 @@
 //! This module combines parsing and processing strategies into a unified interface.
 
 use crate::application::config::ProcessingResult as Result;
-use crate::domain::{language::LanguageRules, state::PartialState};
+use crate::domain::{language::LanguageRules, types::PartialState};
 use std::sync::Arc;
 
 /// Input for strategy operations

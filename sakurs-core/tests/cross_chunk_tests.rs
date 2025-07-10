@@ -6,9 +6,7 @@ use sakurs_core::domain::{
         EnhancedAbbreviationState, EnhancedPartialState, ValidationResult,
     },
     language::EnglishLanguageRules,
-    state::{AbbreviationState, BoundaryCandidate, PartialState},
-    types::DepthVec,
-    BoundaryFlags,
+    types::{AbbreviationState, BoundaryCandidate, BoundaryFlags, DepthVec, PartialState},
 };
 use std::sync::Arc;
 

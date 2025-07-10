@@ -4,7 +4,7 @@
 //! when sentence boundaries inside quoted text should be suppressed.
 
 use crate::domain::{
-    enclosure::EnclosureType, language::LanguageRules, state::BoundaryCandidate, BoundaryFlags,
+    enclosure::EnclosureType, language::LanguageRules, types::BoundaryCandidate, BoundaryFlags,
 };
 
 /// Configuration for quote suppression behavior

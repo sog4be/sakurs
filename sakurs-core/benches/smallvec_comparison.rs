@@ -3,7 +3,7 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use sakurs_core::{
     application::parser::scan_chunk,
-    domain::{language::EnglishLanguageRules, state::PartialState, MonoidReduce},
+    domain::{language::EnglishLanguageRules, types::PartialState, MonoidReduce},
 };
 use std::hint::black_box;
 

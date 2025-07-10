@@ -11,7 +11,6 @@ pub mod monoid;
 pub mod prefix_sum;
 pub mod quote_suppression;
 pub mod reduce;
-pub mod state;
 pub mod traits;
 pub mod types;
 
@@ -23,7 +22,6 @@ pub use enclosure::*;
 pub use monoid::*;
 pub use prefix_sum::*;
 pub use reduce::*;
-pub use state::*;
 pub use types::*;
 
 // Re-export language module (contains original BoundaryContext, BoundaryDecision)
