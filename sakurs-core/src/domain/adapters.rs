@@ -5,12 +5,12 @@ use super::{
         BoundaryContext as OldBoundaryContext, BoundaryDecision as OldBoundaryDecision,
         LanguageRules,
     },
-    state::PartialState,
     traits::{
         BoundaryAnalyzer, BoundaryCandidateInfo, BoundaryContext as NewBoundaryContext,
         BoundaryDecision as NewBoundaryDecision, BoundaryMarkerType, CharacterClass,
         CharacterClassifier, LanguageSpecificRules, QuoteBehavior, QuoteType, RejectionReason,
     },
+    types::PartialState,
     BoundaryFlags,
 };
 

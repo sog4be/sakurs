@@ -8,7 +8,7 @@ use crate::application::{
     chunking::TextChunk,
     config::{ProcessingError, ProcessingResult, ThreadPoolConfig},
 };
-use crate::domain::{language::LanguageRules, state::PartialState};
+use crate::domain::{language::LanguageRules, types::PartialState};
 use rayon::prelude::*;
 use std::sync::Arc;
 

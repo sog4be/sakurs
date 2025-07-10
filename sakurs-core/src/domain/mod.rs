@@ -23,7 +23,7 @@ pub use enclosure::*;
 pub use monoid::*;
 pub use prefix_sum::*;
 pub use reduce::*;
-pub use state::*;
+// State module is now empty - types moved to types module
 pub use types::*;
 
 // Re-export language module (contains original BoundaryContext, BoundaryDecision)

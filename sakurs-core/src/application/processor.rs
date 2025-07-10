@@ -10,7 +10,7 @@ use crate::application::{
 };
 use crate::domain::{
     language::LanguageRules,
-    state::{Boundary, PartialState},
+    types::{Boundary, PartialState},
     Monoid,
 };
 use std::sync::Arc;
@@ -185,7 +185,7 @@ impl TextProcessor {
             .into_iter()
             .map(|offset| Boundary {
                 offset,
-                flags: crate::domain::state::BoundaryFlags::STRONG,
+                flags: crate::domain::types::BoundaryFlags::STRONG,
             })
             .collect();
 

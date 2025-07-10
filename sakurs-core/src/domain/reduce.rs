@@ -16,8 +16,7 @@
 //! their enclosure context.
 
 use crate::domain::prefix_sum::ChunkStartState;
-use crate::domain::state::{Boundary, BoundaryCandidate, PartialState};
-use crate::domain::types::DeltaVec;
+use crate::domain::types::{Boundary, BoundaryCandidate, DeltaVec, PartialState};
 use rayon::prelude::*;
 
 /// Evaluates boundary candidates to produce confirmed boundaries.
@@ -95,7 +94,7 @@ impl BoundaryReducer {
     pub fn reduce_single(state: &PartialState) -> Vec<Boundary> {
         let chunk_start = ChunkStartState {
             cumulative_deltas: DeltaVec::from_vec(vec![
-                crate::domain::state::DeltaEntry {
+                crate::domain::types::DeltaEntry {
                     net: 0,
                     min: 0
                 };
@@ -111,7 +110,7 @@ impl BoundaryReducer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::state::DeltaEntry;
+    use crate::domain::types::DeltaEntry;
     use crate::domain::types::{BoundaryVec, DepthVec};
     use crate::domain::BoundaryFlags;
 

@@ -9,7 +9,7 @@ use crate::domain::language::{
     AbbreviationResult, BoundaryContext, BoundaryDecision, LanguageRules, QuotationContext,
     QuotationDecision,
 };
-use crate::domain::state::BoundaryFlags;
+use crate::domain::types::BoundaryFlags;
 
 /// Mock language rules that simulates real parsing behavior
 struct RealisticMockRules {

@@ -12,8 +12,7 @@ use crate::domain::{
     language::LanguageRules,
     prefix_sum::{ChunkStartState, PrefixSumComputer},
     reduce::BoundaryReducer,
-    state::{Boundary, PartialState},
-    types::DeltaVec,
+    types::{Boundary, DeltaVec, PartialState},
 };
 use rayon::prelude::*;
 use std::sync::Arc;
@@ -112,7 +111,7 @@ impl UnifiedProcessor {
         } else {
             vec![ChunkStartState {
                 cumulative_deltas: DeltaVec::from_vec(vec![
-                    crate::domain::state::DeltaEntry {
+                    crate::domain::types::DeltaEntry {
                         net: 0,
                         min: 0
                     };

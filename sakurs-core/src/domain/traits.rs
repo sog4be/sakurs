@@ -3,7 +3,7 @@
 //! This module consolidates all pure domain traits that represent business logic
 //! without any execution or infrastructure concerns.
 
-use crate::domain::state::PartialState;
+use crate::domain::types::PartialState;
 
 // ============================================================================
 // Character Classification

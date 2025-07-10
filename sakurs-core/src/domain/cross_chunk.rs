@@ -9,8 +9,7 @@
 use crate::domain::{
     enclosure::EnclosureType,
     language::LanguageRules,
-    state::{AbbreviationState, Boundary, BoundaryCandidate, PartialState},
-    BoundaryFlags,
+    types::{AbbreviationState, Boundary, BoundaryCandidate, BoundaryFlags, PartialState},
 };
 use std::collections::HashMap;
 

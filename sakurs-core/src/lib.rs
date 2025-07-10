@@ -79,7 +79,7 @@ mod tests {
     fn test_domain_module_exports() {
         // Verify that all essential types are properly exported
         let _monoid_test: PartialState = PartialState::identity();
-        let _boundary_test = domain::state::Boundary {
+        let _boundary_test = domain::Boundary {
             offset: 0,
             flags: BoundaryFlags::STRONG,
         };

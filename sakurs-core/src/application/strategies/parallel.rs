@@ -10,7 +10,7 @@ use crate::application::{
 };
 use crate::domain::{
     language::LanguageRules, prefix_sum::PrefixSumComputer, reduce::BoundaryReducer,
-    state::PartialState,
+    types::PartialState,
 };
 use std::sync::Arc;
 

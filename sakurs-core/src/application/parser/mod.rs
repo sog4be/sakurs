@@ -6,8 +6,7 @@
 use crate::domain::{
     enclosure::{EnclosureRules, StandardEnclosureRules},
     language::{BoundaryContext, BoundaryDecision, LanguageRules},
-    state::{AbbreviationState, BoundaryFlags, DeltaEntry, PartialState},
-    types::DepthVec,
+    types::{AbbreviationState, BoundaryFlags, DeltaEntry, DepthVec, PartialState},
 };
 
 mod strategies;

@@ -5,7 +5,7 @@
 
 use sakurs_core::application::{ProcessorConfig, UnifiedProcessor};
 use sakurs_core::domain::language::EnglishLanguageRules;
-use sakurs_core::domain::state::Boundary;
+use sakurs_core::domain::types::Boundary;
 use std::sync::Arc;
 
 /// Extract sentences from text based on boundaries

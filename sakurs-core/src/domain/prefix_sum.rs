@@ -4,8 +4,7 @@
 //! the cumulative state at the beginning of each chunk, enabling independent
 //! boundary candidate evaluation in the reduce phase.
 
-use crate::domain::state::{DeltaEntry, PartialState};
-use crate::domain::types::DeltaVec;
+use crate::domain::types::{DeltaEntry, DeltaVec, PartialState};
 
 /// Represents the cumulative state at the start of a chunk.
 #[derive(Debug, Clone)]
@@ -194,7 +193,7 @@ impl PrefixSumComputer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::state::BoundaryCandidate;
+    use crate::domain::types::BoundaryCandidate;
     use crate::domain::types::{BoundaryVec, DepthVec};
     use crate::domain::BoundaryFlags;
 
