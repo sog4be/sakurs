@@ -69,10 +69,6 @@ pub struct ProcessingConfig {
     pub buffer_size: usize,
     /// Overlap size for cross-chunk context
     pub overlap_size: usize,
-    /// Prefetch distance for cache optimization
-    pub prefetch_distance: usize,
-    /// Memory limit in bytes
-    pub memory_limit: Option<usize>,
 }
 
 impl Default for ProcessingConfig {
@@ -82,8 +78,6 @@ impl Default for ProcessingConfig {
             thread_count: 1,        // Sequential by default
             buffer_size: 4_194_304, // 4MB for streaming
             overlap_size: 256,      // For context preservation
-            prefetch_distance: 32,  // Cache line optimization
-            memory_limit: None,     // No limit by default
         }
     }
 }
@@ -93,8 +87,9 @@ impl ProcessingConfig {
     pub fn sequential() -> Self {
         Self {
             thread_count: 1,
-            chunk_size: 131_072, // 128KB for sequential
-            ..Default::default()
+            chunk_size: 131_072,    // 128KB for sequential
+            buffer_size: 4_194_304, // 4MB for streaming
+            overlap_size: 256,      // For context preservation
         }
     }
 
@@ -102,8 +97,9 @@ impl ProcessingConfig {
     pub fn parallel(thread_count: usize) -> Self {
         Self {
             thread_count,
-            chunk_size: 65536, // 64KB per thread
-            ..Default::default()
+            chunk_size: 65536,      // 64KB per thread
+            buffer_size: 4_194_304, // 4MB for streaming
+            overlap_size: 256,      // For context preservation
         }
     }
 
@@ -114,7 +110,6 @@ impl ProcessingConfig {
             buffer_size: 8_388_608, // 8MB buffer
             chunk_size: 1_048_576,  // 1MB chunks
             overlap_size: 512,      // Larger overlap for streaming
-            ..Default::default()
         }
     }
 }

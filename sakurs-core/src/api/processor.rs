@@ -80,9 +80,6 @@ impl SentenceProcessor {
             parallel_threshold: defaults::PARALLEL_THRESHOLD,
             max_threads: config.threads,
             overlap_size: defaults::OVERLAP_SIZE,
-            enable_simd: false,                // SIMD not yet implemented
-            max_text_size: 1024 * 1024 * 1024, // 1GB fixed limit
-            use_mmap: false,                   // Default to false
         })
     }
 }

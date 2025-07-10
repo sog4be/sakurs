@@ -235,30 +235,6 @@ fn test_performance_metrics_accuracy() {
     assert!(throughput < 10000.0); // Sanity check - not impossibly fast
 }
 
-#[test]
-fn test_configuration_limits() {
-    let config = ProcessorConfig {
-        max_text_size: 100, // Very small limit
-        ..Default::default()
-    };
-
-    let rules = Arc::new(MockLanguageRules::english());
-    let processor = TextProcessor::with_config(config, rules);
-
-    let large_text = "a".repeat(200);
-    let result = processor.process_text(&large_text);
-
-    // Should fail due to size limit
-    assert!(result.is_err());
-    match result {
-        Err(sakurs_core::application::ProcessingError::TextTooLarge { size, max }) => {
-            assert_eq!(size, 200);
-            assert_eq!(max, 100);
-        }
-        _ => panic!("Expected TextTooLarge error"),
-    }
-}
-
 #[cfg(feature = "parallel")]
 #[test]
 fn test_parallel_efficiency() {
