@@ -377,29 +377,27 @@ mod tests {
     }
 
     #[test]
-    fn test_english_rules_with_partial_state() {
+    fn test_english_abbreviation_processing() {
         let rules = EnglishLanguageRules::new();
 
-        // Test complex English text with abbreviations, numbers, and normal sentences
-        let text = "Dr. Smith earned his Ph.D. in 1999. He now works at Tech Corp. The company is valued at $2.5 billion! What an achievement.";
-        // Use application parser for testing
-        use crate::application::parser::{ParseStrategy, ParsingInput, SequentialParser};
-        let parser = SequentialParser::new();
-        let _result = parser.parse(ParsingInput::Text(text), &rules).unwrap();
+        // Test abbreviation detection at the end of known abbreviations
+        let test_cases = vec![
+            ("Dr. Smith", 2, true),      // After "Dr."
+            ("Mr. Jones", 2, true),      // After "Mr."
+            ("Ph.D. student", 4, true),  // After "Ph.D."
+            ("Corp. building", 4, true), // After "Corp."
+            ("Inc. company", 3, true),   // After "Inc."
+            ("Hello. World", 5, false),  // After "Hello."
+            ("Test. Next", 4, false),    // After "Test."
+        ];
 
-        // Boundary validation is now handled by the unified processor and reduce phase
-        // let boundary_positions: Vec<usize> = state.boundary_candidates.iter().map(|b| b.local_offset).collect();
-
-        // // Should not have boundaries after abbreviations
-        // assert!(!boundary_positions.contains(&2)); // After "Dr."
-        // assert!(!boundary_positions.contains(&23)); // After "Ph.D." (first dot)
-        // assert!(!boundary_positions.contains(&25)); // After "Ph.D." (second dot)
-        // assert!(!boundary_positions.contains(&61)); // After "Corp."
-        // assert!(!boundary_positions.contains(&90)); // After "$2.5" (decimal)
-
-        // // Should have boundaries after real sentence endings
-        // assert!(boundary_positions.contains(&34)); // After "1999."
-        // assert!(boundary_positions.contains(&100)); // After "billion!"
-        // assert!(boundary_positions.contains(&121)); // After "achievement."
+        for (text, pos, expected_is_abbr) in test_cases {
+            let result = rules.process_abbreviation(text, pos);
+            assert_eq!(
+                result.is_abbreviation, expected_is_abbr,
+                "Failed for text '{}' at position {}",
+                text, pos
+            );
+        }
     }
 }
