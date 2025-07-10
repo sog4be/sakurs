@@ -317,9 +317,8 @@ for boundary in &output.boundaries {
 use sakurs_core::api::Config;
 
 let config = Config::builder()
-    .language("ja")
-    .threads(4)
-    .accurate()  // Use accurate preset
+    .language("ja")?
+    .threads(Some(4))
     .build()?;
 
 let processor = SentenceProcessor::with_config(config)?;
@@ -386,7 +385,7 @@ Yes! The library is designed for production use with:
 - ✅ Adaptive strategy selection
 - ✅ Cross-chunk boundary handling
 - ✅ UTF-8 safe chunking
-- ✅ Configuration presets (fast/balanced/accurate)
+- ✅ Simple and flexible configuration API
 
 ### Planned Features
 - 🚧 WASM adapter for browser support
