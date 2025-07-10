@@ -1,16 +1,16 @@
 //! Adapters to bridge new traits with existing LanguageRules
 
 use super::{
-    BoundaryAnalyzer, BoundaryCandidateInfo, BoundaryMarkerType, CharacterClass,
-    CharacterClassifier, LanguageSpecificRules, QuoteBehavior, QuoteType, RejectionReason,
-    TraitBoundaryContext as NewBoundaryContext, TraitBoundaryDecision as NewBoundaryDecision,
-};
-use crate::domain::{
     language::{
         BoundaryContext as OldBoundaryContext, BoundaryDecision as OldBoundaryDecision,
         LanguageRules,
     },
     state::PartialState,
+    traits::{
+        BoundaryAnalyzer, BoundaryCandidateInfo, BoundaryContext as NewBoundaryContext,
+        BoundaryDecision as NewBoundaryDecision, BoundaryMarkerType, CharacterClass,
+        CharacterClassifier, LanguageSpecificRules, QuoteBehavior, QuoteType, RejectionReason,
+    },
     BoundaryFlags,
 };
 
