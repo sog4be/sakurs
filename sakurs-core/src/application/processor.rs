@@ -103,14 +103,6 @@ impl TextProcessor {
         let start_time = Instant::now();
         let mut metrics = ProcessingMetrics::default();
 
-        // Check text size limits
-        if text.len() > self.config.max_text_size {
-            return Err(ProcessingError::TextTooLarge {
-                size: text.len(),
-                max: self.config.max_text_size,
-            });
-        }
-
         // Empty text handling
         if text.is_empty() {
             return Ok(ProcessingOutput {
@@ -162,14 +154,6 @@ impl TextProcessor {
 
         let start_time = Instant::now();
         let mut metrics = ProcessingMetrics::default();
-
-        // Check text size limits
-        if text.len() > self.config.max_text_size {
-            return Err(ProcessingError::TextTooLarge {
-                size: text.len(),
-                max: self.config.max_text_size,
-            });
-        }
 
         // Empty text handling
         if text.is_empty() {
@@ -458,22 +442,6 @@ mod tests {
 
         #[cfg(feature = "parallel")]
         assert!(result.metrics.thread_count > 1);
-    }
-
-    #[test]
-    fn test_text_size_limit() {
-        let config = ProcessorConfig {
-            max_text_size: 100,
-            ..Default::default()
-        };
-
-        let rules = Arc::new(MockLanguageRules::english());
-        let processor = TextProcessor::with_config(config, rules);
-
-        let text = "a".repeat(200);
-        let result = processor.process_text(&text);
-
-        assert!(matches!(result, Err(ProcessingError::TextTooLarge { .. })));
     }
 
     #[test]

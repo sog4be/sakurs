@@ -30,13 +30,14 @@ impl PyProcessor {
         let processor = if let Some(cfg) = config {
             let rust_config = Config::builder()
                 .language(lang_code)
-                .chunk_size(cfg.chunk_size / 1024) // Convert bytes to KB
-                .threads(cfg.num_threads.unwrap_or(0))
+                .map_err(|e| SakursError::ProcessingError(e.to_string()))?
+                .chunk_size(cfg.chunk_size) // Now in bytes, no conversion needed
+                .threads(cfg.num_threads)
                 .build()
                 .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
             SentenceProcessor::with_config(rust_config)
         } else {
-            SentenceProcessor::for_language(lang_code)
+            SentenceProcessor::with_language(lang_code)
         }
         .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
 

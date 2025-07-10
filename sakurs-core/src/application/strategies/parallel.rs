@@ -180,10 +180,8 @@ impl ProcessingStrategy for ParallelStrategy {
         ProcessingConfig {
             chunk_size,
             thread_count,
-            buffer_size: 0,        // No buffering needed
-            overlap_size: 256,     // Standard overlap
-            prefetch_distance: 64, // Prefetch for cache optimization
-            memory_limit: None,
+            buffer_size: 0,    // No buffering needed
+            overlap_size: 256, // Standard overlap
         }
     }
 

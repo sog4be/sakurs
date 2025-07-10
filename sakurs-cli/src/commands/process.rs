@@ -214,15 +214,22 @@ impl ProcessArgs {
         let config = if self.parallel {
             Config::builder()
                 .language(language_code)
-                .chunk_size(256) // 256KB
-                .threads(0) // Use all available threads
+                .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?
+                .chunk_size(256 * 1024) // 256KB in bytes
+                .threads(None) // Use all available threads
                 .build()
                 .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?
         } else if self.adaptive {
-            Config::balanced()
+            // Use default config (which is the old "balanced")
+            Config::builder()
+                .language(language_code)
+                .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?
+                .build()
+                .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?
         } else {
             Config::builder()
                 .language(language_code)
+                .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?
                 .build()
                 .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?
         };

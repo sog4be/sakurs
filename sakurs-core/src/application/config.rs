@@ -19,27 +19,15 @@ pub struct ProcessorConfig {
 
     /// Size of overlap between chunks for cross-boundary detection
     pub overlap_size: usize,
-
-    /// Enable SIMD optimizations when available (not yet implemented)
-    pub enable_simd: bool,
-
-    /// Maximum text size to process (prevents OOM)
-    pub max_text_size: usize,
-
-    /// Whether to use memory mapping for large files
-    pub use_mmap: bool,
 }
 
 impl Default for ProcessorConfig {
     fn default() -> Self {
         Self {
-            chunk_size: 64 * 1024,             // 64KB chunks
-            parallel_threshold: 1024 * 1024,   // 1MB threshold for parallel
-            max_threads: None,                 // Use all available cores
-            overlap_size: 256,                 // 256 char overlap
-            enable_simd: false,                // SIMD not yet implemented
-            max_text_size: 1024 * 1024 * 1024, // 1GB max
-            use_mmap: false,                   // Memory mapping disabled by default
+            chunk_size: 64 * 1024,           // 64KB chunks
+            parallel_threshold: 1024 * 1024, // 1MB threshold for parallel
+            max_threads: None,               // Use all available cores
+            overlap_size: 256,               // 256 char overlap
         }
     }
 }
@@ -65,9 +53,8 @@ impl ProcessorConfig {
         Self {
             chunk_size: 256 * 1024,         // 256KB chunks
             parallel_threshold: 512 * 1024, // 512KB threshold
+            max_threads: None,              // Use all available cores
             overlap_size: 512,              // Larger overlap
-            use_mmap: true,                 // Enable memory mapping
-            ..Default::default()
         }
     }
 
@@ -76,9 +63,8 @@ impl ProcessorConfig {
         Self {
             chunk_size: 32 * 1024,          // 32KB chunks
             parallel_threshold: 256 * 1024, // 256KB threshold
-            overlap_size: 128,              // Moderate overlap
             max_threads: Some(2),           // Limited parallelism
-            ..Default::default()
+            overlap_size: 128,              // Moderate overlap
         }
     }
 
@@ -114,8 +100,6 @@ impl ProcessorConfig {
             thread_count: self.max_threads.unwrap_or_else(num_cpus::get),
             buffer_size: self.chunk_size * 4, // 4x chunk size for buffer
             overlap_size: self.overlap_size,
-            prefetch_distance: if self.enable_simd { 64 } else { 32 },
-            memory_limit: None,
         }
     }
 }
@@ -220,24 +204,6 @@ impl ProcessorConfigBuilder {
     /// Sets the overlap size between chunks
     pub fn overlap_size(mut self, size: usize) -> Self {
         self.config.overlap_size = size;
-        self
-    }
-
-    /// Enables or disables SIMD optimizations (not yet implemented)
-    pub fn enable_simd(mut self, enable: bool) -> Self {
-        self.config.enable_simd = enable;
-        self
-    }
-
-    /// Sets the maximum text size limit
-    pub fn max_text_size(mut self, size: usize) -> Self {
-        self.config.max_text_size = size;
-        self
-    }
-
-    /// Enables or disables memory mapping
-    pub fn use_mmap(mut self, use_mmap: bool) -> Self {
-        self.config.use_mmap = use_mmap;
         self
     }
 
@@ -383,7 +349,6 @@ mod tests {
 
         let large = ProcessorConfig::large_text();
         assert_eq!(large.chunk_size, 256 * 1024);
-        assert!(large.use_mmap);
 
         let streaming = ProcessorConfig::streaming();
         assert_eq!(streaming.max_threads, Some(2));

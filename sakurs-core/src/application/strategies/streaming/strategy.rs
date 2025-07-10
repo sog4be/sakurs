@@ -174,9 +174,7 @@ impl ProcessingStrategy for StreamingStrategy {
             chunk_size: buffer_size / 4, // Process in quarters
             thread_count: 1,             // Streaming is sequential
             buffer_size,
-            overlap_size: 1024,                  // 1KB overlap
-            prefetch_distance: 0,                // No prefetching in streaming
-            memory_limit: Some(buffer_size * 2), // Limit memory usage
+            overlap_size: 1024, // 1KB overlap
         }
     }
 

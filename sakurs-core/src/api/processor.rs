@@ -30,8 +30,8 @@ impl SentenceProcessor {
     }
 
     /// Create a processor for a specific language
-    pub fn for_language(lang_code: &str) -> Result<Self, Error> {
-        let config = Config::builder().language(lang_code).build()?;
+    pub fn with_language(lang_code: impl Into<String>) -> Result<Self, Error> {
+        let config = Config::builder().language(lang_code)?.build()?;
         Self::with_config(config)
     }
 
@@ -73,18 +73,13 @@ impl SentenceProcessor {
 
     /// Convert public config to internal processor config
     fn build_processor_config(config: &Config) -> Result<ProcessorConfig, Error> {
+        use crate::api::config::defaults;
+
         Ok(ProcessorConfig {
-            chunk_size: config.performance.chunk_size_kb * 1024,
-            parallel_threshold: config.performance.chunk_size_kb * 1024,
-            max_threads: config.performance.threads,
-            overlap_size: 256,  // Default overlap size
-            enable_simd: false, // SIMD not yet implemented
-            max_text_size: config
-                .performance
-                .memory_limit_mb
-                .map(|mb| mb * 1024 * 1024)
-                .unwrap_or(1024 * 1024 * 1024), // Default 1GB
-            use_mmap: false,    // Default to false
+            chunk_size: config.chunk_size,
+            parallel_threshold: defaults::PARALLEL_THRESHOLD,
+            max_threads: config.threads,
+            overlap_size: defaults::OVERLAP_SIZE,
         })
     }
 }

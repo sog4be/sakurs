@@ -4,7 +4,7 @@ use sakurs_core::{Config, Input, SentenceProcessor};
 
 #[test]
 fn test_english_with_foreign_phrases() {
-    let config = Config::builder().language("en").build().unwrap();
+    let config = Config::builder().language("en").unwrap().build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -28,7 +28,7 @@ fn test_code_mixed_documents() {
 
 #[test]
 fn test_scientific_notation_and_formulas() {
-    let config = Config::builder().language("en").build().unwrap();
+    let config = Config::builder().language("en").unwrap().build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -81,7 +81,7 @@ fn test_bidirectional_text() {
 #[test]
 fn test_technical_abbreviations_multiple_languages() {
     // English technical text - simplified without abbreviations
-    let config_en = Config::builder().language("en").build().unwrap();
+    let config_en = Config::builder().language("en").unwrap().build().unwrap();
     let processor_en = SentenceProcessor::with_config(config_en).unwrap();
 
     let text_en =
@@ -90,7 +90,7 @@ fn test_technical_abbreviations_multiple_languages() {
     assert_eq!(result_en.boundaries.len(), 3);
 
     // Japanese technical text
-    let config_ja = Config::builder().language("ja").build().unwrap();
+    let config_ja = Config::builder().language("ja").unwrap().build().unwrap();
     let processor_ja = SentenceProcessor::with_config(config_ja).unwrap();
 
     let text_ja =
@@ -114,7 +114,7 @@ fn test_currency_and_numbers() {
 
 #[test]
 fn test_time_and_date_formats() {
-    let config = Config::builder().language("en").build().unwrap();
+    let config = Config::builder().language("en").unwrap().build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -149,7 +149,7 @@ fn test_special_punctuation_across_languages() {
 
 #[test]
 fn test_mathematical_expressions() {
-    let config = Config::builder().language("en").build().unwrap();
+    let config = Config::builder().language("en").unwrap().build().unwrap();
 
     let processor = SentenceProcessor::with_config(config).unwrap();
 
@@ -173,7 +173,7 @@ fn test_complex_nested_structures() {
 #[test]
 fn test_language_specific_edge_cases() {
     // Test Japanese specific patterns
-    let config_ja = Config::builder().language("ja").build().unwrap();
+    let config_ja = Config::builder().language("ja").unwrap().build().unwrap();
     let processor_ja = SentenceProcessor::with_config(config_ja).unwrap();
 
     let text_ja = "「こんにちは」と言いました。『これは引用です』。（注：重要です）。";
@@ -181,7 +181,7 @@ fn test_language_specific_edge_cases() {
     assert_eq!(result_ja.boundaries.len(), 3);
 
     // Test English specific patterns
-    let config_en = Config::builder().language("en").build().unwrap();
+    let config_en = Config::builder().language("en").unwrap().build().unwrap();
     let processor_en = SentenceProcessor::with_config(config_en).unwrap();
 
     let text_en = "Mr. & Mrs. Smith went to D.C. They visited the N.S.A. headquarters!";
@@ -199,7 +199,7 @@ fn test_multiple_languages_consistency() {
     ];
 
     for (lang, text) in test_cases {
-        let config = Config::builder().language(lang).build().unwrap();
+        let config = Config::builder().language(lang).unwrap().build().unwrap();
         let processor = SentenceProcessor::with_config(config).unwrap();
 
         let result = processor.process(Input::from_text(text)).unwrap();
