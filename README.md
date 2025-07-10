@@ -11,7 +11,7 @@
         <img src="https://github.com/sog4be/sakurs/actions/workflows/ci.yml/badge.svg" alt="CI Status">
     </a>
     <a href="https://github.com/sog4be/sakurs/actions/workflows/coverage.yml">
-        <img src="https://img.shields.io/badge/coverage-88.33%25-green" alt="Coverage" id="coverage-badge">
+        <img src="https://img.shields.io/badge/coverage-88.70%25-green" alt="Coverage" id="coverage-badge">
     </a>
     <a href="https://github.com/sog4be/sakurs/blob/main/LICENSE">
         <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
