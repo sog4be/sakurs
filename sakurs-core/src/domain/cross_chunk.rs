@@ -8,7 +8,7 @@
 
 use crate::domain::{
     enclosure::EnclosureType,
-    language::LanguageRules,
+    language::{english::EnglishSentenceStarterRule, LanguageRules},
     types::{AbbreviationState, Boundary, BoundaryCandidate, BoundaryFlags, PartialState},
 };
 use std::collections::HashMap;
@@ -119,9 +119,10 @@ impl EnclosureStateTracker {
                 .iter()
                 .rposition(|(t, _)| *t == enclosure_type)
             {
+                // Get the position before removing
+                let removed_position = self.open_enclosures[pos].1;
                 self.open_enclosures.remove(pos);
-                self.unclosed_positions
-                    .retain(|&p| p != self.open_enclosures.get(pos).map(|(_, p)| *p).unwrap_or(0));
+                self.unclosed_positions.retain(|&p| p != removed_position);
             } else {
                 // Closing without opening in this chunk
                 self.unopened_closures.push(position);
@@ -231,6 +232,16 @@ impl CrossChunkValidator {
         if near_end {
             if let Some(next) = next_state {
                 if state.abbreviation.is_cross_chunk_abbr(&next.abbreviation) {
+                    // Check if the next chunk starts with a sentence starter
+                    if let Some(ref first_word) = next.abbreviation.first_word {
+                        // Use EnglishSentenceStarterRule to check if it's a sentence starter
+                        let sentence_starter_rule = EnglishSentenceStarterRule::new();
+                        if sentence_starter_rule.is_sentence_starter(first_word) {
+                            // This is an abbreviation followed by a sentence starter
+                            // The boundary should be kept as strong
+                            return ValidationResult::Weakened(BoundaryFlags::STRONG);
+                        }
+                    }
                     return ValidationResult::Invalid(
                         "Cross-chunk abbreviation detected".to_string(),
                     );
@@ -376,10 +387,11 @@ mod tests {
 
     #[test]
     fn test_enhanced_abbreviation_state() {
-        let basic = AbbreviationState {
-            dangling_dot: true,
-            head_alpha: false,
-        };
+        let basic = AbbreviationState::with_first_word(
+            true,  // dangling_dot
+            false, // head_alpha
+            None,  // first_word
+        );
 
         let enhanced = EnhancedAbbreviationState {
             basic,
@@ -390,10 +402,11 @@ mod tests {
         };
 
         let next = EnhancedAbbreviationState {
-            basic: AbbreviationState {
-                dangling_dot: false,
-                head_alpha: true,
-            },
+            basic: AbbreviationState::with_first_word(
+                false, // dangling_dot
+                true,  // head_alpha
+                None,  // first_word
+            ),
             ..Default::default()
         };
 

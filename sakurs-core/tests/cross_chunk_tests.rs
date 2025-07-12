@@ -20,10 +20,11 @@ fn test_cross_chunk_abbreviation_detection() {
     // First chunk ends with "Dr."
     let mut state1 = PartialState::new(5);
     state1.chunk_length = 7;
-    state1.abbreviation = AbbreviationState {
-        dangling_dot: true,
-        head_alpha: false,
-    };
+    state1.abbreviation = AbbreviationState::with_first_word(
+        true,  // dangling_dot
+        false, // head_alpha
+        None,  // first_word
+    );
     state1.add_boundary_candidate(
         7, // After "Dr."
         DepthVec::from_vec(vec![0, 0, 0, 0, 0]),
@@ -33,10 +34,11 @@ fn test_cross_chunk_abbreviation_detection() {
     // Second chunk starts with " Smith"
     let mut state2 = PartialState::new(5);
     state2.chunk_length = 20;
-    let state2_abbr = AbbreviationState {
-        dangling_dot: false,
-        head_alpha: true, // Starts with alphabetic
-    };
+    let state2_abbr = AbbreviationState::with_first_word(
+        false, // dangling_dot
+        true,  // head_alpha - Starts with alphabetic
+        None,  // first_word
+    );
     state2.abbreviation = state2_abbr.clone();
 
     // Create enhanced states
@@ -235,10 +237,11 @@ fn test_cross_chunk_resolver() {
 #[test]
 fn test_enhanced_abbreviation_with_confidence() {
     let abbr = EnhancedAbbreviationState {
-        basic: AbbreviationState {
-            dangling_dot: true,
-            head_alpha: false,
-        },
+        basic: AbbreviationState::with_first_word(
+            true,  // dangling_dot
+            false, // head_alpha
+            None,  // first_word
+        ),
         abbreviation_text: Some("Inc".to_string()),
         abbreviation_start: Some(10),
         confidence: 0.9,
@@ -283,4 +286,264 @@ fn test_enclosure_tracker_with_nested_quotes() {
 
     assert_eq!(tracker.open_enclosures.len(), 1);
     assert_eq!(tracker.depth_map[&1], 0);
+}
+
+#[test]
+fn test_cross_chunk_abbreviation_with_sentence_starter() {
+    // Test: "...Apple Inc." | "However, the company..."
+    // The boundary after "Inc." should be detected as a sentence boundary
+
+    let rules = Arc::new(EnglishLanguageRules::new());
+
+    // First chunk ends with "Inc."
+    let mut state1 = PartialState::new(5);
+    state1.chunk_length = 15;
+    state1.abbreviation = AbbreviationState::with_first_word(
+        true,  // dangling_dot
+        false, // head_alpha
+        None,  // first_word - not relevant for end of chunk
+    );
+    // Add boundary candidate for the period after "Inc."
+    state1.add_boundary_candidate(
+        14, // Position of period after "Inc"
+        DepthVec::from_vec(vec![0; 5]),
+        BoundaryFlags::WEAK, // Currently weak because it's an abbreviation
+    );
+
+    // Second chunk starts with "However"
+    let mut state2 = PartialState::new(5);
+    state2.chunk_length = 20;
+    state2.abbreviation = AbbreviationState::with_first_word(
+        false,                       // dangling_dot
+        true,                        // head_alpha - starts with "H" from "However"
+        Some("However".to_string()), // first_word
+    );
+
+    // Create enhanced states
+    let enhanced1 = EnhancedPartialState {
+        base: state1.clone(),
+        enhanced_abbreviation: EnhancedAbbreviationState {
+            basic: state1.abbreviation.clone(),
+            abbreviation_text: Some("Inc".to_string()),
+            abbreviation_start: Some(11),
+            confidence: 1.0,
+            is_continuation: false,
+        },
+        enclosure_tracker: EnclosureStateTracker::new(),
+        chunk_metadata: ChunkMetadata {
+            index: 0,
+            total_chunks: 2,
+            has_prefix_overlap: false,
+            has_suffix_overlap: true,
+            prefix_overlap: None,
+            suffix_overlap: Some("Inc. ".to_string()),
+        },
+    };
+
+    let enhanced2 = EnhancedPartialState {
+        base: state2,
+        enhanced_abbreviation: EnhancedAbbreviationState {
+            basic: AbbreviationState::with_first_word(
+                false,                       // dangling_dot
+                true,                        // head_alpha
+                Some("However".to_string()), // first_word
+            ),
+            abbreviation_text: None,
+            abbreviation_start: None,
+            confidence: 0.0,
+            is_continuation: false,
+        },
+        enclosure_tracker: EnclosureStateTracker::new(),
+        chunk_metadata: ChunkMetadata {
+            index: 1,
+            total_chunks: 2,
+            has_prefix_overlap: true,
+            has_suffix_overlap: false,
+            prefix_overlap: Some("However".to_string()),
+            suffix_overlap: None,
+        },
+    };
+
+    // Test with cross-chunk resolver
+    let resolver = CrossChunkResolver::new(10);
+    let boundaries = resolver.resolve_boundaries(&vec![enhanced1, enhanced2], rules.as_ref());
+
+    // We expect the boundary at position 14 to be confirmed
+    assert!(
+        boundaries.iter().any(|b| b.offset == 14),
+        "Expected boundary after 'Inc.' when followed by 'However'"
+    );
+}
+
+#[test]
+fn test_cross_chunk_abbreviation_with_proper_noun() {
+    // Test: "...contact Dr." | "Smith for details..."
+    // The boundary after "Dr." should NOT be detected
+
+    let rules = Arc::new(EnglishLanguageRules::new());
+
+    // First chunk ends with "Dr."
+    let mut state1 = PartialState::new(5);
+    state1.chunk_length = 12;
+    state1.abbreviation = AbbreviationState::with_first_word(
+        true,  // dangling_dot
+        false, // head_alpha
+        None,  // first_word
+    );
+    // Add boundary candidate for the period after "Dr."
+    state1.add_boundary_candidate(
+        11, // Position of period after "Dr"
+        DepthVec::from_vec(vec![0; 5]),
+        BoundaryFlags::WEAK,
+    );
+
+    // Second chunk starts with "Smith" (not a sentence starter)
+    let mut state2 = PartialState::new(5);
+    state2.chunk_length = 18;
+    state2.abbreviation = AbbreviationState::with_first_word(
+        false,                     // dangling_dot
+        true,                      // head_alpha - Starts with "S" from "Smith"
+        Some("Smith".to_string()), // first_word
+    );
+
+    // Create enhanced states
+    let enhanced1 = EnhancedPartialState {
+        base: state1.clone(),
+        enhanced_abbreviation: EnhancedAbbreviationState {
+            basic: state1.abbreviation.clone(),
+            abbreviation_text: Some("Dr".to_string()),
+            abbreviation_start: Some(9),
+            confidence: 1.0,
+            is_continuation: false,
+        },
+        enclosure_tracker: EnclosureStateTracker::new(),
+        chunk_metadata: ChunkMetadata {
+            index: 0,
+            total_chunks: 2,
+            has_prefix_overlap: false,
+            has_suffix_overlap: true,
+            prefix_overlap: None,
+            suffix_overlap: Some("Dr. ".to_string()),
+        },
+    };
+
+    let enhanced2 = EnhancedPartialState {
+        base: state2,
+        enhanced_abbreviation: EnhancedAbbreviationState {
+            basic: AbbreviationState::with_first_word(
+                false, // dangling_dot
+                true,  // head_alpha
+                None,  // first_word
+            ),
+            abbreviation_text: None,
+            abbreviation_start: None,
+            confidence: 0.0,
+            is_continuation: false,
+        },
+        enclosure_tracker: EnclosureStateTracker::new(),
+        chunk_metadata: ChunkMetadata {
+            index: 1,
+            total_chunks: 2,
+            has_prefix_overlap: true,
+            has_suffix_overlap: false,
+            prefix_overlap: Some("Smith".to_string()),
+            suffix_overlap: None,
+        },
+    };
+
+    let resolver = CrossChunkResolver::new(10);
+    let boundaries = resolver.resolve_boundaries(&vec![enhanced1, enhanced2], rules.as_ref());
+
+    // We expect NO boundary at position 11
+    assert!(
+        !boundaries.iter().any(|b| b.offset == 11),
+        "Should not detect boundary after 'Dr.' when followed by a proper name"
+    );
+}
+
+#[test]
+fn test_multiple_abbreviations_across_chunks() {
+    // Test: "...U.S.A. Inc." | "Therefore announced..."
+    // Only the last period (after "Inc.") should be a boundary
+
+    let rules = Arc::new(EnglishLanguageRules::new());
+
+    // First chunk ends with "U.S.A. Inc."
+    let mut state1 = PartialState::new(5);
+    state1.chunk_length = 13;
+    state1.abbreviation = AbbreviationState::with_first_word(
+        true,  // dangling_dot
+        false, // head_alpha
+        None,  // first_word
+    );
+
+    // Add boundary candidates for periods
+    // Period after "U.S.A." at position 7
+    state1.add_boundary_candidate(7, DepthVec::from_vec(vec![0; 5]), BoundaryFlags::WEAK);
+    // Period after "Inc." at position 12
+    state1.add_boundary_candidate(12, DepthVec::from_vec(vec![0; 5]), BoundaryFlags::WEAK);
+
+    // Second chunk starts with "Therefore"
+    let mut state2 = PartialState::new(5);
+    state2.chunk_length = 20;
+    state2.abbreviation = AbbreviationState::with_first_word(
+        false,                         // dangling_dot
+        true,                          // head_alpha - Starts with "T" from "Therefore"
+        Some("Therefore".to_string()), // first_word
+    );
+
+    // Create enhanced states
+    let enhanced1 = EnhancedPartialState {
+        base: state1.clone(),
+        enhanced_abbreviation: EnhancedAbbreviationState {
+            basic: state1.abbreviation.clone(),
+            abbreviation_text: Some("Inc".to_string()),
+            abbreviation_start: Some(9),
+            confidence: 1.0,
+            is_continuation: false,
+        },
+        enclosure_tracker: EnclosureStateTracker::new(),
+        chunk_metadata: ChunkMetadata {
+            index: 0,
+            total_chunks: 2,
+            has_prefix_overlap: false,
+            has_suffix_overlap: true,
+            prefix_overlap: None,
+            suffix_overlap: Some("Inc. ".to_string()),
+        },
+    };
+
+    let enhanced2 = EnhancedPartialState {
+        base: state2,
+        enhanced_abbreviation: EnhancedAbbreviationState {
+            basic: AbbreviationState::with_first_word(
+                false, // dangling_dot
+                true,  // head_alpha
+                None,  // first_word
+            ),
+            abbreviation_text: None,
+            abbreviation_start: None,
+            confidence: 0.0,
+            is_continuation: false,
+        },
+        enclosure_tracker: EnclosureStateTracker::new(),
+        chunk_metadata: ChunkMetadata {
+            index: 1,
+            total_chunks: 2,
+            has_prefix_overlap: true,
+            has_suffix_overlap: false,
+            prefix_overlap: Some("Therefore".to_string()),
+            suffix_overlap: None,
+        },
+    };
+
+    let resolver = CrossChunkResolver::new(10);
+    let boundaries = resolver.resolve_boundaries(&vec![enhanced1, enhanced2], rules.as_ref());
+
+    // We expect only the boundary at position 12 (after "Inc.")
+    assert!(
+        boundaries.iter().any(|b| b.offset == 12),
+        "Expected boundary after 'Inc.' when followed by 'Therefore'"
+    );
+    // The test for position 7 would need more context about what's between U.S.A. and Inc.
 }

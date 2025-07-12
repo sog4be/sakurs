@@ -274,3 +274,132 @@ fn test_parallel_efficiency() {
     // Parallel should generally be faster for large texts
     // (though this might not always be true in test environments)
 }
+
+#[test]
+fn test_real_world_abbreviation_sentence_boundary() {
+    // Test real-world scenarios with abbreviations followed by sentence starters
+    let text = "She joined Apple Inc. However, she left after two years. \
+                Contact Dr. Smith for details. The company hired a new C.E.O. \
+                Yesterday was important. See Prof. I believe this is correct.";
+
+    let rules = Arc::new(EnglishLanguageRules::new());
+    let processor = TextProcessor::new(rules);
+
+    let result = processor.process_text(text).unwrap();
+    let boundaries = &result.boundaries;
+
+    // Expected boundary positions:
+    // After "Inc." at position ~21
+    // After "years." at position ~57
+    // After "details." at position ~88
+    // After "C.E.O." at position ~120
+    // After "important." at position ~145
+    // After "Prof." at position ~157
+    // After "correct." at end
+
+    // We expect 7 boundaries (one after each sentence)
+    assert_eq!(
+        boundaries.len(),
+        7,
+        "Expected 7 boundaries, got {}: {:?}",
+        boundaries.len(),
+        boundaries
+    );
+
+    // Check that we have boundaries after "Inc." and "Prof."
+    let inc_boundary = boundaries.iter().find(|b| b.offset > 20 && b.offset < 25);
+    assert!(
+        inc_boundary.is_some(),
+        "Should have boundary after 'Inc.' when followed by 'However'"
+    );
+
+    let prof_boundary = boundaries.iter().find(|b| b.offset > 150 && b.offset < 155);
+    assert!(
+        prof_boundary.is_some(),
+        "Should have boundary after 'Prof.' when followed by 'I'"
+    );
+
+    // Check that "Dr. Smith" doesn't have a boundary between
+    let dr_boundary = boundaries.iter().find(|b| b.offset > 70 && b.offset < 75);
+    assert!(
+        dr_boundary.is_none(),
+        "Should NOT have boundary after 'Dr.' when followed by 'Smith'"
+    );
+}
+
+#[test]
+fn test_abbreviation_with_various_sentence_starters_integration() {
+    let rules = Arc::new(EnglishLanguageRules::new());
+    let processor = TextProcessor::new(rules);
+
+    // Test with different categories of sentence starters
+    let test_cases = vec![
+        // Personal pronouns
+        ("Work at Corp. He said it was fine.", 2),
+        ("Contact Ltd. We need to discuss.", 2),
+        // WH-words
+        ("See Inc. What happened next?", 2),
+        ("Call Dr. Why did this occur?", 2),
+        // Conjunctive adverbs
+        ("Founded Co. Therefore, we proceeded.", 2),
+        ("Joined Ltd. Moreover, the results improved.", 2),
+        // Demonstratives
+        ("Check Inc. This shows progress.", 2),
+        ("Visit Corp. These are the results.", 2),
+        // Mixed with non-starters
+        ("Call Dr. Johnson about the issue.", 1), // Not a boundary
+        ("See Prof. teaches at university.", 1),  // Not a boundary (lowercase)
+    ];
+
+    for (text, expected_count) in test_cases {
+        let result = processor.process_text(text).unwrap();
+        let boundary_count = result.boundaries.len();
+        // expected_count is number of sentences, boundaries = number of sentence endings
+        let expected_boundaries = expected_count;
+        assert_eq!(
+            boundary_count, expected_boundaries,
+            "Text '{}' should have {} sentences ({} boundaries), got {} boundaries: {:?}",
+            text, expected_count, expected_boundaries, boundary_count, result.boundaries
+        );
+    }
+}
+
+#[test]
+fn test_abbreviation_edge_cases_integration() {
+    let rules = Arc::new(EnglishLanguageRules::new());
+    let processor = TextProcessor::new(rules);
+
+    // Test edge cases with quotation marks and parentheses
+    let text1 = r#"She said "Inc." However, that was wrong."#;
+    let result1 = processor.process_text(text1).unwrap();
+    assert_eq!(
+        result1.boundaries.len(),
+        2,
+        "Should have 2 boundaries: after 'Inc.' and at end"
+    );
+
+    let text2 = "The company (Inc.) Therefore announced.";
+    let result2 = processor.process_text(text2).unwrap();
+    assert_eq!(
+        result2.boundaries.len(),
+        1,
+        "Should have 1 boundary at end (parentheses suppress boundaries)"
+    );
+
+    // Test case sensitivity
+    let text3 = "See Inc. however, this is different.";
+    let result3 = processor.process_text(text3).unwrap();
+    assert_eq!(
+        result3.boundaries.len(),
+        1,
+        "Should not split after 'Inc.' with lowercase 'however', only at end"
+    );
+
+    let text4 = "See Inc. HOWEVER, this is different.";
+    let result4 = processor.process_text(text4).unwrap();
+    assert_eq!(
+        result4.boundaries.len(),
+        2,
+        "Should split after 'Inc.' with uppercase 'HOWEVER' and at end"
+    );
+}
