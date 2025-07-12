@@ -8,51 +8,10 @@
 
 use crate::domain::{
     enclosure::EnclosureType,
-    language::LanguageRules,
+    language::{english::EnglishSentenceStarterRule, LanguageRules},
     types::{AbbreviationState, Boundary, BoundaryCandidate, BoundaryFlags, PartialState},
 };
 use std::collections::HashMap;
-
-/// Check if a word is a common sentence starter
-fn is_sentence_starter(word: &str) -> bool {
-    // Only consider words that start with a capital letter as potential sentence starters
-    if word.chars().next().is_some_and(|c| !c.is_uppercase()) {
-        return false;
-    }
-
-    // Convert to title case for case-insensitive comparison
-    let title_case = word
-        .chars()
-        .enumerate()
-        .map(|(i, c)| {
-            if i == 0 {
-                c.to_uppercase().collect::<String>()
-            } else {
-                c.to_lowercase().collect::<String>()
-            }
-        })
-        .collect::<String>();
-
-    // Common English sentence starters
-    matches!(
-        title_case.as_str(),
-        // Personal pronouns
-        "I" | "He" | "She" | "It" | "We" | "You" | "They" |
-        // WH-words
-        "What" | "Why" | "When" | "Where" | "Who" | "Whom" | "Whose" | "Which" | "How" |
-        // Demonstratives
-        "This" | "That" | "These" | "Those" |
-        // Conjunctive adverbs
-        "However" | "Therefore" | "Thus" | "Moreover" | "Furthermore" |
-        "Meanwhile" | "Consequently" | "Nevertheless" |
-        // Conditional adverbs
-        "Otherwise" | "Instead" |
-        // Common article
-        "The" |
-        // Time indicators
-        "Yesterday" | "Today" | "Tomorrow"
-    )
-}
 
 /// Enhanced abbreviation state with more context
 #[derive(Debug, Clone, PartialEq)]
@@ -160,9 +119,10 @@ impl EnclosureStateTracker {
                 .iter()
                 .rposition(|(t, _)| *t == enclosure_type)
             {
+                // Get the position before removing
+                let removed_position = self.open_enclosures[pos].1;
                 self.open_enclosures.remove(pos);
-                self.unclosed_positions
-                    .retain(|&p| p != self.open_enclosures.get(pos).map(|(_, p)| *p).unwrap_or(0));
+                self.unclosed_positions.retain(|&p| p != removed_position);
             } else {
                 // Closing without opening in this chunk
                 self.unopened_closures.push(position);
@@ -274,9 +234,9 @@ impl CrossChunkValidator {
                 if state.abbreviation.is_cross_chunk_abbr(&next.abbreviation) {
                     // Check if the next chunk starts with a sentence starter
                     if let Some(ref first_word) = next.abbreviation.first_word {
-                        // Use language rules to check if it's a sentence starter
-                        // For now, we'll use a simple check for common sentence starters
-                        if is_sentence_starter(first_word) {
+                        // Use EnglishSentenceStarterRule to check if it's a sentence starter
+                        let sentence_starter_rule = EnglishSentenceStarterRule::new();
+                        if sentence_starter_rule.is_sentence_starter(first_word) {
                             // This is an abbreviation followed by a sentence starter
                             // The boundary should be kept as strong
                             return ValidationResult::Weakened(BoundaryFlags::STRONG);

@@ -18,6 +18,9 @@ pub use strategies::{
     ParseError, ParseStrategy, ParsingInput, ParsingOutput, SequentialParser, StreamingParser,
 };
 
+/// Default context window size for boundary detection
+const DEFAULT_CONTEXT_WINDOW: usize = 10;
+
 /// Parser configuration options.
 pub struct ParserConfig {
     /// Rules for handling enclosures (quotes, parentheses, etc.)
@@ -215,16 +218,19 @@ fn build_boundary_context(
     _last_char: Option<char>,
     _consecutive_dots: usize,
 ) -> BoundaryContext {
-    // Extract text before the boundary (up to 10 chars)
+    // Extract text before the boundary (up to DEFAULT_CONTEXT_WINDOW chars)
     // Need to find valid UTF-8 boundary
-    let mut start = position.saturating_sub(10);
+    let mut start = position.saturating_sub(DEFAULT_CONTEXT_WINDOW);
     while start > 0 && !text.is_char_boundary(start) {
         start -= 1;
     }
     let preceding_context = text[start..position].to_string();
 
-    // Peek at upcoming characters (up to 10 chars)
-    let following_context = chars_iter.clone().take(10).collect::<String>();
+    // Peek at upcoming characters (up to DEFAULT_CONTEXT_WINDOW chars)
+    let following_context = chars_iter
+        .clone()
+        .take(DEFAULT_CONTEXT_WINDOW)
+        .collect::<String>();
 
     BoundaryContext {
         text: text.to_string(),
