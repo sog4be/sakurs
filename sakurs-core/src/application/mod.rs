@@ -31,6 +31,7 @@
 
 pub mod chunking;
 pub mod config;
+pub mod enhanced_chunking;
 pub mod parser;
 pub mod processor;
 pub mod strategies;
