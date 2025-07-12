@@ -40,7 +40,7 @@ graph TB
     subgraph "Application Layer"
         APP[UnifiedProcessor]
         STRAT[Processing Strategies<br/>- Sequential<br/>- Parallel<br/>- Streaming<br/>- Adaptive]
-        CHUNK[Chunking Functions]
+        CHUNK[Chunking Functions<br/>- ChunkManager<br/>- EnhancedChunkManager]
         PARSER[Text Parser]
     end
     
@@ -258,6 +258,47 @@ Key responsibilities:
 - Chunk management at valid UTF-8 boundaries
 - Cross-chunk boundary resolution
 - Performance optimization
+
+#### Enhanced Chunking System
+
+The application layer includes an enhanced chunking system for improved cross-chunk pattern detection:
+
+```rust
+// Enhanced chunk manager with overlap processing
+pub struct EnhancedChunkManager {
+    base_manager: ChunkManager,
+    overlap_processor: OverlapProcessor,
+    state_tracker: CrossChunkStateTracker,
+    config: EnhancedChunkConfig,
+}
+
+// Processes overlap regions between chunks
+pub struct OverlapProcessor {
+    overlap_size: usize,  // Default: 32 bytes
+    enclosure_suppressor: Arc<dyn EnclosureSuppressor>,
+}
+
+// Tracks state across chunk boundaries
+pub struct CrossChunkStateTracker {
+    chunk_states: Vec<ChunkTransitionState>,
+    boundary_cache: BoundaryCache,
+    config: StateTrackerConfig,
+}
+```
+
+**Enhanced Chunking Features:**
+- **32-byte overlap regions** between chunks for pattern detection
+- **Cross-chunk suppression detection** for contractions, possessives, and measurements
+- **Boundary deduplication** to prevent duplicate sentence boundaries in overlap regions
+- **Pattern confidence scoring** based on context analysis
+- **State tracking** across chunk transitions for improved accuracy
+
+**Suppression Patterns Detected:**
+- Contractions (e.g., "isn't", "don't" split across chunks)
+- Possessives (e.g., "James'" at chunk boundaries)
+- Measurements (e.g., 5'9" height notation)
+- List items (e.g., "1)" at line start)
+- Cross-chunk patterns with configurable confidence thresholds
 
 ### Adapter Layer
 
