@@ -131,6 +131,14 @@ impl ProcessArgs {
                         formatter.format_sentence(sentence.trim(), last_offset)?;
                         last_offset = boundary.offset;
                     }
+
+                    // Don't forget the last sentence after the final boundary
+                    if last_offset < content.len() {
+                        let sentence = &content[last_offset..];
+                        if !sentence.trim().is_empty() {
+                            formatter.format_sentence(sentence.trim(), last_offset)?;
+                        }
+                    }
                 }
 
                 progress.file_completed(&file.file_name().unwrap_or_default().to_string_lossy());
@@ -261,6 +269,14 @@ impl ProcessArgs {
             last_offset = boundary.offset;
         }
 
+        // Don't forget the last sentence after the final boundary
+        if last_offset < content.len() {
+            let sentence = &content[last_offset..];
+            if !sentence.trim().is_empty() {
+                formatter.format_sentence(sentence.trim(), last_offset)?;
+            }
+        }
+
         Ok(())
     }
 
@@ -286,6 +302,14 @@ impl ProcessArgs {
             let sentence = &buffer[last_offset..boundary.offset];
             formatter.format_sentence(sentence.trim(), last_offset)?;
             last_offset = boundary.offset;
+        }
+
+        // Don't forget the last sentence after the final boundary
+        if last_offset < buffer.len() {
+            let sentence = &buffer[last_offset..];
+            if !sentence.trim().is_empty() {
+                formatter.format_sentence(sentence.trim(), last_offset)?;
+            }
         }
 
         Ok(())
