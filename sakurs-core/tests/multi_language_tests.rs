@@ -35,9 +35,9 @@ fn test_scientific_notation_and_formulas() {
     let text = "The speed of light is 3.0 × 10^8 m/s. Einstein's famous equation is E=mc². Water's chemical formula is H₂O.";
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // The API detects 1 boundary (after "m/s.")
+    // The API detects 3 boundaries (after "m/s.", "mc².", and "H₂O.")
     // Scientific notation and special characters don't create additional boundaries
-    assert_eq!(result.boundaries.len(), 1);
+    assert_eq!(result.boundaries.len(), 3);
 }
 
 #[test]
@@ -74,8 +74,9 @@ fn test_bidirectional_text() {
         "She said مرحبا to everyone. The Hebrew word שלום means peace. Isn't that interesting?";
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // The API detects 2 boundaries (after "everyone." and "peace.")
-    assert_eq!(result.boundaries.len(), 2);
+    // The API detects 3 boundaries (after "everyone.", "peace.", and "interesting?")
+    // Now correctly handles "Isn't" contraction
+    assert_eq!(result.boundaries.len(), 3);
 }
 
 #[test]

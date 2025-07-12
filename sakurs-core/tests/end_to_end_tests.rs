@@ -12,15 +12,16 @@ fn test_complete_english_processing_pipeline() {
     let text = "Dr. Smith went to the U.S.A. He bought a new car. The car cost $25,000! Isn't that expensive?";
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // With our enhanced abbreviation handling, the API returns 3 boundaries:
+    // With our enhanced abbreviation handling and apostrophe suppression, the API returns 4 boundaries:
     // - After "U.S.A." (followed by "He", a sentence starter)
     // - After "new car."
     // - After "$25,000!"
+    // - After "expensive?" (apostrophe in "Isn't" is now correctly handled)
     // (Abbreviations like "Dr." followed by non-sentence-starters don't create boundaries)
     assert_eq!(
         result.boundaries.len(),
-        3,
-        "Expected exactly 3 boundaries, got {}",
+        4,
+        "Expected exactly 4 boundaries, got {}",
         result.boundaries.len()
     );
 }
@@ -75,12 +76,12 @@ fn test_byte_input_processing() {
     let data = b"Hello world. How are you? I'm fine!";
     let result = processor.process(Input::from_bytes(data.to_vec())).unwrap();
 
-    // The API detects 2 boundaries (after "world." and "you?")
-    // Contraction "I'm" doesn't prevent boundary detection after "fine!"
+    // The API detects 3 boundaries (after "world.", "you?", and "fine!")
+    // Contraction "I'm" is now correctly handled and doesn't prevent boundary detection
     assert_eq!(
         result.boundaries.len(),
-        2,
-        "Expected exactly 2 boundaries, got {}",
+        3,
+        "Expected exactly 3 boundaries, got {}",
         result.boundaries.len()
     );
 }

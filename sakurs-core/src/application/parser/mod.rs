@@ -110,13 +110,28 @@ impl TextParser {
 
             // Check for enclosure characters using language rules
             if let Some(enc_char) = language_rules.get_enclosure_char(ch) {
-                if let Some(type_id) = language_rules.get_enclosure_type_id(ch) {
-                    if type_id < enclosure_count {
-                        if enc_char.is_opening {
-                            local_depths[type_id] += 1;
-                        } else {
-                            local_depths[type_id] -= 1;
-                            min_depths[type_id] = min_depths[type_id].min(local_depths[type_id]);
+                // Check if this enclosure should be suppressed
+                let should_suppress = if let Some(suppressor) =
+                    language_rules.enclosure_suppressor()
+                {
+                    // Build context for suppression check
+                    let context = build_enclosure_context(text, position, ch, &chars, last_char);
+                    suppressor.should_suppress_enclosure(ch, &context)
+                } else {
+                    false
+                };
+
+                // Only track enclosure if not suppressed
+                if !should_suppress {
+                    if let Some(type_id) = language_rules.get_enclosure_type_id(ch) {
+                        if type_id < enclosure_count {
+                            if enc_char.is_opening {
+                                local_depths[type_id] += 1;
+                            } else {
+                                local_depths[type_id] -= 1;
+                                min_depths[type_id] =
+                                    min_depths[type_id].min(local_depths[type_id]);
+                            }
                         }
                     }
                 }
@@ -238,6 +253,61 @@ fn build_boundary_context(
         boundary_char: terminator,
         preceding_context,
         following_context,
+    }
+}
+
+/// Builds an enclosure context for suppression evaluation.
+fn build_enclosure_context<'a>(
+    text: &'a str,
+    position: usize,
+    _ch: char,
+    chars_iter: &std::iter::Peekable<std::str::Chars>,
+    last_char: Option<char>,
+) -> crate::domain::enclosure_suppressor::EnclosureContext<'a> {
+    use smallvec::SmallVec;
+
+    // Get preceding characters (up to 3)
+    let mut preceding_chars = SmallVec::<[char; 3]>::new();
+
+    // Add last_char if available
+    if let Some(ch) = last_char {
+        preceding_chars.push(ch);
+    }
+
+    // Try to get more preceding characters from text
+    if position > 0 {
+        let preceding_text = &text[..position];
+        let mut chars_before: Vec<char> = preceding_text.chars().collect();
+        chars_before.reverse();
+
+        // Skip the first char if we already have it from last_char
+        let skip = if last_char.is_some() { 1 } else { 0 };
+
+        for ch in chars_before
+            .into_iter()
+            .skip(skip)
+            .take(3 - preceding_chars.len())
+        {
+            preceding_chars.insert(0, ch);
+        }
+    }
+
+    // Get following characters (up to 3)
+    let following_chars: SmallVec<[char; 3]> = chars_iter.clone().take(3).collect();
+
+    // Calculate line offset (simple approximation)
+    let line_offset = text[..position]
+        .chars()
+        .rev()
+        .take_while(|&c| c != '\n')
+        .count();
+
+    crate::domain::enclosure_suppressor::EnclosureContext {
+        position,
+        preceding_chars,
+        following_chars,
+        line_offset,
+        chunk_text: text,
     }
 }
 
