@@ -21,22 +21,22 @@
     </a>
 </p>
 
-## Features
-
-- 🚀 **True Parallel Processing** - Based on the Δ-Stack Monoid algorithm
-- 🌏 **Multi-language Support** - English and Japanese with extensible architecture
-- 📄 **Multiple Output Formats** - Plain text, JSON, and Markdown
-- 🎯 **High Accuracy** - Handles abbreviations, quotations, and nested structures
-- ⚡ **Fast Performance** - Optimized chunking and parallel execution
-- 🔧 **Flexible Configuration** - Customizable processing parameters
+> [!WARNING]
+> **This project is in pre-release development (v0.1.0-dev)**. 
+> APIs and features may change significantly before the first stable release.
+> We welcome early adopters and contributors to help shape the project!
 
 ## Installation
 
-### From Source
+> **Note**: Sakurs has not yet reached its first stable release (v0.1.0). 
+> Installation from crates.io will be available after the initial release.
+> For now, please build from source.
+
+### From Source (Recommended for pre-release)
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/sakurs.git
+git clone https://github.com/sog4be/sakurs.git
 cd sakurs
 
 # Build and install the CLI
