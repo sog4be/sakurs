@@ -162,6 +162,22 @@ impl LanguageRules for EnglishLanguageRules {
             return BoundaryDecision::NotBoundary;
         }
 
+        // Check for numeric dot sequences (version numbers, IP addresses, section numbers, etc.)
+        if self
+            .number_rule
+            .is_numeric_dot_sequence(&context.text, context.position)
+        {
+            return BoundaryDecision::NotBoundary;
+        }
+
+        // Check for list markers
+        if self
+            .number_rule
+            .is_list_marker(&context.text, context.position)
+        {
+            return BoundaryDecision::NotBoundary;
+        }
+
         // Check capitalization of following text
         let cap_analysis = self
             .capitalization_rule
@@ -687,6 +703,158 @@ impl EnglishNumberRule {
             false
         }
     }
+
+    /// Check if a period is part of a numeric dot sequence pattern
+    /// Examples: "2.0.1", "v1.2.3", "Python 3.11.4", "192.168.1.1", "section 2.3.4"
+    /// Pattern: \d+(\.\d+)+\.?
+    pub fn is_numeric_dot_sequence(&self, text: &str, position: usize) -> bool {
+        if position == 0 || position >= text.len() {
+            return false;
+        }
+
+        // Get context before and after the period
+        let before_bytes = &text[..position];
+        let after_bytes = &text[position + 1..];
+
+        // Check if this period is between digits
+        let before_digit = before_bytes
+            .chars()
+            .last()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false);
+
+        let after_digit = after_bytes
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false);
+
+        if !before_digit && !after_digit {
+            return false;
+        }
+
+        // Find the start of the numeric pattern (go back until we hit a non-digit/non-period)
+        let pattern_start = before_bytes
+            .char_indices()
+            .rfind(|(_, c)| !c.is_ascii_digit() && *c != '.')
+            .map(|(idx, c)| idx + c.len_utf8())
+            .unwrap_or(0);
+
+        // Find the end of the numeric pattern (go forward until we hit a non-digit/non-period)
+        let pattern_end_offset = after_bytes
+            .char_indices()
+            .find(|(_, c)| !c.is_ascii_digit() && *c != '.')
+            .map(|(idx, _)| idx)
+            .unwrap_or(after_bytes.len());
+
+        let pattern = &text[pattern_start..position + 1 + pattern_end_offset];
+
+        // Check if the pattern matches \d+(\.\d+)+\.?
+        // It should:
+        // 1. Start with one or more digits
+        // 2. Have at least one group of period followed by digits
+        // 3. Optionally end with a period
+
+        let trimmed_pattern = pattern.trim_end_matches('.');
+        let parts: Vec<&str> = trimmed_pattern.split('.').collect();
+
+        // Need at least 2 parts (e.g., "1.2") for the pattern \d+(\.\d+)+
+        // But to have multiple periods (e.g., "1.2.3"), we need at least 3 parts
+        if parts.len() < 3 {
+            return false;
+        }
+
+        // All parts must be non-empty and contain only digits
+        for part in &parts {
+            if part.is_empty() || !part.chars().all(|c| c.is_ascii_digit()) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Check if a period is part of a list marker at the start of a line
+    /// Examples: "1. First item", "a. Start", "i. Introduction"
+    /// Pattern: ^[a-zA-Z0-9]+\. (line start + alphanumeric + period + space)
+    pub fn is_list_marker(&self, text: &str, position: usize) -> bool {
+        if position == 0 || position >= text.len() {
+            return false;
+        }
+
+        // Check if there's a space after the period (required for list markers)
+        if let Some(after_char) = text[position + 1..].chars().next() {
+            if !after_char.is_whitespace() {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        // For list markers, we need to check what comes before the period
+        let before_bytes = &text[..position];
+
+        // Find the start of the line (look for newline or start of text)
+        let line_start = before_bytes
+            .char_indices()
+            .rfind(|(_, c)| *c == '\n')
+            .map(|(idx, _)| idx + 1)
+            .unwrap_or(0);
+
+        if line_start >= position {
+            return false;
+        }
+
+        // Get the content between line start and the period
+        let before_period = &text[line_start..position];
+
+        // Skip any leading whitespace
+        let trimmed = before_period.trim_start();
+
+        // Check if it's a valid list marker:
+        // - Non-empty
+        // - Only alphanumeric characters
+        // - Reasonable length (1-3 characters for numbers, 1 for letters)
+        if trimmed.is_empty() || trimmed.len() > 3 {
+            return false;
+        }
+
+        // Check if it's all digits (numeric list marker)
+        if trimmed.chars().all(|c| c.is_ascii_digit()) {
+            if let Ok(num) = trimmed.parse::<u32>() {
+                return (1..=999).contains(&num);
+            }
+        }
+
+        // Check if it's a single letter (alphabetic list marker)
+        if trimmed.len() == 1 && trimmed.chars().all(|c| c.is_ascii_alphabetic()) {
+            return true;
+        }
+
+        // Check for common Roman numerals
+        matches!(
+            trimmed,
+            "i" | "ii"
+                | "iii"
+                | "iv"
+                | "v"
+                | "vi"
+                | "vii"
+                | "viii"
+                | "ix"
+                | "x"
+                | "I"
+                | "II"
+                | "III"
+                | "IV"
+                | "V"
+                | "VI"
+                | "VII"
+                | "VIII"
+                | "IX"
+                | "X"
+        )
+    }
 }
 
 /// Enhanced English quotation processing
@@ -1005,6 +1173,60 @@ mod tests {
         // Test time format
         assert!(rule.is_time_format("Meeting at 3:30 p.m. today", 17));
         assert!(!rule.is_time_format("Dr. Smith is here", 2));
+
+        // Test numeric dot sequences (covers version numbers, IP addresses, section numbers)
+        // Version numbers
+        assert!(rule.is_numeric_dot_sequence("Please upgrade to version 2.0.1 immediately.", 27));
+        assert!(rule.is_numeric_dot_sequence("Please upgrade to version 2.0.1 immediately.", 29));
+        assert!(rule.is_numeric_dot_sequence("We support Node.js v18.12.0 and later.", 22));
+        assert!(rule.is_numeric_dot_sequence("We support Node.js v18.12.0 and later.", 25));
+        assert!(rule.is_numeric_dot_sequence("Python 3.11.4 includes many improvements.", 8));
+        assert!(rule.is_numeric_dot_sequence("Python 3.11.4 includes many improvements.", 11));
+
+        // IP addresses
+        assert!(rule.is_numeric_dot_sequence("Connect to server at 192.168.1.1 using SSH.", 24));
+        assert!(rule.is_numeric_dot_sequence("Connect to server at 192.168.1.1 using SSH.", 28));
+        assert!(rule.is_numeric_dot_sequence("Connect to server at 192.168.1.1 using SSH.", 30));
+        assert!(
+            rule.is_numeric_dot_sequence("Access the application at 127.0.0.1 or localhost.", 29)
+        );
+
+        // Section numbers
+        assert!(rule.is_numeric_dot_sequence("See section 2.3.4 for more details.", 13));
+        assert!(rule.is_numeric_dot_sequence("See section 2.3.4 for more details.", 15));
+        assert!(rule.is_numeric_dot_sequence("Chapter 1.2.3 covers the basics.", 9));
+        assert!(rule.is_numeric_dot_sequence("Chapter 1.2.3 covers the basics.", 11));
+        assert!(rule.is_numeric_dot_sequence("Refer to § 4.3.2 of the specification.", 13));
+        assert!(rule.is_numeric_dot_sequence("Refer to § 4.3.2 of the specification.", 15));
+
+        // Edge cases
+        assert!(rule.is_numeric_dot_sequence("The version is 1.2.3.", 16)); // Period at end
+        assert!(rule.is_numeric_dot_sequence("The version is 1.2.3.", 18)); // Period at end
+
+        // Not numeric sequences
+        assert!(!rule.is_numeric_dot_sequence("Hello. World", 5));
+        assert!(!rule.is_numeric_dot_sequence("Price is 3.99 today", 11)); // Only one dot - handled by is_decimal_point
+
+        // Test list markers (line-start patterns)
+        // Numeric list marker at line start
+        assert!(rule.is_list_marker("1. First item in the list.", 1));
+        assert!(rule.is_list_marker("12. This is the twelfth item.", 2));
+        assert!(rule.is_list_marker("\n1. New line item", 2)); // After newline
+        assert!(rule.is_list_marker("  1. Indented item", 3)); // With leading spaces
+
+        // Alphabetic list marker
+        assert!(rule.is_list_marker("a. Start with this step.", 1));
+        assert!(rule.is_list_marker("A. Overview of the system.", 1));
+
+        // Roman numeral
+        assert!(rule.is_list_marker("i. Introduction to the topic.", 1));
+        assert!(rule.is_list_marker("X. Tenth item", 1));
+
+        // Not a list marker
+        assert!(!rule.is_list_marker("Dr. Smith is here.", 2)); // Not at line start
+        assert!(!rule.is_list_marker("The price is 3.99 today.", 14)); // Not at line start
+        assert!(!rule.is_list_marker("1.No space after period", 1)); // No space after period
+        assert!(!rule.is_list_marker("In section 1. we discuss", 12)); // Not at line start
     }
 
     #[test]
