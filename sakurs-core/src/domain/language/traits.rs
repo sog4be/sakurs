@@ -144,6 +144,18 @@ pub trait LanguageRules: Send + Sync {
     /// # Returns
     /// Number of distinct enclosure types
     fn enclosure_type_count(&self) -> usize;
+
+    /// Get the enclosure suppressor for this language
+    ///
+    /// Returns None if this language doesn't have special enclosure suppression rules
+    ///
+    /// # Returns
+    /// Optional reference to the enclosure suppressor
+    fn enclosure_suppressor(
+        &self,
+    ) -> Option<&dyn crate::domain::enclosure_suppressor::EnclosureSuppressor> {
+        None
+    }
 }
 
 /// Trait for combining multiple language rules

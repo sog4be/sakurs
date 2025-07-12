@@ -24,6 +24,7 @@ pub struct EnglishLanguageRules {
     capitalization_rule: EnglishCapitalizationRule,
     number_rule: EnglishNumberRule,
     quotation_rule: EnglishQuotationRule,
+    enclosure_suppressor: crate::domain::enclosure_suppressor::EnglishEnclosureSuppressor,
 }
 
 impl EnglishLanguageRules {
@@ -34,6 +35,8 @@ impl EnglishLanguageRules {
             capitalization_rule: EnglishCapitalizationRule::new(),
             number_rule: EnglishNumberRule::new(),
             quotation_rule: EnglishQuotationRule::new(),
+            enclosure_suppressor:
+                crate::domain::enclosure_suppressor::EnglishEnclosureSuppressor::new(),
         }
     }
 
@@ -44,6 +47,8 @@ impl EnglishLanguageRules {
             capitalization_rule: EnglishCapitalizationRule::new(),
             number_rule: EnglishNumberRule::new(),
             quotation_rule: EnglishQuotationRule::new(),
+            enclosure_suppressor:
+                crate::domain::enclosure_suppressor::EnglishEnclosureSuppressor::new(),
         }
     }
 }
@@ -301,6 +306,12 @@ impl LanguageRules for EnglishLanguageRules {
 
     fn enclosure_type_count(&self) -> usize {
         5 // DoubleQuote, SingleQuote, Parenthesis, SquareBracket, CurlyBrace
+    }
+
+    fn enclosure_suppressor(
+        &self,
+    ) -> Option<&dyn crate::domain::enclosure_suppressor::EnclosureSuppressor> {
+        Some(&self.enclosure_suppressor)
     }
 }
 
