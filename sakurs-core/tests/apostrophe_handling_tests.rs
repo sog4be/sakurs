@@ -76,12 +76,12 @@ fn test_complex_apostrophe_patterns() {
     let boundaries = detect_sentences(text, &rules).unwrap();
     let offsets = boundaries;
 
-    // Should detect 3 sentences - actual boundaries: [49, 71, 93]
-    // Note: U.S.A. is treated as abbreviation, so no boundary after it
-    assert_eq!(offsets.len(), 3, "Should detect 3 sentences");
+    // Should detect 4 sentences - actual boundaries: [28, 49, 71, 93]
+    // Note: U.S.A. is now followed by "He" (a sentence starter), so it creates a boundary
+    assert_eq!(offsets.len(), 4, "Should detect 4 sentences");
     assert_eq!(
         offsets,
-        vec![49, 71, 93],
+        vec![28, 49, 71, 93],
         "Boundaries should match expected positions"
     );
 }

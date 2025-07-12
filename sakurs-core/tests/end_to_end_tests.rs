@@ -12,15 +12,16 @@ fn test_complete_english_processing_pipeline() {
     let text = "Dr. Smith went to the U.S.A. He bought a new car. The car cost $25,000! Isn't that expensive?";
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // With abbreviations and improved apostrophe handling, the API returns 3 boundaries:
+    // With our enhanced abbreviation handling and apostrophe suppression, the API returns 4 boundaries:
+    // - After "U.S.A." (followed by "He", a sentence starter)
     // - After "new car."
     // - After "$25,000!"
-    // - After "expensive?"
-    // (Abbreviations like "Dr.", "U.S.A." don't create boundaries, and "Isn't" is now correctly handled)
+    // - After "expensive?" (apostrophe in "Isn't" is now correctly handled)
+    // (Abbreviations like "Dr." followed by non-sentence-starters don't create boundaries)
     assert_eq!(
         result.boundaries.len(),
-        3,
-        "Expected exactly 3 boundaries, got {}",
+        4,
+        "Expected exactly 4 boundaries, got {}",
         result.boundaries.len()
     );
 }

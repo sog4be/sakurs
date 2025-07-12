@@ -25,6 +25,7 @@ pub struct EnglishLanguageRules {
     number_rule: EnglishNumberRule,
     quotation_rule: EnglishQuotationRule,
     enclosure_suppressor: crate::domain::enclosure_suppressor::EnglishEnclosureSuppressor,
+    sentence_starter_rule: EnglishSentenceStarterRule,
 }
 
 impl EnglishLanguageRules {
@@ -37,6 +38,7 @@ impl EnglishLanguageRules {
             quotation_rule: EnglishQuotationRule::new(),
             enclosure_suppressor:
                 crate::domain::enclosure_suppressor::EnglishEnclosureSuppressor::new(),
+            sentence_starter_rule: EnglishSentenceStarterRule::new(),
         }
     }
 
@@ -49,6 +51,7 @@ impl EnglishLanguageRules {
             quotation_rule: EnglishQuotationRule::new(),
             enclosure_suppressor:
                 crate::domain::enclosure_suppressor::EnglishEnclosureSuppressor::new(),
+            sentence_starter_rule: EnglishSentenceStarterRule::new(),
         }
     }
 }
@@ -139,6 +142,16 @@ impl LanguageRules for EnglishLanguageRules {
             .abbreviation_rule
             .detect_abbreviation(&context.text, context.position);
         if abbrev_result.is_abbreviation && abbrev_result.confidence > 0.8 {
+            // Check if the abbreviation is followed by a sentence starter
+            if let Some(first_word) =
+                EnglishSentenceStarterRule::extract_first_word(&context.following_context)
+            {
+                if self.sentence_starter_rule.is_sentence_starter(first_word) {
+                    // This is an abbreviation followed by a sentence starter - it IS a boundary
+                    return BoundaryDecision::Boundary(BoundaryFlags::STRONG);
+                }
+            }
+
             // Enhanced context check for title + name patterns
             if self.is_likely_title_name_pattern(
                 &context.text,
@@ -147,7 +160,7 @@ impl LanguageRules for EnglishLanguageRules {
             ) {
                 return BoundaryDecision::NotBoundary;
             }
-            // For high-confidence abbreviations, generally not a boundary
+            // For high-confidence abbreviations not followed by sentence starters, generally not a boundary
             return BoundaryDecision::NotBoundary;
         }
 
@@ -868,6 +881,141 @@ impl EnglishNumberRule {
     }
 }
 
+/// English sentence starter detection rule
+#[derive(Debug, Clone)]
+pub struct EnglishSentenceStarterRule {
+    /// Set of words that commonly start sentences
+    sentence_starters: HashSet<String>,
+}
+
+impl Default for EnglishSentenceStarterRule {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EnglishSentenceStarterRule {
+    pub fn new() -> Self {
+        let mut starters = HashSet::new();
+
+        // Personal pronouns
+        starters.insert("I".to_string());
+        starters.insert("He".to_string());
+        starters.insert("She".to_string());
+        starters.insert("It".to_string());
+        starters.insert("We".to_string());
+        starters.insert("You".to_string());
+        starters.insert("They".to_string());
+
+        // WH-words (question words)
+        starters.insert("What".to_string());
+        starters.insert("Why".to_string());
+        starters.insert("When".to_string());
+        starters.insert("Where".to_string());
+        starters.insert("Who".to_string());
+        starters.insert("Whom".to_string());
+        starters.insert("Whose".to_string());
+        starters.insert("Which".to_string());
+        starters.insert("How".to_string());
+
+        // Demonstratives
+        starters.insert("This".to_string());
+        starters.insert("That".to_string());
+        starters.insert("These".to_string());
+        starters.insert("Those".to_string());
+
+        // Conjunctive adverbs / logical markers
+        starters.insert("However".to_string());
+        starters.insert("Therefore".to_string());
+        starters.insert("Thus".to_string());
+        starters.insert("Moreover".to_string());
+        starters.insert("Furthermore".to_string());
+        starters.insert("Meanwhile".to_string());
+        starters.insert("Consequently".to_string());
+        starters.insert("Nevertheless".to_string());
+
+        // Conditional adverbs
+        starters.insert("Otherwise".to_string());
+        starters.insert("Instead".to_string());
+
+        // Interjections
+        starters.insert("Well".to_string());
+        starters.insert("Oh".to_string());
+        starters.insert("Alas".to_string());
+
+        // Negative adverbs
+        starters.insert("No".to_string());
+        starters.insert("Not".to_string());
+
+        // Common article (included for completeness)
+        starters.insert("The".to_string());
+
+        // Time indicators
+        starters.insert("Yesterday".to_string());
+        starters.insert("Today".to_string());
+        starters.insert("Tomorrow".to_string());
+
+        Self {
+            sentence_starters: starters,
+        }
+    }
+
+    /// Check if a word is a common sentence starter
+    pub fn is_sentence_starter(&self, word: &str) -> bool {
+        // Only consider words that start with a capital letter as potential sentence starters
+        if word.chars().next().is_some_and(|c| !c.is_uppercase()) {
+            return false;
+        }
+
+        // Check both the original case and title case
+        // This handles "HOWEVER" -> "However", etc.
+        if self.sentence_starters.contains(word) {
+            return true;
+        }
+
+        // Convert to title case and check
+        let title_case = word
+            .chars()
+            .enumerate()
+            .map(|(i, c)| {
+                if i == 0 {
+                    c.to_uppercase().collect::<String>()
+                } else {
+                    c.to_lowercase().collect::<String>()
+                }
+            })
+            .collect::<String>();
+
+        self.sentence_starters.contains(&title_case)
+    }
+
+    /// Extract the first word from text (handling quotes and punctuation)
+    pub fn extract_first_word(text: &str) -> Option<&str> {
+        let trimmed = text.trim_start();
+
+        // Skip leading quotes and punctuation
+        let start = trimmed.chars().position(|c| c.is_alphabetic()).unwrap_or(0);
+
+        if start >= trimmed.len() {
+            return None;
+        }
+
+        let word_text = &trimmed[start..];
+
+        // Find the end of the word
+        let end = word_text
+            .chars()
+            .position(|c| !c.is_alphabetic())
+            .unwrap_or(word_text.len());
+
+        if end == 0 {
+            None
+        } else {
+            Some(&word_text[..end])
+        }
+    }
+}
+
 /// Enhanced English quotation processing
 #[derive(Debug, Clone)]
 pub struct EnglishQuotationRule {
@@ -1341,5 +1489,258 @@ mod tests {
         // This should now work correctly without panic
         let result = rule.detect_abbreviation(&text, 8809);
         assert!(result.is_abbreviation);
+    }
+
+    #[test]
+    fn test_abbreviation_followed_by_sentence_starter() {
+        let rules = EnglishLanguageRules::new();
+
+        // Test case 1: "She works at Apple Inc. However, the company..." → Should be a boundary
+        let context = BoundaryContext {
+            text: "She works at Apple Inc. However, the company has grown.".to_string(),
+            position: 22, // Position after the period in "Inc."
+            boundary_char: '.',
+            preceding_context: "She works at Apple Inc".to_string(),
+            following_context: " However, the company has grown.".to_string(),
+        };
+        // Currently returns NotBoundary because of abbreviation detection
+        let decision = rules.detect_sentence_boundary(&context);
+        assert_eq!(
+            decision,
+            BoundaryDecision::Boundary(BoundaryFlags::STRONG),
+            "Inc. followed by 'However' should be a boundary"
+        );
+
+        // Test case 2: "The company is Apple Inc. The product is..." → Should be a boundary
+        let context = BoundaryContext {
+            text: "The company is Apple Inc. The product is innovative.".to_string(),
+            position: 24, // Position after the period in "Inc."
+            boundary_char: '.',
+            preceding_context: "The company is Apple Inc".to_string(),
+            following_context: " The product is innovative.".to_string(),
+        };
+        let decision = rules.detect_sentence_boundary(&context);
+        assert_eq!(
+            decision,
+            BoundaryDecision::Boundary(BoundaryFlags::STRONG),
+            "Inc. followed by 'The' should be a boundary"
+        );
+
+        // Test case 3: "Contact Dr. Smith about..." → Should NOT be a boundary
+        let context = BoundaryContext {
+            text: "Contact Dr. Smith about the issue.".to_string(),
+            position: 10, // Position after the period in "Dr."
+            boundary_char: '.',
+            preceding_context: "Contact Dr".to_string(),
+            following_context: " Smith about the issue.".to_string(),
+        };
+        let decision = rules.detect_sentence_boundary(&context);
+        assert_eq!(
+            decision,
+            BoundaryDecision::NotBoundary,
+            "Dr. followed by a name should not be a boundary"
+        );
+
+        // Test case 4: "See Prof. I believe..." → Should be a boundary
+        let context = BoundaryContext {
+            text: "See Prof. I believe this is correct.".to_string(),
+            position: 8, // Position after the period in "Prof."
+            boundary_char: '.',
+            preceding_context: "See Prof".to_string(),
+            following_context: " I believe this is correct.".to_string(),
+        };
+        let decision = rules.detect_sentence_boundary(&context);
+        assert_eq!(
+            decision,
+            BoundaryDecision::Boundary(BoundaryFlags::STRONG),
+            "Prof. followed by 'I' should be a boundary"
+        );
+    }
+
+    #[test]
+    fn test_abbreviation_with_various_sentence_starters() {
+        let rules = EnglishLanguageRules::new();
+
+        // Test personal pronouns
+        let test_cases = vec![
+            ("Inc. He said", " He said", true),
+            ("Ltd. We think", " We think", true),
+            ("Corp. They announced", " They announced", true),
+            // Test WH-words
+            ("Corp. What happened", " What happened", true),
+            ("Dr. Why did", " Why did", true),
+            ("Inc. Where is", " Where is", true),
+            // Test conjunctive adverbs
+            ("Co. Therefore", " Therefore", true),
+            ("Ltd. Moreover", " Moreover", true),
+            ("Inc. Furthermore", " Furthermore", true),
+            // Test demonstratives
+            ("Inc. This shows", " This shows", true),
+            ("Corp. These results", " These results", true),
+            ("Ltd. Those findings", " Those findings", true),
+        ];
+
+        for (preceding, following, should_be_boundary) in test_cases {
+            let full_text = format!("{}{}", preceding, following);
+            let context = BoundaryContext {
+                text: full_text.clone(),
+                position: preceding.len() - 1, // Position at the period
+                boundary_char: '.',
+                preceding_context: preceding[..preceding.len() - 1].to_string(),
+                following_context: following.to_string(),
+            };
+
+            let decision = rules.detect_sentence_boundary(&context);
+            if should_be_boundary {
+                assert!(
+                    matches!(decision, BoundaryDecision::Boundary(_)),
+                    "Expected boundary for: '{}'",
+                    full_text
+                );
+            } else {
+                assert_eq!(
+                    decision,
+                    BoundaryDecision::NotBoundary,
+                    "Expected no boundary for: '{}'",
+                    full_text
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_abbreviation_without_sentence_starter() {
+        let rules = EnglishLanguageRules::new();
+
+        // Test lowercase continuations - should NOT be boundaries
+        let test_cases = vec![
+            ("Inc. operates globally", " operates globally"),
+            ("Dr. Johnson's research", " Johnson's research"),
+            ("Ltd. company structure", " company structure"),
+            ("Corp. announced earnings", " announced earnings"),
+            ("Prof. teaches mathematics", " teaches mathematics"),
+        ];
+
+        for (preceding, following) in test_cases {
+            let full_text = format!("{}{}", preceding, following);
+            let period_pos = preceding.find('.').unwrap();
+            let context = BoundaryContext {
+                text: full_text.clone(),
+                position: period_pos,
+                boundary_char: '.',
+                preceding_context: preceding[..period_pos].to_string(),
+                following_context: format!("{}{}", &preceding[period_pos + 1..], following),
+            };
+
+            let decision = rules.detect_sentence_boundary(&context);
+            assert_eq!(
+                decision,
+                BoundaryDecision::NotBoundary,
+                "Expected no boundary for: '{}'",
+                full_text
+            );
+        }
+    }
+
+    #[test]
+    fn test_abbreviation_with_quotation_marks() {
+        let rules = EnglishLanguageRules::new();
+
+        // Test with various quotation mark scenarios
+        let test_cases = vec![
+            // Double quotes after abbreviation
+            ("She works at Inc.\" However", "Inc", ".\" However", true),
+            // Single quotes after abbreviation
+            ("The company 'Ltd.' Therefore", "Ltd", ".' Therefore", true),
+            // Quotes around following word
+            ("Contact Dr. \"Smith\" for", "Dr", ". \"Smith\" for", false),
+        ];
+
+        for (text, abbrev_end, following, should_be_boundary) in test_cases {
+            let pos = text.find(abbrev_end).unwrap() + abbrev_end.len();
+            let context = BoundaryContext {
+                text: text.to_string(),
+                position: pos,
+                boundary_char: '.',
+                preceding_context: text[..pos].to_string(),
+                following_context: following.to_string(),
+            };
+
+            let decision = rules.detect_sentence_boundary(&context);
+            if should_be_boundary {
+                assert!(
+                    matches!(decision, BoundaryDecision::Boundary(_)),
+                    "Expected boundary for: '{}'",
+                    text
+                );
+            } else {
+                assert_eq!(
+                    decision,
+                    BoundaryDecision::NotBoundary,
+                    "Expected no boundary for: '{}'",
+                    text
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_abbreviation_detection_for_inc() {
+        let rule = EnglishAbbreviationRule::new();
+
+        // Test that "Inc" is detected as an abbreviation
+        let text = "Inc. however, the results";
+        let position = 3; // Position of the period
+        let result = rule.detect_abbreviation(text, position);
+
+        assert!(
+            result.is_abbreviation,
+            "Inc should be detected as abbreviation"
+        );
+        assert!(result.confidence > 0.8, "Inc should have high confidence");
+    }
+
+    #[test]
+    fn test_case_sensitivity_for_sentence_starters() {
+        let rules = EnglishLanguageRules::new();
+
+        // Test case sensitivity
+        let test_cases = vec![
+            ("Inc.", " however, the results", false),  // lowercase
+            ("Inc.", " HOWEVER, the results", true),   // uppercase
+            ("Ltd.", " Therefore, we conclude", true), // normal case
+            ("Corp.", " therefore, we see", false),    // lowercase
+        ];
+
+        for (preceding, following, should_be_boundary) in test_cases {
+            let full_text = format!("{}{}", preceding, following);
+            let context = BoundaryContext {
+                text: full_text.clone(),
+                position: preceding.len() - 1, // Position at the period
+                boundary_char: '.',
+                preceding_context: preceding[..preceding.len() - 1].to_string(),
+                following_context: following.to_string(),
+            };
+
+            let decision = rules.detect_sentence_boundary(&context);
+            if should_be_boundary {
+                assert!(
+                    matches!(decision, BoundaryDecision::Boundary(_)),
+                    "Expected boundary for: '{}', got {:?}",
+                    full_text,
+                    decision
+                );
+            } else {
+                // The implementation returns NotBoundary for abbreviations followed by
+                // non-sentence-starters, which is correct
+                assert_eq!(
+                    decision,
+                    BoundaryDecision::NotBoundary,
+                    "Expected no boundary for: '{}', got {:?}",
+                    full_text,
+                    decision
+                );
+            }
+        }
     }
 }

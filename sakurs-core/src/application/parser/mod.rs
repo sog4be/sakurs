@@ -18,6 +18,9 @@ pub use strategies::{
     ParseError, ParseStrategy, ParsingInput, ParsingOutput, SequentialParser, StreamingParser,
 };
 
+/// Default context window size for boundary detection
+const DEFAULT_CONTEXT_WINDOW: usize = 10;
+
 /// Parser configuration options.
 pub struct ParserConfig {
     /// Rules for handling enclosures (quotes, parentheses, etc.)
@@ -74,9 +77,36 @@ impl TextParser {
         // Track parsing context
         let mut last_char: Option<char> = None;
         let mut consecutive_dots = 0;
+        let mut first_word_captured = false;
 
         while let Some(ch) = chars.next() {
             let char_len = ch.len_utf8();
+
+            // Capture first word of chunk if not yet captured
+            if !first_word_captured && ch.is_alphabetic() {
+                // Found the start of the first word
+                let mut word = String::new();
+                word.push(ch);
+
+                // Collect the rest of the word
+                let mut word_position = position + char_len;
+                while let Some(&next_ch) = chars.peek() {
+                    if next_ch.is_alphabetic() {
+                        word.push(next_ch);
+                        word_position += next_ch.len_utf8();
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+
+                state.abbreviation.first_word = Some(word.clone());
+                first_word_captured = true;
+
+                // Update position and continue from after the word
+                position = word_position;
+                continue;
+            }
 
             // Check for enclosure characters using language rules
             if let Some(enc_char) = language_rules.get_enclosure_char(ch) {
@@ -136,14 +166,15 @@ impl TextParser {
                         if ch == '.' {
                             let abbr_result = language_rules.process_abbreviation(text, position);
                             if abbr_result.is_abbreviation {
-                                state.abbreviation = AbbreviationState {
-                                    dangling_dot: true,
-                                    head_alpha: context
+                                state.abbreviation = AbbreviationState::with_first_word(
+                                    true, // dangling_dot
+                                    context
                                         .following_context
                                         .chars()
                                         .next()
-                                        .is_some_and(|c| c.is_alphabetic()),
-                                };
+                                        .is_some_and(|c| c.is_alphabetic()), // head_alpha
+                                    state.abbreviation.first_word.clone(), // preserve first_word
+                                );
                             }
                         }
                     }
@@ -202,16 +233,19 @@ fn build_boundary_context(
     _last_char: Option<char>,
     _consecutive_dots: usize,
 ) -> BoundaryContext {
-    // Extract text before the boundary (up to 10 chars)
+    // Extract text before the boundary (up to DEFAULT_CONTEXT_WINDOW chars)
     // Need to find valid UTF-8 boundary
-    let mut start = position.saturating_sub(10);
+    let mut start = position.saturating_sub(DEFAULT_CONTEXT_WINDOW);
     while start > 0 && !text.is_char_boundary(start) {
         start -= 1;
     }
     let preceding_context = text[start..position].to_string();
 
-    // Peek at upcoming characters (up to 10 chars)
-    let following_context = chars_iter.clone().take(10).collect::<String>();
+    // Peek at upcoming characters (up to DEFAULT_CONTEXT_WINDOW chars)
+    let following_context = chars_iter
+        .clone()
+        .take(DEFAULT_CONTEXT_WINDOW)
+        .collect::<String>();
 
     BoundaryContext {
         text: text.to_string(),
@@ -388,16 +422,31 @@ mod parser_tests {
             .map(|b| b.local_offset)
             .collect();
 
-        // Should not create boundaries after abbreviations
-        assert!(!boundary_positions.contains(&3)); // After "Dr."
-        assert!(!boundary_positions.contains(&41)); // After "Ph.D."
-        assert!(!boundary_positions.contains(&72)); // After "Corp."
+        // Should not create boundaries after some abbreviations
+        assert!(!boundary_positions.contains(&3)); // After "Dr." (followed by "Smith", not a sentence starter)
         assert!(!boundary_positions.contains(&95)); // After "$2.5" decimal
 
+        // But SHOULD create boundaries after abbreviations followed by sentence starters
+        let phd_pos = text.find("Ph.D.").unwrap() + 5; // Position after "Ph.D."
+        let corp_pos = text.find("Corp.").unwrap() + 5; // Position after "Corp."
+
+        assert!(
+            boundary_positions.contains(&phd_pos),
+            "Expected boundary after 'Ph.D.' at position {}",
+            phd_pos
+        );
+        assert!(
+            boundary_positions.contains(&corp_pos),
+            "Expected boundary after 'Corp.' at position {}",
+            corp_pos
+        );
+
         // Should create boundary candidates after real sentence endings:
+        // - After "Ph.D." when followed by "He" (sentence starter)
+        // - After "Corp." when followed by "The" (sentence starter)
         // - After "billion!" (exclamation mark)
         // - After "Amazing." (period at end)
-        assert_eq!(boundary_positions.len(), 2);
+        assert_eq!(boundary_positions.len(), 4);
     }
 
     #[test]

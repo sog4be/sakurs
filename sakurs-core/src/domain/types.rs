@@ -182,6 +182,8 @@ pub struct AbbreviationState {
     pub dangling_dot: bool,
     /// Starts with alphabetic character (e.g., "Smith")
     pub head_alpha: bool,
+    /// First word of the chunk (for sentence starter detection)
+    pub first_word: Option<String>,
 }
 
 impl AbbreviationState {
@@ -190,6 +192,20 @@ impl AbbreviationState {
         Self {
             dangling_dot,
             head_alpha,
+            first_word: None,
+        }
+    }
+
+    /// Creates a new abbreviation state with first word
+    pub fn with_first_word(
+        dangling_dot: bool,
+        head_alpha: bool,
+        first_word: Option<String>,
+    ) -> Self {
+        Self {
+            dangling_dot,
+            head_alpha,
+            first_word,
         }
     }
 
@@ -198,6 +214,7 @@ impl AbbreviationState {
         Self {
             dangling_dot: false,
             head_alpha: false,
+            first_word: None,
         }
     }
 
@@ -209,6 +226,8 @@ impl AbbreviationState {
             dangling_dot: other.dangling_dot,
             // Only the leftmost chunk's head alpha matters
             head_alpha: self.head_alpha,
+            // Only the leftmost chunk's first word matters
+            first_word: self.first_word.clone(),
         }
     }
 
