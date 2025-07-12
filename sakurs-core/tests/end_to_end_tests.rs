@@ -12,14 +12,15 @@ fn test_complete_english_processing_pipeline() {
     let text = "Dr. Smith went to the U.S.A. He bought a new car. The car cost $25,000! Isn't that expensive?";
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // With abbreviations, the API returns 2 boundaries:
+    // With our enhanced abbreviation handling, the API returns 3 boundaries:
+    // - After "U.S.A." (followed by "He", a sentence starter)
     // - After "new car."
     // - After "$25,000!"
-    // (Abbreviations like "Dr.", "U.S.A." don't create boundaries)
+    // (Abbreviations like "Dr." followed by non-sentence-starters don't create boundaries)
     assert_eq!(
         result.boundaries.len(),
-        2,
-        "Expected exactly 2 boundaries, got {}",
+        3,
+        "Expected exactly 3 boundaries, got {}",
         result.boundaries.len()
     );
 }

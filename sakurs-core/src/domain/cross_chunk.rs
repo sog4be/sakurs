@@ -13,6 +13,47 @@ use crate::domain::{
 };
 use std::collections::HashMap;
 
+/// Check if a word is a common sentence starter
+fn is_sentence_starter(word: &str) -> bool {
+    // Only consider words that start with a capital letter as potential sentence starters
+    if word.chars().next().is_some_and(|c| !c.is_uppercase()) {
+        return false;
+    }
+
+    // Convert to title case for case-insensitive comparison
+    let title_case = word
+        .chars()
+        .enumerate()
+        .map(|(i, c)| {
+            if i == 0 {
+                c.to_uppercase().collect::<String>()
+            } else {
+                c.to_lowercase().collect::<String>()
+            }
+        })
+        .collect::<String>();
+
+    // Common English sentence starters
+    matches!(
+        title_case.as_str(),
+        // Personal pronouns
+        "I" | "He" | "She" | "It" | "We" | "You" | "They" |
+        // WH-words
+        "What" | "Why" | "When" | "Where" | "Who" | "Whom" | "Whose" | "Which" | "How" |
+        // Demonstratives
+        "This" | "That" | "These" | "Those" |
+        // Conjunctive adverbs
+        "However" | "Therefore" | "Thus" | "Moreover" | "Furthermore" |
+        "Meanwhile" | "Consequently" | "Nevertheless" |
+        // Conditional adverbs
+        "Otherwise" | "Instead" |
+        // Common article
+        "The" |
+        // Time indicators
+        "Yesterday" | "Today" | "Tomorrow"
+    )
+}
+
 /// Enhanced abbreviation state with more context
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnhancedAbbreviationState {
@@ -231,6 +272,16 @@ impl CrossChunkValidator {
         if near_end {
             if let Some(next) = next_state {
                 if state.abbreviation.is_cross_chunk_abbr(&next.abbreviation) {
+                    // Check if the next chunk starts with a sentence starter
+                    if let Some(ref first_word) = next.abbreviation.first_word {
+                        // Use language rules to check if it's a sentence starter
+                        // For now, we'll use a simple check for common sentence starters
+                        if is_sentence_starter(first_word) {
+                            // This is an abbreviation followed by a sentence starter
+                            // The boundary should be kept as strong
+                            return ValidationResult::Weakened(BoundaryFlags::STRONG);
+                        }
+                    }
                     return ValidationResult::Invalid(
                         "Cross-chunk abbreviation detected".to_string(),
                     );
@@ -376,10 +427,11 @@ mod tests {
 
     #[test]
     fn test_enhanced_abbreviation_state() {
-        let basic = AbbreviationState {
-            dangling_dot: true,
-            head_alpha: false,
-        };
+        let basic = AbbreviationState::with_first_word(
+            true,  // dangling_dot
+            false, // head_alpha
+            None,  // first_word
+        );
 
         let enhanced = EnhancedAbbreviationState {
             basic,
@@ -390,10 +442,11 @@ mod tests {
         };
 
         let next = EnhancedAbbreviationState {
-            basic: AbbreviationState {
-                dangling_dot: false,
-                head_alpha: true,
-            },
+            basic: AbbreviationState::with_first_word(
+                false, // dangling_dot
+                true,  // head_alpha
+                None,  // first_word
+            ),
             ..Default::default()
         };
 
