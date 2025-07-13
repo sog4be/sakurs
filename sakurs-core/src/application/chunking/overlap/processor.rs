@@ -1,11 +1,43 @@
-//! Overlap processing for cross-chunk pattern detection
+//! Overlap processing and pattern detection for cross-chunk boundary handling
 
-use super::{pattern_detector::PatternDetector, types::*};
-use crate::{
-    application::{chunking::TextChunk, config::ProcessingResult},
-    domain::enclosure_suppressor::EnclosureSuppressor,
+use super::types::{
+    BoundaryAdjustment, OverlapResult, PartialPattern, PatternType, SuppressionMarker,
+    SuppressionReason,
 };
+use crate::{
+    application::{chunking::base::TextChunk, config::ProcessingResult},
+    domain::enclosure_suppressor::{EnclosureContext, EnclosureSuppressor},
+};
+use smallvec::SmallVec;
 use std::sync::Arc;
+
+// Constants for pattern detection
+/// Number of characters to look ahead/behind for context
+pub const CONTEXT_CHAR_COUNT: usize = 3;
+
+/// Maximum line offset for list item detection
+pub const MAX_LIST_ITEM_LINE_OFFSET: usize = 10;
+
+/// Confidence scores for different pattern types
+pub mod confidence {
+    /// High confidence for contractions with full context
+    pub const CONTRACTION_HIGH: f32 = 0.95;
+
+    /// Lower confidence for contractions with partial context
+    pub const CONTRACTION_LOW: f32 = 0.8;
+
+    /// Confidence for possessive patterns
+    pub const POSSESSIVE: f32 = 0.9;
+
+    /// Confidence for measurement patterns
+    pub const MEASUREMENT: f32 = 0.95;
+
+    /// Confidence for list item patterns
+    pub const LIST_ITEM: f32 = 0.85;
+
+    /// Default confidence for generic patterns
+    pub const GENERIC_PATTERN: f32 = 0.7;
+}
 
 /// Processes overlap regions between chunks to detect cross-chunk patterns
 pub struct OverlapProcessor {
@@ -13,7 +45,7 @@ pub struct OverlapProcessor {
     overlap_size: usize,
 
     /// Enclosure suppressor for pattern detection
-    pub(super) enclosure_suppressor: Arc<dyn EnclosureSuppressor>,
+    pub(crate) enclosure_suppressor: Arc<dyn EnclosureSuppressor>,
 }
 
 impl OverlapProcessor {
@@ -109,20 +141,20 @@ impl OverlapProcessor {
         // Iterate through each character in the extended context
         for (idx, ch) in extended_context.char_indices() {
             // Skip non-enclosure characters
-            if !PatternDetector::is_potential_enclosure(ch) {
+            if !self.is_potential_enclosure(ch) {
                 continue;
             }
 
             // Create context for this position
-            let context = PatternDetector::create_enclosure_context(extended_context, idx, ch);
+            let context = self.create_enclosure_context(extended_context, idx, ch);
 
             // Check if this enclosure should be suppressed
             if self
                 .enclosure_suppressor
                 .should_suppress_enclosure(ch, &context)
             {
-                let reason = PatternDetector::determine_suppression_reason(ch, &context);
-                let confidence = PatternDetector::calculate_confidence(&context, &reason);
+                let reason = self.determine_suppression_reason(ch, &context);
+                let confidence = self.calculate_confidence(&context, &reason);
 
                 // Calculate the actual position in the original text
                 // The overlap text consists of:
@@ -219,5 +251,141 @@ impl OverlapProcessor {
         }
 
         adjustments
+    }
+
+    // Pattern detection methods (previously in PatternDetector)
+
+    /// Determines the suppression reason based on character and context
+    pub(crate) fn determine_suppression_reason(
+        &self,
+        ch: char,
+        context: &EnclosureContext,
+    ) -> SuppressionReason {
+        // Check for contractions
+        if matches!(ch, '\'' | '\u{2019}') {
+            let prev_alpha = context
+                .preceding_chars
+                .last()
+                .map(|c| c.is_alphabetic())
+                .unwrap_or(false);
+            let next_alpha = context
+                .following_chars
+                .first()
+                .map(|c| c.is_alphabetic())
+                .unwrap_or(false);
+
+            if prev_alpha && next_alpha {
+                return SuppressionReason::Contraction;
+            }
+
+            // Check for possessives
+            if prev_alpha && !next_alpha {
+                return SuppressionReason::Possessive;
+            }
+
+            // Check for measurements
+            if context
+                .preceding_chars
+                .last()
+                .map(|c| c.is_numeric())
+                .unwrap_or(false)
+            {
+                return SuppressionReason::Measurement;
+            }
+        }
+
+        // Check for list items
+        if ch == ')' && context.line_offset < MAX_LIST_ITEM_LINE_OFFSET {
+            return SuppressionReason::ListItem;
+        }
+
+        // Default to cross-chunk pattern
+        SuppressionReason::CrossChunkPattern {
+            pattern: format!("{:?}", context.preceding_chars),
+        }
+    }
+
+    /// Calculates confidence score for a suppression
+    pub(crate) fn calculate_confidence(
+        &self,
+        context: &EnclosureContext,
+        reason: &SuppressionReason,
+    ) -> f32 {
+        match reason {
+            SuppressionReason::Contraction => {
+                // High confidence if we have clear alphabetic characters on both sides
+                if context.preceding_chars.len() >= 2 && !context.following_chars.is_empty() {
+                    confidence::CONTRACTION_HIGH
+                } else {
+                    confidence::CONTRACTION_LOW
+                }
+            }
+            SuppressionReason::Possessive => confidence::POSSESSIVE,
+            SuppressionReason::Measurement => confidence::MEASUREMENT,
+            SuppressionReason::ListItem => confidence::LIST_ITEM,
+            SuppressionReason::CrossChunkPattern { .. } => confidence::GENERIC_PATTERN,
+        }
+    }
+
+    /// Creates an enclosure context for a position in text
+    pub(crate) fn create_enclosure_context<'a>(
+        &self,
+        text: &'a str,
+        position: usize,
+        ch: char,
+    ) -> EnclosureContext<'a> {
+        // Get preceding characters
+        let preceding_chars: SmallVec<[char; CONTEXT_CHAR_COUNT]> = text[..position]
+            .chars()
+            .rev()
+            .take(CONTEXT_CHAR_COUNT)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+
+        // Get following characters
+        // Use the character's UTF-8 length to safely skip it
+        let skip_position = position + ch.len_utf8();
+        let following_chars: SmallVec<[char; CONTEXT_CHAR_COUNT]> = if skip_position <= text.len() {
+            text[skip_position..]
+                .chars()
+                .take(CONTEXT_CHAR_COUNT)
+                .collect()
+        } else {
+            SmallVec::new()
+        };
+
+        // Calculate line offset (simplified - count from last newline)
+        let line_offset = text[..position]
+            .rfind('\n')
+            .map(|pos| position - pos - 1)
+            .unwrap_or(position);
+
+        EnclosureContext {
+            position,
+            preceding_chars,
+            following_chars,
+            line_offset,
+            chunk_text: text,
+        }
+    }
+
+    /// Checks if a character could be an enclosure
+    pub(crate) fn is_potential_enclosure(&self, ch: char) -> bool {
+        matches!(
+            ch,
+            '\'' | '"'
+                | '('
+                | ')'
+                | '['
+                | ']'
+                | '{'
+                | '}'
+                | '\u{2018}'
+                | '\u{2019}'
+                | '\u{201C}'
+                | '\u{201D}'
+        )
     }
 }

@@ -1,7 +1,7 @@
 //! Tests specifically for UTF-8 boundary safety in overlap-based chunking
 
 use sakurs_core::{
-    application::overlap_chunking::{OverlapChunkConfig, OverlapChunkManager},
+    application::chunking::{OverlapChunkConfig, OverlapChunkManager},
     domain::enclosure_suppressor::EnglishEnclosureSuppressor,
 };
 use std::sync::Arc;

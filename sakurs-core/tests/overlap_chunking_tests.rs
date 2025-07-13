@@ -1,7 +1,7 @@
 //! Integration tests for overlap-based chunking with cross-chunk pattern detection
 
 use sakurs_core::{
-    application::overlap_chunking::{OverlapChunkConfig, OverlapChunkManager, SuppressionReason},
+    application::chunking::{OverlapChunkConfig, OverlapChunkManager, SuppressionReason},
     domain::enclosure_suppressor::EnglishEnclosureSuppressor,
 };
 use std::sync::Arc;

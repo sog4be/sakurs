@@ -31,7 +31,6 @@
 
 pub mod chunking;
 pub mod config;
-pub mod overlap_chunking;
 pub mod parser;
 pub mod processor;
 pub mod strategies;
