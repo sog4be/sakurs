@@ -25,6 +25,10 @@ pub struct PrefixSumComputer;
 impl PrefixSumComputer {
     /// Computes the cumulative state at the start of each chunk.
     ///
+    /// This version assumes chunks are contiguous without overlap,
+    /// using the chunk_length field to calculate offsets.
+    /// Used for sequential processing where chunks don't overlap.
+    ///
     /// # Arguments
     /// * `states` - Partial states from the scan phase
     ///
@@ -80,7 +84,8 @@ impl PrefixSumComputer {
     /// Computes the cumulative state with proper chunk offset handling.
     ///
     /// This version uses the actual chunk positions from the original text
-    /// to correctly handle overlapping chunks.
+    /// to correctly handle overlapping chunks in parallel processing.
+    /// Required when chunks may overlap (e.g., in parallel strategy).
     ///
     /// # Arguments
     /// * `states` - Partial states from the scan phase
