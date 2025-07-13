@@ -93,7 +93,7 @@ impl PrefixSumComputer {
     ///
     /// # Returns
     /// Vector of cumulative states with correct global offsets
-    pub fn compute_prefix_sum_with_chunks(
+    pub fn compute_prefix_sum_with_overlap(
         states: &[PartialState],
         chunks: &[TextChunk],
     ) -> Vec<ChunkStartState> {
@@ -142,7 +142,7 @@ impl PrefixSumComputer {
         }
 
         // For larger inputs, use parallel algorithm with chunk offsets
-        Self::parallel_prefix_sum_with_chunks(states, chunks, &mut result);
+        Self::parallel_prefix_sum_with_overlap(states, chunks, &mut result);
 
         result
     }
@@ -234,7 +234,7 @@ impl PrefixSumComputer {
     }
 
     /// Parallel prefix-sum with chunk offset handling.
-    fn parallel_prefix_sum_with_chunks(
+    fn parallel_prefix_sum_with_overlap(
         states: &[PartialState],
         chunks: &[TextChunk],
         result: &mut [ChunkStartState],
