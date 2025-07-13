@@ -40,7 +40,7 @@ graph TB
     subgraph "Application Layer"
         APP[UnifiedProcessor]
         STRAT[Processing Strategies<br/>- Sequential<br/>- Parallel<br/>- Streaming<br/>- Adaptive]
-        CHUNK[Chunking Functions]
+        CHUNK[Chunking Functions<br/>- ChunkManager<br/>- OverlapChunkManager]
         PARSER[Text Parser]
     end
     
@@ -258,6 +258,7 @@ Key responsibilities:
 - Chunk management at valid UTF-8 boundaries
 - Cross-chunk boundary resolution
 - Performance optimization
+
 
 ### Adapter Layer
 
