@@ -3,8 +3,10 @@
 //! This module provides an enhanced chunking system that can detect and handle
 //! patterns (like contractions and possessives) that span chunk boundaries.
 
+mod constants;
 mod enhanced_chunk_manager;
 mod overlap_processor;
+mod pattern_detector;
 mod state_tracker;
 mod types;
 

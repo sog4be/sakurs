@@ -1,9 +1,11 @@
 //! Enhanced chunk manager with cross-chunk pattern detection
 
 use super::{
+    constants::{DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP_SIZE},
     overlap_processor::OverlapProcessor,
+    pattern_detector::PatternDetector,
     state_tracker::{CrossChunkStateTracker, StateTrackerConfig},
-    types::{ProcessedChunk, SuppressionMarker, SuppressionReason},
+    types::{ProcessedChunk, SuppressionMarker},
 };
 use crate::{
     application::{
@@ -26,9 +28,6 @@ pub struct EnhancedChunkConfig {
     /// Whether to enable cross-chunk detection
     pub enable_cross_chunk: bool,
 
-    /// Size of suppression result cache
-    pub suppression_cache_size: usize,
-
     /// State tracker configuration
     pub state_tracker_config: StateTrackerConfig,
 }
@@ -36,12 +35,37 @@ pub struct EnhancedChunkConfig {
 impl Default for EnhancedChunkConfig {
     fn default() -> Self {
         Self {
-            chunk_size: 65536, // 64KB
-            overlap_size: 32,  // 32 bytes
+            chunk_size: DEFAULT_CHUNK_SIZE,
+            overlap_size: DEFAULT_OVERLAP_SIZE,
             enable_cross_chunk: true,
-            suppression_cache_size: 1000,
             state_tracker_config: StateTrackerConfig::default(),
         }
+    }
+}
+
+impl EnhancedChunkConfig {
+    /// Validates the configuration
+    pub fn validate(&self) -> Result<(), String> {
+        if self.chunk_size == 0 {
+            return Err("Chunk size must be greater than 0".to_string());
+        }
+
+        if self.overlap_size > self.chunk_size / 2 {
+            return Err(format!(
+                "Overlap size ({}) must not exceed half of chunk size ({})",
+                self.overlap_size,
+                self.chunk_size / 2
+            ));
+        }
+
+        if self.overlap_size > 1024 {
+            return Err(format!(
+                "Overlap size ({}) is too large; maximum recommended is 1024 bytes",
+                self.overlap_size
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -66,6 +90,11 @@ impl EnhancedChunkManager {
         config: EnhancedChunkConfig,
         enclosure_suppressor: Arc<dyn EnclosureSuppressor>,
     ) -> Self {
+        // Validate configuration
+        config
+            .validate()
+            .expect("Invalid enhanced chunk configuration");
+
         let base_manager = ChunkManager::new(config.chunk_size, config.overlap_size);
         let overlap_processor = OverlapProcessor::new(config.overlap_size, enclosure_suppressor);
         let state_tracker = CrossChunkStateTracker::new(config.state_tracker_config.clone());
@@ -98,10 +127,21 @@ impl EnhancedChunkManager {
 
         // If we have only one chunk, no overlap processing needed
         if base_chunks.len() <= 1 {
-            return Ok(base_chunks
+            let mut processed_chunks: Vec<ProcessedChunk> = base_chunks
                 .into_iter()
                 .map(ProcessedChunk::from_base)
-                .collect());
+                .collect();
+
+            // Still detect suppressions within the single chunk
+            if let Some(chunk) = processed_chunks.get_mut(0) {
+                if let Ok(suppressions) = self.detect_suppressions_in_chunk(&chunk.base_chunk) {
+                    for suppression in suppressions {
+                        chunk.add_suppression(suppression);
+                    }
+                }
+            }
+
+            return Ok(processed_chunks);
         }
 
         // Process chunks with overlap detection
@@ -205,56 +245,17 @@ impl EnhancedChunkManager {
         &self,
         chunk: &TextChunk,
     ) -> ProcessingResult<Vec<SuppressionMarker>> {
-        use crate::domain::enclosure_suppressor::EnclosureContext;
-        use smallvec::SmallVec;
-
         let mut suppressions = Vec::new();
         let content = &chunk.content;
 
         for (idx, ch) in content.char_indices() {
             // Skip non-enclosure characters
-            if !matches!(
-                ch,
-                '\'' | '"'
-                    | '('
-                    | ')'
-                    | '['
-                    | ']'
-                    | '{'
-                    | '}'
-                    | '\u{2018}'
-                    | '\u{2019}'
-                    | '\u{201C}'
-                    | '\u{201D}'
-            ) {
+            if !PatternDetector::is_potential_enclosure(ch) {
                 continue;
             }
 
             // Create context
-            let preceding_chars: SmallVec<[char; 3]> = content[..idx]
-                .chars()
-                .rev()
-                .take(3)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect();
-
-            let following_chars: SmallVec<[char; 3]> =
-                content[idx + ch.len_utf8()..].chars().take(3).collect();
-
-            let line_offset = content[..idx]
-                .rfind('\n')
-                .map(|pos| idx - pos - 1)
-                .unwrap_or(idx);
-
-            let context = EnclosureContext {
-                position: idx,
-                preceding_chars,
-                following_chars,
-                line_offset,
-                chunk_text: content,
-            };
+            let context = PatternDetector::create_enclosure_context(content, idx, ch);
 
             // Check if should be suppressed
             if self
@@ -262,63 +263,14 @@ impl EnhancedChunkManager {
                 .enclosure_suppressor
                 .should_suppress_enclosure(ch, &context)
             {
-                let reason = match ch {
-                    '\'' | '\u{2019}'
-                        if context
-                            .preceding_chars
-                            .last()
-                            .map(|c| c.is_numeric())
-                            .unwrap_or(false) =>
-                    {
-                        SuppressionReason::Measurement
-                    }
-                    '\'' | '\u{2019}'
-                        if context
-                            .preceding_chars
-                            .last()
-                            .map(|c| c.is_alphabetic())
-                            .unwrap_or(false)
-                            && context
-                                .following_chars
-                                .first()
-                                .map(|c| c.is_alphabetic())
-                                .unwrap_or(false) =>
-                    {
-                        SuppressionReason::Contraction
-                    }
-                    '\'' | '\u{2019}'
-                        if context
-                            .preceding_chars
-                            .last()
-                            .map(|c| c.is_alphanumeric())
-                            .unwrap_or(false)
-                            && context
-                                .following_chars
-                                .first()
-                                .map(|c| c.is_whitespace() || c.is_ascii_punctuation())
-                                .unwrap_or(true) =>
-                    {
-                        SuppressionReason::Possessive
-                    }
-                    ')' if context.line_offset < 10 => SuppressionReason::ListItem,
-                    '"' if context
-                        .preceding_chars
-                        .last()
-                        .map(|c| c.is_numeric())
-                        .unwrap_or(false) =>
-                    {
-                        SuppressionReason::Measurement
-                    }
-                    _ => SuppressionReason::CrossChunkPattern {
-                        pattern: format!("{:?}", context.preceding_chars),
-                    },
-                };
+                let reason = PatternDetector::determine_suppression_reason(ch, &context);
+                let confidence = PatternDetector::calculate_confidence(&context, &reason);
 
                 suppressions.push(SuppressionMarker {
                     position: idx,
                     character: ch,
                     reason,
-                    confidence: 0.9,
+                    confidence,
                     from_overlap: false,
                 });
             }

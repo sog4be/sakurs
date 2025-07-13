@@ -1,6 +1,9 @@
 //! State tracking for cross-chunk processing
 
-use super::types::*;
+use super::{
+    constants::{DEFAULT_DEDUP_WINDOW, DEFAULT_MIN_CONFIDENCE},
+    types::*,
+};
 use crate::application::config::ProcessingResult;
 use std::collections::HashMap;
 
@@ -42,8 +45,8 @@ pub struct StateTrackerConfig {
 impl Default for StateTrackerConfig {
     fn default() -> Self {
         Self {
-            dedup_window: 32,
-            min_confidence: 0.7,
+            dedup_window: DEFAULT_DEDUP_WINDOW,
+            min_confidence: DEFAULT_MIN_CONFIDENCE,
             merge_adjacent: true,
         }
     }

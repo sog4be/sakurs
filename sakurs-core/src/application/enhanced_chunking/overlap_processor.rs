@@ -1,11 +1,10 @@
 //! Overlap processing for cross-chunk pattern detection
 
-use super::types::*;
+use super::{pattern_detector::PatternDetector, types::*};
 use crate::{
     application::{chunking::TextChunk, config::ProcessingResult},
-    domain::enclosure_suppressor::{EnclosureContext, EnclosureSuppressor},
+    domain::enclosure_suppressor::EnclosureSuppressor,
 };
-use smallvec::SmallVec;
 use std::sync::Arc;
 
 /// Processes overlap regions between chunks to detect cross-chunk patterns
@@ -38,14 +37,13 @@ impl OverlapProcessor {
 
         // Detect suppressions in the overlap region
         let suppressions =
-            self.detect_suppressions(&overlap_text, &overlap_text, left_chunk.end_offset)?;
+            self.detect_suppressions(&overlap_text, left_chunk.end_offset, left_context.len())?;
 
         // Detect partial patterns
         let partial_patterns = self.detect_partial_patterns(&left_context, &right_context);
 
         // Calculate boundary adjustments
-        let boundary_adjustments =
-            self.calculate_boundary_adjustments(&suppressions, &overlap_text);
+        let boundary_adjustments = self.calculate_boundary_adjustments(&suppressions);
 
         Ok(OverlapResult {
             suppressions,
@@ -64,12 +62,29 @@ impl OverlapProcessor {
         // For overlap processing, we need to look at the boundary area between chunks
         // Take the end of the left chunk and the beginning of the right chunk
 
-        let left_end = left_chunk.content.len();
-        let left_start = left_end.saturating_sub(self.overlap_size);
-        let left_context = &left_chunk.content[left_start..];
+        let left_content = &left_chunk.content;
+        let right_content = &right_chunk.content;
 
-        let right_end = right_chunk.content.len().min(self.overlap_size);
-        let right_context = &right_chunk.content[..right_end];
+        // Find safe UTF-8 boundaries for left context
+        let left_end = left_content.len();
+        let mut left_start = left_end.saturating_sub(self.overlap_size);
+
+        // Ensure left_start is at a char boundary
+        while left_start < left_end && !left_content.is_char_boundary(left_start) {
+            left_start += 1;
+        }
+
+        let left_context = &left_content[left_start..];
+
+        // Find safe UTF-8 boundaries for right context
+        let mut right_end = right_content.len().min(self.overlap_size);
+
+        // Ensure right_end is at a char boundary
+        while right_end > 0 && !right_content.is_char_boundary(right_end) {
+            right_end -= 1;
+        }
+
+        let right_context = &right_content[..right_end];
 
         // The overlap region is the concatenation of the boundary area
         // This allows us to detect patterns that span the chunk boundary
@@ -86,41 +101,42 @@ impl OverlapProcessor {
     fn detect_suppressions(
         &self,
         extended_context: &str,
-        overlap_text: &str,
         base_offset: usize,
+        left_context_len: usize,
     ) -> ProcessingResult<Vec<SuppressionMarker>> {
         let mut suppressions = Vec::new();
 
         // Iterate through each character in the extended context
         for (idx, ch) in extended_context.char_indices() {
             // Skip non-enclosure characters
-            if !self.is_potential_enclosure(ch) {
+            if !PatternDetector::is_potential_enclosure(ch) {
                 continue;
             }
 
             // Create context for this position
-            let context = self.create_enclosure_context(extended_context, idx, ch);
+            let context = PatternDetector::create_enclosure_context(extended_context, idx, ch);
 
             // Check if this enclosure should be suppressed
             if self
                 .enclosure_suppressor
                 .should_suppress_enclosure(ch, &context)
             {
-                let reason = self.determine_suppression_reason(ch, &context);
-                let confidence = self.calculate_confidence(&context, &reason);
+                let reason = PatternDetector::determine_suppression_reason(ch, &context);
+                let confidence = PatternDetector::calculate_confidence(&context, &reason);
 
                 // Calculate the actual position in the original text
-                // We need to adjust based on where this character is in the overlap
-                let position = if idx < overlap_text.len() / 2 {
-                    // In the left chunk part
-                    base_offset
-                        .saturating_sub(self.overlap_size)
-                        .saturating_add(idx)
+                // The overlap text consists of:
+                // - left_context (from left chunk end)
+                // - right_context (from right chunk start)
+
+                let position = if idx < left_context_len {
+                    // Character is in the left chunk's overlap region
+                    // base_offset is the end of left chunk, so we subtract the distance from end
+                    base_offset.saturating_sub(left_context_len - idx)
                 } else {
-                    // In the right chunk part
-                    base_offset
-                        .saturating_add(idx)
-                        .saturating_sub(overlap_text.len() / 2)
+                    // Character is in the right chunk's overlap region
+                    // Position relative to the start of right chunk
+                    base_offset + (idx - left_context_len)
                 };
 
                 suppressions.push(SuppressionMarker {
@@ -134,139 +150,6 @@ impl OverlapProcessor {
         }
 
         Ok(suppressions)
-    }
-
-    /// Checks if a character could be an enclosure
-    fn is_potential_enclosure(&self, ch: char) -> bool {
-        matches!(
-            ch,
-            '\'' | '"'
-                | '('
-                | ')'
-                | '['
-                | ']'
-                | '{'
-                | '}'
-                | '\u{2018}'
-                | '\u{2019}'
-                | '\u{201C}'
-                | '\u{201D}'
-        )
-    }
-
-    /// Creates an enclosure context for a position
-    fn create_enclosure_context<'a>(
-        &self,
-        text: &'a str,
-        position: usize,
-        _ch: char,
-    ) -> EnclosureContext<'a> {
-        // Get preceding characters (up to 3)
-        let preceding_chars: SmallVec<[char; 3]> = text[..position]
-            .chars()
-            .rev()
-            .take(3)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect();
-
-        // Get following characters (up to 3)
-        let following_chars: SmallVec<[char; 3]> = text[position + 1..].chars().take(3).collect();
-
-        // Calculate line offset (simplified - count from last newline)
-        let line_offset = text[..position]
-            .rfind('\n')
-            .map(|pos| position - pos - 1)
-            .unwrap_or(position);
-
-        EnclosureContext {
-            position,
-            preceding_chars,
-            following_chars,
-            line_offset,
-            chunk_text: text,
-        }
-    }
-
-    /// Determines the reason for suppression based on context
-    fn determine_suppression_reason(
-        &self,
-        ch: char,
-        context: &EnclosureContext,
-    ) -> SuppressionReason {
-        // Check for contractions
-        if matches!(ch, '\'' | '\u{2019}') {
-            let prev_alpha = context
-                .preceding_chars
-                .last()
-                .map(|c| c.is_alphabetic())
-                .unwrap_or(false);
-            let next_alpha = context
-                .following_chars
-                .first()
-                .map(|c| c.is_alphabetic())
-                .unwrap_or(false);
-
-            if prev_alpha && next_alpha {
-                return SuppressionReason::Contraction;
-            }
-
-            // Check for possessives
-            if prev_alpha && !next_alpha {
-                return SuppressionReason::Possessive;
-            }
-
-            // Check for measurements
-            if context
-                .preceding_chars
-                .last()
-                .map(|c| c.is_numeric())
-                .unwrap_or(false)
-            {
-                return SuppressionReason::Measurement;
-            }
-        }
-
-        // Check for list items
-        if ch == ')' && context.line_offset < 10 {
-            return SuppressionReason::ListItem;
-        }
-
-        // Default to cross-chunk pattern
-        SuppressionReason::CrossChunkPattern {
-            pattern: format!("{:?}", context.preceding_chars),
-        }
-    }
-
-    /// Calculates confidence score for a suppression
-    fn calculate_confidence(&self, context: &EnclosureContext, reason: &SuppressionReason) -> f32 {
-        match reason {
-            SuppressionReason::Contraction => {
-                // High confidence if we have clear alphabetic characters on both sides
-                if context.preceding_chars.len() >= 2 && !context.following_chars.is_empty() {
-                    0.95
-                } else {
-                    0.8
-                }
-            }
-            SuppressionReason::Possessive => {
-                // High confidence for possessives
-                0.9
-            }
-            SuppressionReason::Measurement => {
-                // Very high confidence for measurements
-                0.95
-            }
-            SuppressionReason::ListItem => {
-                // Moderate confidence for list items
-                0.85
-            }
-            SuppressionReason::CrossChunkPattern { .. } => {
-                // Lower confidence for generic patterns
-                0.7
-            }
-        }
     }
 
     /// Detects partial patterns at chunk boundaries
@@ -319,7 +202,6 @@ impl OverlapProcessor {
     fn calculate_boundary_adjustments(
         &self,
         suppressions: &[SuppressionMarker],
-        _overlap_text: &str,
     ) -> Vec<BoundaryAdjustment> {
         let mut adjustments = Vec::new();
 
