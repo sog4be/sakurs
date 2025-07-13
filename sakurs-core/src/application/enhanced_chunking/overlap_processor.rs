@@ -73,7 +73,7 @@ impl OverlapProcessor {
 
         // The overlap region is the concatenation of the boundary area
         // This allows us to detect patterns that span the chunk boundary
-        let overlap_text = format!("{}{}", left_context, right_context);
+        let overlap_text = format!("{left_context}{right_context}");
 
         Ok((
             overlap_text,
