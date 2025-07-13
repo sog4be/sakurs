@@ -1,4 +1,4 @@
-//! Enhanced chunk manager with cross-chunk pattern detection
+//! Overlap-based chunk manager with cross-chunk pattern detection
 
 use super::{
     constants::{DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP_SIZE},
@@ -16,9 +16,9 @@ use crate::{
 };
 use std::sync::Arc;
 
-/// Configuration for enhanced chunking
+/// Configuration for overlap-based chunking
 #[derive(Debug, Clone)]
-pub struct EnhancedChunkConfig {
+pub struct OverlapChunkConfig {
     /// Base chunk size in bytes
     pub chunk_size: usize,
 
@@ -32,7 +32,7 @@ pub struct EnhancedChunkConfig {
     pub state_tracker_config: StateTrackerConfig,
 }
 
-impl Default for EnhancedChunkConfig {
+impl Default for OverlapChunkConfig {
     fn default() -> Self {
         Self {
             chunk_size: DEFAULT_CHUNK_SIZE,
@@ -43,7 +43,7 @@ impl Default for EnhancedChunkConfig {
     }
 }
 
-impl EnhancedChunkConfig {
+impl OverlapChunkConfig {
     /// Validates the configuration
     pub fn validate(&self) -> Result<(), String> {
         if self.chunk_size == 0 {
@@ -69,8 +69,8 @@ impl EnhancedChunkConfig {
     }
 }
 
-/// Enhanced chunk manager that handles cross-chunk patterns
-pub struct EnhancedChunkManager {
+/// Overlap-based chunk manager that handles cross-chunk patterns
+pub struct OverlapChunkManager {
     /// Base chunk manager
     base_manager: ChunkManager,
 
@@ -81,19 +81,19 @@ pub struct EnhancedChunkManager {
     state_tracker: CrossChunkStateTracker,
 
     /// Configuration
-    config: EnhancedChunkConfig,
+    config: OverlapChunkConfig,
 }
 
-impl EnhancedChunkManager {
-    /// Creates a new enhanced chunk manager
+impl OverlapChunkManager {
+    /// Creates a new overlap-based chunk manager
     pub fn new(
-        config: EnhancedChunkConfig,
+        config: OverlapChunkConfig,
         enclosure_suppressor: Arc<dyn EnclosureSuppressor>,
     ) -> Self {
         // Validate configuration
         config
             .validate()
-            .expect("Invalid enhanced chunk configuration");
+            .expect("Invalid overlap chunk configuration");
 
         let base_manager = ChunkManager::new(config.chunk_size, config.overlap_size);
         let overlap_processor = OverlapProcessor::new(config.overlap_size, enclosure_suppressor);
@@ -107,9 +107,9 @@ impl EnhancedChunkManager {
         }
     }
 
-    /// Creates an enhanced chunk manager with default configuration
+    /// Creates an overlap chunk manager with default configuration
     pub fn with_defaults(enclosure_suppressor: Arc<dyn EnclosureSuppressor>) -> Self {
-        Self::new(EnhancedChunkConfig::default(), enclosure_suppressor)
+        Self::new(OverlapChunkConfig::default(), enclosure_suppressor)
     }
 
     /// Chunks text with cross-chunk pattern processing
@@ -224,14 +224,14 @@ impl EnhancedChunkManager {
     }
 
     /// Updates configuration
-    pub fn update_config(&mut self, config: EnhancedChunkConfig) {
+    pub fn update_config(&mut self, config: OverlapChunkConfig) {
         self.base_manager = ChunkManager::new(config.chunk_size, config.overlap_size);
         self.state_tracker = CrossChunkStateTracker::new(config.state_tracker_config.clone());
         self.config = config;
     }
 
     /// Gets the current configuration
-    pub fn config(&self) -> &EnhancedChunkConfig {
+    pub fn config(&self) -> &OverlapChunkConfig {
         &self.config
     }
 
@@ -288,7 +288,7 @@ mod tests {
     #[test]
     fn test_basic_chunking() {
         let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
-        let mut manager = EnhancedChunkManager::with_defaults(suppressor);
+        let mut manager = OverlapChunkManager::with_defaults(suppressor);
 
         let text = "This is a simple test.";
         let chunks = manager.chunk_with_overlap_processing(text).unwrap();
@@ -301,12 +301,12 @@ mod tests {
     #[test]
     fn test_cross_chunk_contraction() {
         let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
-        let config = EnhancedChunkConfig {
+        let config = OverlapChunkConfig {
             chunk_size: 20, // Small chunks to force splitting
             overlap_size: 10,
             ..Default::default()
         };
-        let mut manager = EnhancedChunkManager::new(config, suppressor);
+        let mut manager = OverlapChunkManager::new(config, suppressor);
 
         // This should split around "isn't"
         let text = "The problem here isn't the solution.";
@@ -326,9 +326,9 @@ mod tests {
     #[test]
     fn test_config_update() {
         let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
-        let mut manager = EnhancedChunkManager::with_defaults(suppressor);
+        let mut manager = OverlapChunkManager::with_defaults(suppressor);
 
-        let new_config = EnhancedChunkConfig {
+        let new_config = OverlapChunkConfig {
             chunk_size: 1024,
             overlap_size: 64,
             ..Default::default()

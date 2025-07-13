@@ -1,23 +1,21 @@
-//! Integration tests for enhanced chunking with cross-chunk pattern detection
+//! Integration tests for overlap-based chunking with cross-chunk pattern detection
 
 use sakurs_core::{
-    application::enhanced_chunking::{
-        EnhancedChunkConfig, EnhancedChunkManager, SuppressionReason,
-    },
+    application::overlap_chunking::{OverlapChunkConfig, OverlapChunkManager, SuppressionReason},
     domain::enclosure_suppressor::EnglishEnclosureSuppressor,
 };
 use std::sync::Arc;
 
 /// Helper to create a manager with small chunks for testing
-fn create_test_manager(chunk_size: usize) -> EnhancedChunkManager {
+fn create_test_manager(chunk_size: usize) -> OverlapChunkManager {
     let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
-    let config = EnhancedChunkConfig {
+    let config = OverlapChunkConfig {
         chunk_size,
         overlap_size: 10, // Small overlap for testing
         enable_cross_chunk: true,
         ..Default::default()
     };
-    EnhancedChunkManager::new(config, suppressor)
+    OverlapChunkManager::new(config, suppressor)
 }
 
 #[test]
@@ -252,13 +250,13 @@ fn test_very_short_chunks() {
 #[test]
 fn test_disabled_cross_chunk_processing() {
     let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
-    let config = EnhancedChunkConfig {
+    let config = OverlapChunkConfig {
         chunk_size: 20,
         overlap_size: 10,
         enable_cross_chunk: false, // Disabled
         ..Default::default()
     };
-    let mut manager = EnhancedChunkManager::new(config, suppressor);
+    let mut manager = OverlapChunkManager::new(config, suppressor);
 
     let text = "This isn't working.";
     let chunks = manager.chunk_with_overlap_processing(text).unwrap();

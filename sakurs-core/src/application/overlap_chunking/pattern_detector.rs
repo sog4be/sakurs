@@ -7,7 +7,7 @@ use super::{
 use crate::domain::enclosure_suppressor::EnclosureContext;
 use smallvec::SmallVec;
 
-/// Common pattern detection logic used by both EnhancedChunkManager and OverlapProcessor
+/// Common pattern detection logic used by both OverlapChunkManager and OverlapProcessor
 pub struct PatternDetector;
 
 impl PatternDetector {

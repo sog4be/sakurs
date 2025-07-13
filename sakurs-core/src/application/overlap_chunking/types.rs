@@ -1,4 +1,4 @@
-//! Types for enhanced chunking
+//! Types for overlap-based chunking
 
 use crate::application::chunking::TextChunk;
 use std::collections::HashMap;

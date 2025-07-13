@@ -1,4 +1,4 @@
-//! Constants for enhanced chunking configuration
+//! Constants for overlap-based chunking configuration
 
 /// Default chunk size in bytes (64KB)
 pub const DEFAULT_CHUNK_SIZE: usize = 65536;
