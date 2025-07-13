@@ -80,7 +80,7 @@ impl ParallelStrategy {
                 .collect();
 
             // Phase 2: Sequential prefix sum (must be sequential)
-            let chunk_starts = PrefixSumComputer::compute_prefix_sum(&states);
+            let chunk_starts = PrefixSumComputer::compute_prefix_sum_with_chunks(&states, &chunks);
 
             // Phase 3: Parallel reduce
             let boundaries = BoundaryReducer::reduce_all(&states, &chunk_starts);
