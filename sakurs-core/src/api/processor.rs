@@ -5,12 +5,12 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::api::{Config, Error, Input, Language, Output};
-use crate::application::{ProcessorConfig, UnifiedProcessor};
+use crate::application::{DeltaStackProcessor, ExecutionMode, ProcessorConfig};
 use crate::domain::language::{EnglishLanguageRules, JapaneseLanguageRules, LanguageRules};
 
 /// Unified sentence processor with clean API
 pub struct SentenceProcessor {
-    processor: UnifiedProcessor,
+    processor: DeltaStackProcessor,
     config: Config,
 }
 
@@ -24,7 +24,7 @@ impl SentenceProcessor {
     pub fn with_config(config: Config) -> Result<Self, Error> {
         let language_rules = Self::create_language_rules(&config.language);
         let processor_config = Self::build_processor_config(&config)?;
-        let processor = UnifiedProcessor::with_config(language_rules, processor_config);
+        let processor = DeltaStackProcessor::new(processor_config, language_rules);
 
         Ok(Self { processor, config })
     }
@@ -50,12 +50,25 @@ impl SentenceProcessor {
         // Convert input to text
         let text = input.into_text()?;
 
+        // Determine execution mode based on configuration
+        let mode = if let Some(threads) = self.config.threads {
+            if threads == 1 {
+                ExecutionMode::Sequential
+            } else {
+                ExecutionMode::Parallel {
+                    threads: Some(threads),
+                }
+            }
+        } else {
+            ExecutionMode::Adaptive
+        };
+
         // Process using the processor
-        let result = self.processor.process(&text)?;
+        let result = self.processor.process(&text, mode)?;
 
         // Convert to public output format
         let duration = start.elapsed();
-        Ok(Output::from_internal(result, &text, duration))
+        Ok(Output::from_delta_stack_result(result, &text, duration))
     }
 
     /// Process input from a reader stream
