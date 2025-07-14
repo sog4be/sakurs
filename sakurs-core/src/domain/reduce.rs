@@ -11,9 +11,8 @@
 //! - Handles nested quotes with appropriate weakening
 //! - Validates quote pairing when enabled
 //!
-//! The implementation uses the `quote_suppression` module for intelligent
-//! decision-making about which boundaries to suppress or weaken based on
-//! their enclosure context.
+//! The implementation evaluates boundary candidates based on their enclosure
+//! context to determine which boundaries should be confirmed or rejected.
 
 use crate::domain::prefix_sum::ChunkStartState;
 use crate::domain::types::{Boundary, BoundaryCandidate, DeltaVec, PartialState};
