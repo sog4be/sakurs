@@ -30,7 +30,9 @@ mod api_tests {
     fn test_config_defaults() {
         let default_config = Config::default();
         assert_eq!(default_config.language, Language::English);
-        assert_eq!(default_config.chunk_size, 512 * 1024); // 512KB
+        assert_eq!(default_config.chunk_size, 64 * 1024); // 64KB
+        assert_eq!(default_config.parallel_threshold, 1024 * 1024); // 1MB
+        assert_eq!(default_config.overlap_size, 256); // 256 bytes
         assert_eq!(default_config.threads, None); // All available threads
     }
 

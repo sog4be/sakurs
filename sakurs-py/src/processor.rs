@@ -32,6 +32,8 @@ impl PyProcessor {
                 .language(lang_code)
                 .map_err(|e| SakursError::ProcessingError(e.to_string()))?
                 .chunk_size(cfg.chunk_size) // Now in bytes, no conversion needed
+                .parallel_threshold(cfg.parallel_threshold)
+                .overlap_size(cfg.overlap_size)
                 .threads(cfg.num_threads)
                 .build()
                 .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
