@@ -40,7 +40,6 @@ pub use api::{
 };
 
 // Legacy exports (for backward compatibility)
-pub use application::strategies::{AdaptiveStrategy, ProcessingStrategy};
 pub use application::{DeltaStackProcessor, DeltaStackResult, ExecutionMode, ProcessorConfig};
 pub use domain::*;
 
