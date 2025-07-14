@@ -1,10 +1,8 @@
 //! Profiling benchmark to determine optimal thresholds for adaptive processing
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use sakurs_core::application::{ProcessorConfig, UnifiedProcessor};
-use sakurs_core::domain::language::EnglishLanguageRules;
+use sakurs_core::{Config, Input, SentenceProcessor};
 use std::hint::black_box;
-use std::sync::Arc;
 
 /// Generate test text of specified size
 fn generate_text(size_kb: usize) -> String {
@@ -20,7 +18,6 @@ fn bench_sequential_by_size(c: &mut Criterion) {
     let mut group = c.benchmark_group("sequential_by_size");
 
     let sizes_kb = vec![1, 10, 100, 1000, 10000]; // 1KB to 10MB
-    let rules = Arc::new(EnglishLanguageRules::new());
 
     for size_kb in sizes_kb {
         let text = generate_text(size_kb);
@@ -30,8 +27,9 @@ fn bench_sequential_by_size(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}KB", size_kb)),
             &text,
             |b, text| {
-                let processor = UnifiedProcessor::new(rules.clone());
-                b.iter(|| processor.process_with_threads(black_box(text), 1));
+                let config = Config::builder().threads(Some(1)).build().unwrap();
+                let processor = SentenceProcessor::with_config(config).unwrap();
+                b.iter(|| processor.process(Input::from_text(black_box(text))));
             },
         );
     }
@@ -44,7 +42,6 @@ fn bench_parallel_by_size(c: &mut Criterion) {
     let mut group = c.benchmark_group("parallel_by_size");
 
     let sizes_kb = vec![100, 1000, 10000, 100000]; // 100KB to 100MB
-    let rules = Arc::new(EnglishLanguageRules::new());
     let thread_counts = vec![2, 4, 8];
 
     for size_kb in sizes_kb {
@@ -57,8 +54,9 @@ fn bench_parallel_by_size(c: &mut Criterion) {
                 BenchmarkId::from_parameter(format!("{}KB_{}threads", size_kb, threads)),
                 &text,
                 |b, text| {
-                    let processor = UnifiedProcessor::new(rules.clone());
-                    b.iter(|| processor.process_with_threads(black_box(text), *threads));
+                    let config = Config::builder().threads(Some(*threads)).build().unwrap();
+                    let processor = SentenceProcessor::with_config(config).unwrap();
+                    b.iter(|| processor.process(Input::from_text(black_box(text))));
                 },
             );
         }
@@ -73,7 +71,6 @@ fn bench_chunk_size_impact(c: &mut Criterion) {
 
     let text = generate_text(10000); // 10MB text
     let chunk_sizes_kb = vec![16, 32, 64, 128, 256, 512, 1024];
-    let rules = Arc::new(EnglishLanguageRules::new());
 
     for chunk_kb in chunk_sizes_kb {
         group.throughput(Throughput::Bytes(text.len() as u64));
@@ -82,12 +79,13 @@ fn bench_chunk_size_impact(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}KB_chunks", chunk_kb)),
             &text,
             |b, text| {
-                let config = ProcessorConfig::builder()
+                let config = Config::builder()
                     .chunk_size(chunk_kb * 1024)
+                    .threads(Some(4))
                     .build()
-                    .expect("Valid config");
-                let processor = UnifiedProcessor::with_config(rules.clone(), config);
-                b.iter(|| processor.process_with_threads(black_box(text), 4));
+                    .unwrap();
+                let processor = SentenceProcessor::with_config(config).unwrap();
+                b.iter(|| processor.process(Input::from_text(black_box(text))));
             },
         );
     }
@@ -101,7 +99,6 @@ fn bench_crossover_points(c: &mut Criterion) {
 
     // Test sizes around expected crossover points
     let sizes_kb = vec![50, 75, 100, 125, 150, 200, 250, 300];
-    let rules = Arc::new(EnglishLanguageRules::new());
 
     for size_kb in sizes_kb {
         let text = generate_text(size_kb);
@@ -112,8 +109,9 @@ fn bench_crossover_points(c: &mut Criterion) {
             BenchmarkId::new("sequential", format!("{}KB", size_kb)),
             &text,
             |b, text| {
-                let processor = UnifiedProcessor::new(rules.clone());
-                b.iter(|| processor.process_with_threads(black_box(text), 1));
+                let config = Config::builder().threads(Some(1)).build().unwrap();
+                let processor = SentenceProcessor::with_config(config).unwrap();
+                b.iter(|| processor.process(Input::from_text(black_box(text))));
             },
         );
 
@@ -122,8 +120,9 @@ fn bench_crossover_points(c: &mut Criterion) {
             BenchmarkId::new("parallel_2", format!("{}KB", size_kb)),
             &text,
             |b, text| {
-                let processor = UnifiedProcessor::new(rules.clone());
-                b.iter(|| processor.process_with_threads(black_box(text), 2));
+                let config = Config::builder().threads(Some(2)).build().unwrap();
+                let processor = SentenceProcessor::with_config(config).unwrap();
+                b.iter(|| processor.process(Input::from_text(black_box(text))));
             },
         );
 
@@ -132,8 +131,9 @@ fn bench_crossover_points(c: &mut Criterion) {
             BenchmarkId::new("parallel_4", format!("{}KB", size_kb)),
             &text,
             |b, text| {
-                let processor = UnifiedProcessor::new(rules.clone());
-                b.iter(|| processor.process_with_threads(black_box(text), 4));
+                let config = Config::builder().threads(Some(4)).build().unwrap();
+                let processor = SentenceProcessor::with_config(config).unwrap();
+                b.iter(|| processor.process(Input::from_text(black_box(text))));
             },
         );
     }

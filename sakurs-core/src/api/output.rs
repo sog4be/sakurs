@@ -64,31 +64,23 @@ pub struct ProcessingStats {
 }
 
 impl Output {
-    /// Create output from internal processing result
-    pub(crate) fn from_internal(
-        result: crate::application::UnifiedProcessingOutput,
+    /// Create output from delta stack processing result
+    pub(crate) fn from_delta_stack_result(
+        result: crate::application::DeltaStackResult,
         text: &str,
         duration: Duration,
     ) -> Self {
-        // Extract byte offsets from boundaries
-        let byte_offsets: Vec<usize> = result.boundaries.iter().map(|b| b.offset).collect();
-        let char_boundaries = Self::calculate_char_offsets(text, &byte_offsets);
+        // Calculate character offsets for each byte boundary
+        let char_boundaries = Self::calculate_char_offsets(text, &result.boundaries);
 
         let boundaries = result
             .boundaries
             .into_iter()
             .zip(char_boundaries)
-            .map(|(boundary, char_offset)| Boundary {
-                offset: boundary.offset,
+            .map(|(offset, char_offset)| Boundary {
+                offset,
                 char_offset,
-                confidence: if boundary
-                    .flags
-                    .contains(crate::domain::BoundaryFlags::STRONG)
-                {
-                    1.0
-                } else {
-                    0.8
-                },
+                confidence: 1.0, // DeltaStack algorithm has high confidence
                 context: None,
             })
             .collect::<Vec<_>>();
@@ -100,9 +92,9 @@ impl Output {
             0.0
         };
 
-        // Determine strategy used based on metrics
-        let strategy_used = if result.metrics.thread_count > 1 {
-            format!("parallel ({} threads)", result.metrics.thread_count)
+        // Determine strategy used based on thread count
+        let strategy_used = if result.thread_count > 1 {
+            format!("parallel ({} threads)", result.thread_count)
         } else {
             "sequential".to_string()
         };
@@ -112,10 +104,10 @@ impl Output {
             metadata: ProcessingMetadata {
                 duration,
                 strategy_used,
-                chunks_processed: result.metrics.chunk_count,
+                chunks_processed: result.chunk_count,
                 memory_peak: 0, // Future: memory tracking integration
                 stats: ProcessingStats {
-                    bytes_processed: result.metrics.bytes_processed,
+                    bytes_processed: text.len(),
                     chars_processed: text.chars().count(),
                     sentence_count,
                     avg_sentence_length,

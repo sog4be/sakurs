@@ -28,10 +28,12 @@
 
 pub mod chunking;
 pub mod config;
+pub mod delta_stack;
+pub mod execution_mode;
 pub mod parser;
 pub mod strategies;
-pub mod unified_processor;
 
 pub use chunking::{ChunkManager, TextChunk};
 pub use config::{ProcessingError, ProcessingMetrics, ProcessorConfig};
-pub use unified_processor::{UnifiedProcessingOutput, UnifiedProcessor};
+pub use delta_stack::{DeltaStackProcessor, DeltaStackResult};
+pub use execution_mode::ExecutionMode;
