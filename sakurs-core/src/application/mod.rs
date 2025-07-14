@@ -18,31 +18,20 @@
 //! # Example
 //!
 //! ```rust
-//! use sakurs_core::application::{TextProcessor, ProcessorConfig};
-//! use sakurs_core::domain::language::EnglishLanguageRules;
-//! use std::sync::Arc;
+//! use sakurs_core::{SentenceProcessor, Input};
 //!
-//! let rules = Arc::new(EnglishLanguageRules::new());
-//! let processor = TextProcessor::new(rules);
+//! let processor = SentenceProcessor::new();
 //!
 //! let text = "This is a long text. It will be processed in parallel.";
-//! let result = processor.process_text(text).unwrap();
+//! let result = processor.process(Input::from_text(text)).unwrap();
 //! ```
 
 pub mod chunking;
 pub mod config;
 pub mod parser;
-pub mod processor;
 pub mod strategies;
 pub mod unified_processor;
 
-#[cfg(feature = "parallel")]
-pub mod parallel;
-
 pub use chunking::{ChunkManager, TextChunk};
 pub use config::{ProcessingError, ProcessingMetrics, ProcessorConfig};
-pub use processor::{ProcessingOutput, TextProcessor};
 pub use unified_processor::{UnifiedProcessingOutput, UnifiedProcessor};
-
-#[cfg(feature = "parallel")]
-pub use parallel::ParallelProcessor;

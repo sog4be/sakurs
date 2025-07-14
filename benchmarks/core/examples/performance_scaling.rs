@@ -106,7 +106,7 @@ fn run_benchmark(size: usize, iterations: usize, warmup: usize) -> BenchmarkResu
     // Warmup runs
     for _ in 0..warmup {
         let _ = processor
-            .process_text(&test_data.text)
+            .process(sakurs_core::Input::from_text(test_data.text))
             .expect("Processing should not fail");
     }
 
@@ -117,7 +117,7 @@ fn run_benchmark(size: usize, iterations: usize, warmup: usize) -> BenchmarkResu
     for i in 0..iterations {
         let start = Instant::now();
         let _ = processor
-            .process_text(&test_data.text)
+            .process(sakurs_core::Input::from_text(test_data.text))
             .expect("Processing should not fail");
         let duration = start.elapsed();
 

@@ -20,19 +20,11 @@ proptest = "1.0"
 tempfile = "3.10"
 
 [[bench]]
-name = "application_benchmarks"
-harness = false
-
-[[bench]]
-name = "smallvec_comparison"
+name = "sentence_processor_benchmarks"
 harness = false
 
 [[bench]]
 name = "adaptive_profiling"
-harness = false
-
-[[bench]]
-name = "adaptive_comparison"
 harness = false
 
 [[bench]]

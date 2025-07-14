@@ -14,11 +14,11 @@ use std::hint::black_box;
 
 /// Run accuracy evaluation on a single test case
 fn evaluate_accuracy(
-    processor: &sakurs_core::application::TextProcessor,
+    processor: &sakurs_core::SentenceProcessor,
     test_data: &TestData,
 ) -> AccuracyMetrics {
     let output = processor
-        .process_text(&test_data.text)
+        .process(sakurs_core::Input::from_text(test_data.text.clone()))
         .expect("Processing should not fail");
 
     // Extract boundaries and calculate all metrics

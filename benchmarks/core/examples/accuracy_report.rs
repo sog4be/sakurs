@@ -28,7 +28,7 @@ fn main() {
 
         // Process text
         let output = processor
-            .process_text(&test_data.text)
+            .process(sakurs_core::Input::from_text(test_data.text))
             .expect("Processing should not fail");
 
         // Extract boundaries and calculate metrics
