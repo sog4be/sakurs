@@ -10,7 +10,6 @@ pub mod enclosure_suppressor;
 pub mod language;
 pub mod monoid;
 pub mod prefix_sum;
-pub mod quote_suppression;
 pub mod reduce;
 pub mod traits;
 pub mod types;
