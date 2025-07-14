@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Warmup
         print!("Running {} warmup iterations...", warmup);
         for _ in 0..warmup {
-            let _ = processor.process_text(&test_data.text);
+            let _ = processor.process(sakurs_core::Input::from_text(test_data.text));
         }
         println!(" Done!");
 
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         for _ in 0..iterations {
             let start = Instant::now();
-            let output = processor.process_text(&test_data.text)?;
+            let output = processor.process(sakurs_core::Input::from_text(test_data.text))?;
             let elapsed = start.elapsed();
 
             let boundaries = extract_boundaries(&output);

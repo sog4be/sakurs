@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Process with sakurs
     let processor = create_default_processor();
-    let result = processor.process_text(&test_data.text)?;
+    let result = processor.process(sakurs_core::Input::from_text(test_data.text))?;
 
     // Extract boundaries
     let predicted = extract_boundaries(&result);

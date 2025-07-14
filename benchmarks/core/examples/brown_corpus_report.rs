@@ -38,7 +38,7 @@ fn main() {
         match brown_corpus::load_subset(size) {
             Ok(test_data) => {
                 let output = processor
-                    .process_text(&test_data.text)
+                    .process(sakurs_core::Input::from_text(test_data.text))
                     .expect("Processing should not fail");
 
                 let predicted = extract_boundaries(&output);
@@ -70,7 +70,7 @@ fn main() {
         Ok(test_data) => {
             let start = std::time::Instant::now();
             let output = processor
-                .process_text(&test_data.text)
+                .process(sakurs_core::Input::from_text(test_data.text))
                 .expect("Processing should not fail");
             let elapsed = start.elapsed();
 
@@ -105,7 +105,7 @@ fn run_sample_test() {
     let test_data = brown_corpus::small_sample();
 
     let output = processor
-        .process_text(&test_data.text)
+        .process(sakurs_core::Input::from_text(test_data.text))
         .expect("Processing should not fail");
 
     let predicted = extract_boundaries(&output);

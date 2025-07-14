@@ -28,13 +28,13 @@ fn benchmark_sakurs(test_data: &TestData) -> BenchmarkResult {
 
     // Warmup runs
     for _ in 0..config::get_warmup_runs() {
-        let _ = processor.process_text(&test_data.text);
+        let _ = processor.process(sakurs_core::Input::from_text(test_data.text));
     }
 
     // Timed run
     let start = Instant::now();
     let output = processor
-        .process_text(&test_data.text)
+        .process(sakurs_core::Input::from_text(test_data.text))
         .expect("Processing should not fail");
     let elapsed = start.elapsed();
 

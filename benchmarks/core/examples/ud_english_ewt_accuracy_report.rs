@@ -38,7 +38,7 @@ fn analyze_ud_english_ewt() -> Result<(), Box<dyn std::error::Error>> {
         match ud_english_ewt::load_subset(size) {
             Ok(test_data) => {
                 let start = Instant::now();
-                let result = processor.process_text(&test_data.text)?;
+                let result = processor.process(sakurs_core::Input::from_text(test_data.text))?;
                 let processing_time = start.elapsed();
 
                 let predicted_boundaries = extract_boundaries(&result);
@@ -86,7 +86,7 @@ fn analyze_ud_english_ewt() -> Result<(), Box<dyn std::error::Error>> {
     // Test the hardcoded sample
     let sample = ud_english_ewt::small_sample();
     let start = Instant::now();
-    let result = processor.process_text(&sample.text)?;
+    let result = processor.process(sakurs_core::Input::from_text(sample.text))?;
     let processing_time = start.elapsed();
 
     let predicted_boundaries = extract_boundaries(&result);
@@ -94,7 +94,7 @@ fn analyze_ud_english_ewt() -> Result<(), Box<dyn std::error::Error>> {
         calculate_complete_metrics(&predicted_boundaries, &sample.boundaries, sample.text.len());
 
     println!("\n🎯 UD English EWT Hardcoded Sample:");
-    println!("   📝 Text: \"{}\"", sample.text);
+    println!("   📝 Text: \"{}\"", sample.text));
     println!("   📝 Text length: {} characters", sample.text.len());
     println!("   🎯 Expected boundaries: {:?}", sample.boundaries);
     println!("   🔍 Predicted boundaries: {:?}", predicted_boundaries);
@@ -123,7 +123,7 @@ fn analyze_brown_corpus() -> Result<(), Box<dyn std::error::Error>> {
     match brown_corpus::load_subset(100) {
         Ok(test_data) => {
             let start = Instant::now();
-            let result = processor.process_text(&test_data.text)?;
+            let result = processor.process(sakurs_core::Input::from_text(test_data.text))?;
             let processing_time = start.elapsed();
 
             let predicted_boundaries = extract_boundaries(&result);
@@ -156,7 +156,7 @@ fn analyze_brown_corpus() -> Result<(), Box<dyn std::error::Error>> {
     // Test the hardcoded sample
     let sample = brown_corpus::small_sample();
     let start = Instant::now();
-    let result = processor.process_text(&sample.text)?;
+    let result = processor.process(sakurs_core::Input::from_text(sample.text))?;
     let processing_time = start.elapsed();
 
     let predicted_boundaries = extract_boundaries(&result);

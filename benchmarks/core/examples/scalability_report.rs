@@ -41,11 +41,11 @@ fn main() {
             ..Default::default()
         };
 
-        let processor = create_processor_with_config(config);
+        let processor = create_processor_with_config(config.chunk_size, config.max_threads);
 
         // Warm up
         for _ in 0..3 {
-            let _ = processor.process_text(&test_data.text);
+            let _ = processor.process(sakurs_core::Input::from_text(test_data.text));
         }
 
         // Measure
@@ -54,7 +54,7 @@ fn main() {
 
         for _ in 0..iterations {
             let _ = processor
-                .process_text(&test_data.text)
+                .process(sakurs_core::Input::from_text(test_data.text))
                 .expect("Processing should not fail");
         }
 

@@ -15,22 +15,17 @@
 //! # Example
 //!
 //! ```rust
-//! use sakurs_core::application::{TextProcessor, ProcessorConfig};
-//! use sakurs_core::domain::language::EnglishLanguageRules;
-//! use std::sync::Arc;
-//!
-//! // Create language rules
-//! let rules = Arc::new(EnglishLanguageRules::new());
+//! use sakurs_core::{SentenceProcessor, Input};
 //!
 //! // Create processor with default configuration
-//! let processor = TextProcessor::new(rules);
+//! let processor = SentenceProcessor::new();
 //!
 //! // Process text
 //! let text = "Hello world. This is a test.";
-//! let result = processor.process_text(text).unwrap();
+//! let result = processor.process(Input::from_text(text)).unwrap();
 //!
 //! // Extract sentences
-//! let sentences = result.extract_sentences(text);
+//! let sentences = result.sentences();
 //! assert_eq!(sentences.len(), 2);
 //! ```
 
