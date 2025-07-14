@@ -107,7 +107,7 @@ impl UnifiedProcessor {
         // Phase 2: Prefix-sum (only needed for multiple chunks)
         let prefix_start = Instant::now();
         let chunk_starts = if partial_states.len() > 1 {
-            PrefixSumComputer::compute_prefix_sum(&partial_states)
+            PrefixSumComputer::compute_prefix_sum_with_overlap(&partial_states, &chunks)
         } else {
             vec![ChunkStartState {
                 cumulative_deltas: DeltaVec::from_vec(vec![

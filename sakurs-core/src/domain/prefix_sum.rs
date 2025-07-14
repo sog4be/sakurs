@@ -4,6 +4,7 @@
 //! the cumulative state at the beginning of each chunk, enabling independent
 //! boundary candidate evaluation in the reduce phase.
 
+use crate::application::chunking::TextChunk;
 use crate::domain::types::{DeltaEntry, DeltaVec, PartialState};
 
 /// Represents the cumulative state at the start of a chunk.
@@ -23,6 +24,10 @@ pub struct PrefixSumComputer;
 
 impl PrefixSumComputer {
     /// Computes the cumulative state at the start of each chunk.
+    ///
+    /// This version assumes chunks are contiguous without overlap,
+    /// using the chunk_length field to calculate offsets.
+    /// Used for sequential processing where chunks don't overlap.
     ///
     /// # Arguments
     /// * `states` - Partial states from the scan phase
@@ -72,6 +77,72 @@ impl PrefixSumComputer {
 
         // Parallel implementation using work-efficient algorithm
         Self::parallel_prefix_sum(states, &mut result);
+
+        result
+    }
+
+    /// Computes the cumulative state with proper chunk offset handling.
+    ///
+    /// This version uses the actual chunk positions from the original text
+    /// to correctly handle overlapping chunks in parallel processing.
+    /// Required when chunks may overlap (e.g., in parallel strategy).
+    ///
+    /// # Arguments
+    /// * `states` - Partial states from the scan phase
+    /// * `chunks` - Original text chunks with position information
+    ///
+    /// # Returns
+    /// Vector of cumulative states with correct global offsets
+    pub fn compute_prefix_sum_with_overlap(
+        states: &[PartialState],
+        chunks: &[TextChunk],
+    ) -> Vec<ChunkStartState> {
+        if states.is_empty() || chunks.is_empty() {
+            return Vec::new();
+        }
+
+        assert_eq!(
+            states.len(),
+            chunks.len(),
+            "States and chunks must have the same length"
+        );
+
+        let n = states.len();
+        let mut result = vec![
+            ChunkStartState {
+                cumulative_deltas: DeltaVec::from_vec(vec![
+                    DeltaEntry { net: 0, min: 0 };
+                    states[0].deltas.len()
+                ]),
+                global_offset: 0,
+            };
+            n
+        ];
+
+        // For small inputs, use sequential implementation
+        if n <= 4 {
+            let mut cumulative_deltas =
+                DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; states[0].deltas.len()]);
+
+            for (i, (state, chunk)) in states.iter().zip(chunks.iter()).enumerate() {
+                result[i] = ChunkStartState {
+                    cumulative_deltas: cumulative_deltas.clone(),
+                    global_offset: chunk.start_offset,
+                };
+
+                // Update cumulative deltas for next iteration
+                for (j, delta) in state.deltas.iter().enumerate() {
+                    let old_net = cumulative_deltas[j].net;
+                    cumulative_deltas[j].net += delta.net;
+                    cumulative_deltas[j].min = cumulative_deltas[j].min.min(old_net + delta.min);
+                }
+            }
+
+            return result;
+        }
+
+        // For larger inputs, use parallel algorithm with chunk offsets
+        Self::parallel_prefix_sum_with_overlap(states, chunks, &mut result);
 
         result
     }
@@ -159,6 +230,89 @@ impl PrefixSumComputer {
         for (i, chunk_start) in result.iter_mut().enumerate() {
             chunk_start.cumulative_deltas = tree[i].clone();
             chunk_start.global_offset = offsets[i];
+        }
+    }
+
+    /// Parallel prefix-sum with chunk offset handling.
+    fn parallel_prefix_sum_with_overlap(
+        states: &[PartialState],
+        chunks: &[TextChunk],
+        result: &mut [ChunkStartState],
+    ) {
+        let n = states.len();
+        let enclosure_count = states[0].deltas.len();
+
+        // Up-sweep phase (reduction)
+        let tree_depth = (n as f64).log2().ceil() as usize;
+        let mut tree =
+            vec![DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; enclosure_count]); n];
+        let mut offsets = vec![0usize; n];
+
+        // Initialize leaf nodes with chunk start offsets
+        for (i, (state, chunk)) in states.iter().zip(chunks.iter()).enumerate() {
+            tree[i] = state.deltas.to_vec().into();
+            offsets[i] = chunk.start_offset;
+        }
+
+        // Up-sweep - combine deltas
+        for level in 0..tree_depth {
+            let stride = 1 << (level + 1);
+            let half_stride = 1 << level;
+
+            for i in (half_stride..n).step_by(stride) {
+                let left_idx = i - half_stride;
+                let right_idx = i;
+
+                // Combine deltas
+                let left_deltas = tree[left_idx].clone();
+                let right_deltas = tree[right_idx].clone();
+                for j in 0..enclosure_count {
+                    tree[i][j] = DeltaEntry {
+                        net: left_deltas[j].net + right_deltas[j].net,
+                        min: left_deltas[j]
+                            .min
+                            .min(left_deltas[j].net + right_deltas[j].min),
+                    };
+                }
+
+                // Note: We don't combine offsets in up-sweep as we use chunk positions directly
+            }
+        }
+
+        // Down-sweep phase
+        if n > 0 {
+            tree[n - 1] = DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; enclosure_count]);
+        }
+
+        for level in (0..tree_depth).rev() {
+            let stride = 1 << (level + 1);
+            let half_stride = 1 << level;
+
+            for i in (half_stride..n).step_by(stride) {
+                let left_idx = i - half_stride;
+                let right_idx = i;
+
+                // Save current value
+                let temp_deltas = tree[right_idx].clone();
+
+                // Update right child
+                tree[right_idx] = tree[left_idx].clone();
+
+                // Update left child
+                for (j, temp) in temp_deltas.iter().enumerate().take(enclosure_count) {
+                    let old = tree[left_idx][j].clone();
+                    tree[left_idx][j] = DeltaEntry {
+                        net: old.net + temp.net,
+                        min: old.min.min(old.net + temp.min),
+                    };
+                }
+            }
+        }
+
+        // Copy results with actual chunk offsets
+        for (i, (chunk_start, chunk)) in result.iter_mut().zip(chunks.iter()).enumerate() {
+            chunk_start.cumulative_deltas = tree[i].clone();
+            chunk_start.global_offset = chunk.start_offset;
         }
     }
 

@@ -626,13 +626,27 @@ impl EnglishCapitalizationRule {
             };
         }
 
-        let first_char = trimmed.chars().next().unwrap();
+        // Find the first alphabetic character, skipping non-alphabetic ones
+        let mut first_alpha_char = None;
 
-        // Check for quoted speech
-        if matches!(first_char, '"' | '\'') {
+        for ch in trimmed.chars() {
+            if ch.is_alphabetic() {
+                first_alpha_char = Some(ch);
+                break;
+            }
+        }
+
+        // Check if the first character is a quote
+        let first_char = trimmed.chars().next().unwrap();
+        let starts_with_quote = matches!(first_char, '"' | '\'');
+
+        // For quoted speech, check the first alphabetic character after the quote
+        if starts_with_quote {
             let after_quote = &trimmed[first_char.len_utf8()..];
             let after_quote_trimmed = after_quote.trim_start();
-            if let Some(char_after_quote) = after_quote_trimmed.chars().next() {
+
+            if let Some(char_after_quote) = after_quote_trimmed.chars().find(|c| c.is_alphabetic())
+            {
                 return CapitalizationAnalysis {
                     starts_with_capital: false,
                     starts_with_quote_and_capital: char_after_quote.is_ascii_uppercase(),
@@ -641,8 +655,13 @@ impl EnglishCapitalizationRule {
             }
         }
 
+        // If we found an alphabetic character, check if it's uppercase
+        let starts_with_capital = first_alpha_char
+            .map(|ch| ch.is_ascii_uppercase())
+            .unwrap_or(false);
+
         CapitalizationAnalysis {
-            starts_with_capital: first_char.is_ascii_uppercase(),
+            starts_with_capital,
             starts_with_quote_and_capital: false,
             first_word_is_proper_noun: self.is_likely_proper_noun(trimmed),
         }
@@ -1317,6 +1336,26 @@ mod tests {
 
         // Test lowercase continuation
         let analysis = rule.analyze_following_text(" and then he said");
+        assert!(!analysis.starts_with_capital);
+        assert!(!analysis.starts_with_quote_and_capital);
+
+        // Test bracket pattern (like ". [ This")
+        let analysis = rule.analyze_following_text(" [ This is a test");
+        assert!(analysis.starts_with_capital);
+        assert!(!analysis.starts_with_quote_and_capital);
+
+        // Test parenthesis pattern
+        let analysis = rule.analyze_following_text(" (The company announced");
+        assert!(analysis.starts_with_capital);
+        assert!(!analysis.starts_with_quote_and_capital);
+
+        // Test multiple non-alphabetic characters before quote
+        let analysis = rule.analyze_following_text(" [( \"Hello world\"");
+        assert!(analysis.starts_with_capital); // H is capital
+        assert!(!analysis.starts_with_quote_and_capital); // Not directly after quote
+
+        // Test with only non-alphabetic characters
+        let analysis = rule.analyze_following_text(" [({})");
         assert!(!analysis.starts_with_capital);
         assert!(!analysis.starts_with_quote_and_capital);
     }
