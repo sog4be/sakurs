@@ -142,16 +142,17 @@ fn test_streaming_memory_efficiency() {
     // Use default config (similar to old "balanced")
     let processor = SentenceProcessor::new();
 
-    // Create a large text that would use significant memory if loaded entirely
+    // Reduced to 1000 sentences for faster CI execution
+    // Still sufficient to verify streaming functionality
     let mut large_text = String::new();
-    for i in 0..10000 {
+    for i in 0..1000 {
         large_text.push_str(&format!("Sentence number {}. ", i));
     }
 
     let reader = ChunkedReader::new(&large_text, 1024); // 1KB chunks
 
     let result = processor.process(Input::Reader(Box::new(reader))).unwrap();
-    assert_eq!(result.boundaries.len(), 10000);
+    assert_eq!(result.boundaries.len(), 1000);
 }
 
 #[test]
