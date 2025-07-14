@@ -20,24 +20,34 @@ pub struct PyProcessorConfig {
     /// Number of threads to use for processing
     #[pyo3(get, set)]
     pub num_threads: Option<usize>,
+
+    /// Minimum text size to trigger parallel processing
+    #[pyo3(get, set)]
+    pub parallel_threshold: usize,
 }
 
 #[pymethods]
 impl PyProcessorConfig {
     #[new]
-    #[pyo3(signature = (chunk_size=8192, overlap_size=256, num_threads=None))]
-    pub fn new(chunk_size: usize, overlap_size: usize, num_threads: Option<usize>) -> Self {
+    #[pyo3(signature = (chunk_size=65536, overlap_size=256, num_threads=None, parallel_threshold=1048576))]
+    pub fn new(
+        chunk_size: usize,
+        overlap_size: usize,
+        num_threads: Option<usize>,
+        parallel_threshold: usize,
+    ) -> Self {
         Self {
             chunk_size,
             overlap_size,
             num_threads,
+            parallel_threshold,
         }
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "ProcessorConfig(chunk_size={}, overlap_size={}, num_threads={:?})",
-            self.chunk_size, self.overlap_size, self.num_threads
+            "ProcessorConfig(chunk_size={}, overlap_size={}, num_threads={:?}, parallel_threshold={})",
+            self.chunk_size, self.overlap_size, self.num_threads, self.parallel_threshold
         )
     }
 }

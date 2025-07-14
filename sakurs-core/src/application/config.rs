@@ -92,16 +92,6 @@ impl ProcessorConfig {
 
         Ok(())
     }
-
-    /// Convert to strategies ProcessingConfig
-    pub fn to_processing_config(&self) -> crate::application::strategies::ProcessingConfig {
-        crate::application::strategies::ProcessingConfig {
-            chunk_size: self.chunk_size,
-            thread_count: self.max_threads.unwrap_or_else(num_cpus::get),
-            buffer_size: self.chunk_size * 4, // 4x chunk size for buffer
-            overlap_size: self.overlap_size,
-        }
-    }
 }
 
 /// Errors that can occur during text processing

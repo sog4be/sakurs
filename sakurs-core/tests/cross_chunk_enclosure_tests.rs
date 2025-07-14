@@ -336,6 +336,7 @@ fn test_quote_at_exact_chunk_boundary() {
         .language("en")
         .unwrap()
         .chunk_size(chunk_size)
+        .overlap_size(chunk_size.min(256) / 4) // Set appropriate overlap for chunk size
         .build()
         .unwrap();
 

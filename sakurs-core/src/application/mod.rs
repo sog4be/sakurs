@@ -31,7 +31,6 @@ pub mod config;
 pub mod delta_stack;
 pub mod execution_mode;
 pub mod parser;
-pub mod strategies;
 
 pub use chunking::{ChunkManager, TextChunk};
 pub use config::{ProcessingError, ProcessingMetrics, ProcessorConfig};

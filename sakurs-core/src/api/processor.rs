@@ -86,13 +86,11 @@ impl SentenceProcessor {
 
     /// Convert public config to internal processor config
     fn build_processor_config(config: &Config) -> Result<ProcessorConfig, Error> {
-        use crate::api::config::defaults;
-
         Ok(ProcessorConfig {
             chunk_size: config.chunk_size,
-            parallel_threshold: defaults::PARALLEL_THRESHOLD,
+            parallel_threshold: config.parallel_threshold,
             max_threads: config.threads,
-            overlap_size: defaults::OVERLAP_SIZE,
+            overlap_size: config.overlap_size,
         })
     }
 }
