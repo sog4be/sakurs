@@ -31,22 +31,24 @@ fn test_sequential_vs_parallel_consistency() {
 
 #[test]
 fn test_different_configs_performance_characteristics() {
-    let sizes = vec![100, 1000, 10000];
+    // Reduced data sizes for faster CI execution
+    // Using smaller chunk sizes to ensure chunk boundary processing is still tested
+    let sizes = vec![100, 500, 1000];
 
     for size in sizes {
         let text = generate_test_text(size);
 
-        // Large chunk config (similar to old "fast")
+        // Test with larger chunks (but smaller than before to ensure multiple chunks)
         let config_fast = Config::builder()
-            .chunk_size(1024 * 1024) // 1MB
+            .chunk_size(16 * 1024) // 16KB (~485 sentences per chunk)
             .build()
             .unwrap();
         let processor_fast = SentenceProcessor::with_config(config_fast).unwrap();
         let result_fast = processor_fast.process(Input::from_text(&text)).unwrap();
 
-        // Small chunk + single thread config (similar to old "accurate")
+        // Test with smaller chunks + single thread
         let config_accurate = Config::builder()
-            .chunk_size(256 * 1024) // 256KB
+            .chunk_size(8 * 1024) // 8KB (~242 sentences per chunk)
             .threads(Some(1))
             .build()
             .unwrap();
@@ -72,9 +74,9 @@ fn test_adaptive_behavior() {
     assert_eq!(result.boundaries.len(), 3);
 
     // Large text - should still be processed correctly
-    let large_text = generate_test_text(5000);
+    let large_text = generate_test_text(1000);
     let result = processor.process(Input::from_text(&large_text)).unwrap();
-    assert_eq!(result.boundaries.len(), 5000);
+    assert_eq!(result.boundaries.len(), 1000);
 }
 
 #[test]
@@ -261,18 +263,24 @@ fn test_language_specific_optimization() {
 
 #[test]
 fn test_thread_scaling() {
-    let text = generate_test_text(10000);
+    // Reduced to 1000 sentences for faster execution
+    // Using smaller chunk size to ensure all thread counts actually process in parallel
+    let text = generate_test_text(1000);
     let thread_counts = vec![1, 2, 4, 8];
 
     for threads in thread_counts {
-        let config = Config::builder().threads(Some(threads)).build().unwrap();
+        let config = Config::builder()
+            .threads(Some(threads))
+            .chunk_size(8 * 1024) // 8KB chunks ensure parallel processing even with 1000 sentences
+            .build()
+            .unwrap();
 
         let processor = SentenceProcessor::with_config(config).unwrap();
 
         let result = processor.process(Input::from_text(&text)).unwrap();
 
         // Verify correct processing
-        assert!(result.boundaries.len() >= 10000);
+        assert!(result.boundaries.len() >= 1000);
     }
 }
 
