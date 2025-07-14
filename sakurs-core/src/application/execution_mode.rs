@@ -1,3 +1,25 @@
+//! Execution mode control for text processing
+//!
+//! This module provides a simple and effective way to control how text processing
+//! is executed (sequential vs parallel). We intentionally use this enum-based
+//! approach instead of the Strategy pattern for the following reasons:
+//!
+//! 1. **Simplicity**: The ExecutionMode enum clearly expresses the three modes
+//!    of operation without unnecessary abstraction layers.
+//!
+//! 2. **Performance**: Direct mode selection avoids virtual dispatch overhead
+//!    and keeps the hot path efficient.
+//!
+//! 3. **Maintainability**: All execution logic remains in DeltaStackProcessor,
+//!    making it easier to understand and modify.
+//!
+//! 4. **Sufficient for current needs**: The three modes (Sequential, Parallel,
+//!    and Adaptive) cover all current use cases effectively.
+//!
+//! If future requirements demand more complex execution strategies (e.g.,
+//! streaming, GPU acceleration), we can extend this enum or reconsider the
+//! architecture at that time.
+
 /// Represents the execution mode for text processing
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionMode {
