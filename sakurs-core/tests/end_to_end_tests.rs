@@ -49,12 +49,12 @@ fn test_mixed_language_content() {
     let text = r#"Mr. Tanaka (田中) works at Toyota. He said "こんにちは" to everyone. That means "hello" in Japanese!"#;
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // TODO: Fix quote handling (issue #99) - should be 0 boundaries
-    // The API should not detect boundaries when quotes properly suppress them
+    // Mixed language content with quotes returns 0 boundaries
+    // The API doesn't detect boundaries when quotes are involved
     assert_eq!(
         result.boundaries.len(),
-        2,
-        "Regression: detecting boundaries inside quotes (should be 0)"
+        0,
+        "Expected 0 boundaries for mixed language with quotes"
     );
 }
 
@@ -203,9 +203,8 @@ fn test_nested_quotes_and_parentheses() {
     let text = r#"He said "She told me 'Hello there!' yesterday." Then he left. (This is important (very important) to note.) Done."#;
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // TODO: Fix quote handling (issue #99) - should be 0 boundaries
-    // With nested quotes, the API should suppress boundaries inside quotes
-    assert_eq!(result.boundaries.len(), 4);
+    // With nested quotes, the API returns 0 boundaries (quote suppression in effect)
+    assert_eq!(result.boundaries.len(), 0);
 }
 
 #[test]
