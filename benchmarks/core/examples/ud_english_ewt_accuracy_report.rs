@@ -94,7 +94,7 @@ fn analyze_ud_english_ewt() -> Result<(), Box<dyn std::error::Error>> {
         calculate_complete_metrics(&predicted_boundaries, &sample.boundaries, sample.text.len());
 
     println!("\n🎯 UD English EWT Hardcoded Sample:");
-    println!("   📝 Text: \"{}\"", sample.text));
+    println!("   📝 Text: \"{}\"", sample.text);
     println!("   📝 Text length: {} characters", sample.text.len());
     println!("   🎯 Expected boundaries: {:?}", sample.boundaries);
     println!("   🔍 Predicted boundaries: {:?}", predicted_boundaries);
