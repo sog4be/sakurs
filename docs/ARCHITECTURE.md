@@ -77,7 +77,7 @@ graph TB
     ALGO --> CROSS
 ```
 
-### Future Architecture (Planned)
+### Future Architecture (Planned Extensions)
 
 ```mermaid
 graph TB
@@ -289,7 +289,7 @@ Each adapter provides a different interface to the API layer:
 - **WASM** (future): Browser-compatible with streaming support
 - **C API** (future): For integration with other languages
 
-Note: Streaming functionality is currently implemented as a processing strategy within the application layer, accessible through all adapters.
+Note: Streaming functionality is available through configuration presets that optimize for memory-efficient processing, accessible through all adapters.
 
 ## Performance Characteristics
 
@@ -326,7 +326,7 @@ Note: Streaming functionality is currently implemented as a processing strategy 
 use sakurs_core::api::{SentenceProcessor, Input};
 
 // Simple usage
-let processor = SentenceProcessor::for_language("en")?;
+let processor = SentenceProcessor::with_language("en")?;
 let output = processor.process(Input::from_text("Hello world. How are you?"))?;
 
 for boundary in &output.boundaries {
