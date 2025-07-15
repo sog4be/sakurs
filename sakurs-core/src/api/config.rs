@@ -5,8 +5,8 @@ use std::str::FromStr;
 
 /// Default configuration constants
 pub mod defaults {
-    /// Default chunk size in bytes (64KB)
-    pub const CHUNK_SIZE: usize = 64 * 1024;
+    /// Default chunk size in bytes (256KB)
+    pub const CHUNK_SIZE: usize = 256 * 1024;
 
     /// Parallel processing threshold in bytes (1MB)
     pub const PARALLEL_THRESHOLD: usize = 1024 * 1024;
@@ -58,7 +58,7 @@ impl Config {
     pub fn large_text() -> Self {
         Self {
             language: Language::default(),
-            chunk_size: 256 * 1024,         // 256KB chunks
+            chunk_size: 512 * 1024,         // 512KB chunks
             parallel_threshold: 512 * 1024, // 512KB threshold
             threads: None,                  // Use all available cores
             overlap_size: 512,              // Larger overlap
@@ -221,7 +221,7 @@ mod tests {
 
         // Large text preset
         let large = Config::large_text();
-        assert_eq!(large.chunk_size, 256 * 1024);
+        assert_eq!(large.chunk_size, 512 * 1024);
         assert_eq!(large.parallel_threshold, 512 * 1024);
         assert_eq!(large.overlap_size, 512);
         assert!(large.validate().is_ok());
