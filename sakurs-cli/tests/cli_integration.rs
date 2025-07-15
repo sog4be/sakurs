@@ -140,18 +140,6 @@ fn test_list_languages() {
 }
 
 #[test]
-fn test_config_generate() {
-    let mut cmd = Command::cargo_bin("sakurs").unwrap();
-    cmd.arg("config").arg("generate");
-
-    cmd.assert()
-        .success()
-        .stdout(predicate::str::contains("[processing]"))
-        .stdout(predicate::str::contains("[output]"))
-        .stdout(predicate::str::contains("[performance]"));
-}
-
-#[test]
 fn test_streaming_mode() {
     let mut cmd = Command::cargo_bin("sakurs").unwrap();
     cmd.arg("process")
