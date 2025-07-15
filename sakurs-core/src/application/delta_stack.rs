@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use crate::{
     application::{
         chunking::{ChunkManager, TextChunk},
-        config::{ProcessingResult, ProcessorConfig},
+        config::{ProcessingError, ProcessingResult, ProcessorConfig},
         parser::TextParser,
     },
     domain::{
@@ -95,14 +95,23 @@ impl DeltaStackProcessor {
         thread_count: usize,
     ) -> ProcessingResult<Vec<PartialState>> {
         if thread_count > 1 {
-            // Parallel processing
-            Ok(chunks
-                .par_iter()
-                .map(|chunk| {
-                    self.parser
-                        .scan_chunk(&chunk.content, self.language_rules.as_ref())
-                })
-                .collect::<Vec<_>>())
+            // Parallel processing with custom thread pool
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(thread_count)
+                .build()
+                .map_err(|e| ProcessingError::InvalidConfig {
+                    reason: format!("Failed to create thread pool: {}", e),
+                })?;
+
+            pool.install(|| {
+                Ok(chunks
+                    .par_iter()
+                    .map(|chunk| {
+                        self.parser
+                            .scan_chunk(&chunk.content, self.language_rules.as_ref())
+                    })
+                    .collect::<Vec<_>>())
+            })
         } else {
             // Sequential processing
             Ok(chunks
@@ -155,11 +164,20 @@ impl DeltaStackProcessor {
 
         // Process chunks to find boundaries
         let chunk_boundaries: Vec<Vec<Boundary>> = if thread_count > 1 {
-            // Parallel reduction
-            state_start_pairs
-                .par_iter()
-                .map(|((state, start), chunk)| self.reduce_chunk(state, start, chunk))
-                .collect()
+            // Parallel reduction with custom thread pool
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(thread_count)
+                .build()
+                .map_err(|e| ProcessingError::InvalidConfig {
+                    reason: format!("Failed to create thread pool: {}", e),
+                })?;
+
+            pool.install(|| {
+                state_start_pairs
+                    .par_iter()
+                    .map(|((state, start), chunk)| self.reduce_chunk(state, start, chunk))
+                    .collect()
+            })
         } else {
             // Sequential reduction
             state_start_pairs

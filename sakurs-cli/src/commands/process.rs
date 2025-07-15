@@ -32,9 +32,9 @@ pub struct ProcessArgs {
     #[arg(long, conflicts_with = "parallel")]
     pub adaptive: bool,
 
-    /// Configuration file
-    #[arg(short, long, value_name = "FILE")]
-    pub config: Option<PathBuf>,
+    /// Number of threads for parallel processing (default: auto)
+    #[arg(short = 't', long, value_name = "COUNT")]
+    pub threads: Option<usize>,
 
     /// Suppress progress output
     #[arg(short, long)]
@@ -219,28 +219,29 @@ impl ProcessArgs {
             Language::Japanese => "ja",
         };
 
-        let config = if self.parallel {
-            Config::builder()
-                .language(language_code)
-                .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?
-                .chunk_size(256 * 1024) // 256KB in bytes
-                .threads(None) // Use all available threads
-                .build()
-                .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?
-        } else if self.adaptive {
-            // Use default config (which is the old "balanced")
-            Config::builder()
-                .language(language_code)
-                .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?
-                .build()
-                .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?
-        } else {
-            Config::builder()
-                .language(language_code)
-                .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?
-                .build()
-                .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?
-        };
+        // Build configuration with thread option handling
+        let mut builder = Config::builder()
+            .language(language_code)
+            .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?;
+
+        // Handle thread count:
+        // - If threads is specified, use that value
+        // - If parallel flag is set, use None (all available threads)
+        // - Otherwise, use default (auto-detect based on text size)
+        if let Some(thread_count) = self.threads {
+            if thread_count == 0 {
+                return Err(anyhow::anyhow!("Thread count must be greater than 0"));
+            }
+            builder = builder.threads(Some(thread_count));
+        } else if self.parallel {
+            builder = builder.threads(None); // Use all available threads
+        }
+
+        // Note: adaptive mode now uses default configuration
+
+        let config = builder
+            .build()
+            .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?;
 
         SentenceProcessor::with_config(config)
             .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))

@@ -90,6 +90,9 @@ sakurs process -i text.txt
 # Force parallel processing for small files
 sakurs process -i small.txt --parallel
 
+# Specify exact thread count
+sakurs process -i large.txt --threads 4
+
 # Suppress progress output for scripting
 sakurs process -i *.txt --quiet > sentences.txt
 
@@ -109,20 +112,9 @@ Process text files to detect sentence boundaries.
 - `-f, --format <FORMAT>` - Output format: text, json, markdown (default: text)
 - `-l, --language <LANG>` - Language: english, japanese (default: english)
 - `-p, --parallel` - Force parallel processing
+- `-t, --threads <COUNT>` - Number of threads (default: auto)
 - `-q, --quiet` - Suppress progress output
 - `-v, --verbose` - Increase verbosity (can be repeated)
-
-### `sakurs config`
-
-Configuration management commands.
-
-```bash
-# Generate a default configuration file
-sakurs config generate > sakurs.toml
-
-# Validate a configuration file (coming soon)
-sakurs config validate sakurs.toml
-```
 
 ### `sakurs list`
 
@@ -136,25 +128,20 @@ sakurs list languages
 sakurs list formats
 ```
 
-## Configuration
+## Performance and Configuration
 
-Create a `sakurs.toml` file to customize processing:
+Sakurs automatically optimizes performance based on text size and available CPU cores. For advanced usage:
 
-```toml
-[processing]
-default_language = "english"
-detect_abbreviations = true
-strict_punctuation = false
+- See [PERFORMANCE.md](docs/PERFORMANCE.md) for performance tuning guide
+- See [SHELL_ALIASES.md](docs/SHELL_ALIASES.md) for useful shell aliases and functions
 
-[output]
-default_format = "text"
-include_metadata = false
-pretty_json = true
+```bash
+# Manual thread control
+sakurs process -i large.txt --threads 8
 
-[performance]
-parallel_threshold_mb = 10
-chunk_size_kb = 256
-worker_threads = 0  # 0 = auto-detect
+# Common aliases (add to ~/.bashrc or ~/.zshrc)
+alias sakurs-ja='sakurs process -l japanese'
+alias sakurs-json='sakurs process -f json'
 ```
 
 ## Examples
