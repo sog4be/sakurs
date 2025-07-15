@@ -24,6 +24,42 @@ sakurs process -i input.txt --threads 4
 sakurs process -i input.txt --threads $(nproc)
 ```
 
+## Chunk Size Tuning
+
+The chunk size determines how text is split for parallel processing. The default is 256KB, which works well for most cases.
+
+Use the `--chunk-kb` option to customize:
+
+```bash
+# Small chunks for files with many short sentences
+sakurs process -i short_sentences.txt --chunk-kb 64
+
+# Large chunks for files with long sentences or few boundaries
+sakurs process -i long_text.txt --chunk-kb 512
+
+# Very large chunks for maximum throughput on large files
+sakurs process -i huge_file.txt --chunk-kb 1024
+```
+
+### Chunk Size Guidelines
+
+- **64-128KB**: Good for texts with many short sentences
+- **256KB** (default): Balanced for most use cases
+- **512KB-1MB**: Better for large files with fewer sentence boundaries
+- **>1MB**: Maximum throughput but may reduce parallelism benefits
+
+### Combining Thread Count and Chunk Size
+
+For optimal performance on large files, tune both parameters:
+
+```bash
+# Maximum performance for very large files
+sakurs process -i huge.txt --threads 8 --chunk-kb 1024
+
+# Balanced approach for medium files
+sakurs process -i medium.txt --threads 4 --chunk-kb 256
+```
+
 ## Performance Profiles
 
 ### Small Files (< 256KB)

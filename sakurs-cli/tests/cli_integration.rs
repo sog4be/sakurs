@@ -185,3 +185,46 @@ fn test_streaming_japanese() {
             "日本語の文章を正しく分割できるか確認しています。",
         ));
 }
+
+#[test]
+fn test_chunk_kb_option() {
+    let mut cmd = Command::cargo_bin("sakurs").unwrap();
+    cmd.arg("process")
+        .arg("-i")
+        .arg(fixture_path("english-sample.txt"))
+        .arg("--chunk-kb")
+        .arg("64");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Dr. Smith went to the store."));
+}
+
+#[test]
+fn test_chunk_kb_with_parallel() {
+    let mut cmd = Command::cargo_bin("sakurs").unwrap();
+    cmd.arg("process")
+        .arg("-i")
+        .arg(fixture_path("english-sample.txt"))
+        .arg("--chunk-kb")
+        .arg("128")
+        .arg("--parallel");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Dr. Smith went to the store."));
+}
+
+#[test]
+fn test_chunk_kb_invalid_zero() {
+    let mut cmd = Command::cargo_bin("sakurs").unwrap();
+    cmd.arg("process")
+        .arg("-i")
+        .arg(fixture_path("english-sample.txt"))
+        .arg("--chunk-kb")
+        .arg("0");
+
+    cmd.assert().failure().stderr(predicate::str::contains(
+        "Chunk size must be greater than 0",
+    ));
+}

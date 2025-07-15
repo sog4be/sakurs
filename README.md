@@ -93,6 +93,12 @@ sakurs process -i small.txt --parallel
 # Specify exact thread count
 sakurs process -i large.txt --threads 4
 
+# Customize chunk size for parallel processing (in KB)
+sakurs process -i large.txt --chunk-kb 512
+
+# Combine thread count and chunk size for optimal performance
+sakurs process -i very_large.txt --threads 8 --chunk-kb 1024
+
 # Suppress progress output for scripting
 sakurs process -i *.txt --quiet > sentences.txt
 

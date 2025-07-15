@@ -36,6 +36,10 @@ pub struct ProcessArgs {
     #[arg(short = 't', long, value_name = "COUNT")]
     pub threads: Option<usize>,
 
+    /// Chunk size in KB for parallel processing (default: 256)
+    #[arg(long, value_name = "SIZE_KB")]
+    pub chunk_kb: Option<usize>,
+
     /// Suppress progress output
     #[arg(short, long)]
     pub quiet: bool,
@@ -235,6 +239,16 @@ impl ProcessArgs {
             builder = builder.threads(Some(thread_count));
         } else if self.parallel {
             builder = builder.threads(None); // Use all available threads
+        }
+
+        // Handle chunk size if specified
+        if let Some(chunk_kb) = self.chunk_kb {
+            if chunk_kb == 0 {
+                return Err(anyhow::anyhow!("Chunk size must be greater than 0"));
+            }
+            // Convert KB to bytes
+            let chunk_size = chunk_kb * 1024;
+            builder = builder.chunk_size(chunk_size);
         }
 
         // Note: adaptive mode now uses default configuration
