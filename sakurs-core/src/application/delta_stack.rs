@@ -100,7 +100,7 @@ impl DeltaStackProcessor {
                 .num_threads(thread_count)
                 .build()
                 .map_err(|e| ProcessingError::InvalidConfig {
-                    reason: format!("Failed to create thread pool: {}", e),
+                    reason: format!("Failed to create thread pool: {e}"),
                 })?;
 
             pool.install(|| {
@@ -169,7 +169,7 @@ impl DeltaStackProcessor {
                 .num_threads(thread_count)
                 .build()
                 .map_err(|e| ProcessingError::InvalidConfig {
-                    reason: format!("Failed to create thread pool: {}", e),
+                    reason: format!("Failed to create thread pool: {e}"),
                 })?;
 
             pool.install(|| {
