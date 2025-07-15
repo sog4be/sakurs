@@ -24,7 +24,7 @@ pub struct ProcessorConfig {
 impl Default for ProcessorConfig {
     fn default() -> Self {
         Self {
-            chunk_size: 64 * 1024,           // 64KB chunks
+            chunk_size: 256 * 1024,          // 256KB chunks
             parallel_threshold: 1024 * 1024, // 1MB threshold for parallel
             max_threads: None,               // Use all available cores
             overlap_size: 256,               // 256 char overlap
@@ -51,7 +51,7 @@ impl ProcessorConfig {
     /// Creates a configuration optimized for large texts
     pub fn large_text() -> Self {
         Self {
-            chunk_size: 256 * 1024,         // 256KB chunks
+            chunk_size: 512 * 1024,         // 512KB chunks
             parallel_threshold: 512 * 1024, // 512KB threshold
             max_threads: None,              // Use all available cores
             overlap_size: 512,              // Larger overlap
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = ProcessorConfig::default();
-        assert_eq!(config.chunk_size, 64 * 1024);
+        assert_eq!(config.chunk_size, 256 * 1024);
         assert_eq!(config.parallel_threshold, 1024 * 1024);
         assert!(config.validate().is_ok());
     }
@@ -338,7 +338,7 @@ mod tests {
         assert_eq!(small.parallel_threshold, usize::MAX);
 
         let large = ProcessorConfig::large_text();
-        assert_eq!(large.chunk_size, 256 * 1024);
+        assert_eq!(large.chunk_size, 512 * 1024);
 
         let streaming = ProcessorConfig::streaming();
         assert_eq!(streaming.max_threads, Some(2));
