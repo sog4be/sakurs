@@ -4,7 +4,6 @@
 //! sentence boundary detection system.
 
 pub mod commands;
-pub mod config;
 pub mod error;
 pub mod input;
 pub mod output;
