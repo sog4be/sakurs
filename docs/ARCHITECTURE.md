@@ -38,8 +38,8 @@ graph TB
     end
     
     subgraph "Application Layer"
-        APP[UnifiedProcessor]
-        STRAT[Processing Strategies<br/>- Sequential<br/>- Parallel<br/>- Streaming<br/>- Adaptive]
+        APP[DeltaStackProcessor]
+        MODE[Execution Modes<br/>- Sequential<br/>- Parallel<br/>- Adaptive]
         CHUNK[Chunking Functions<br/>- ChunkManager<br/>- OverlapChunkManager]
         PARSER[Text Parser]
     end
@@ -49,7 +49,6 @@ graph TB
         RULES[Language Rules<br/>- English<br/>- Japanese]
         STATE[State Machine<br/>- PartialState<br/>- DeltaVec]
         CROSS[Cross-Chunk Logic]
-        QUOTE[Quote Suppression]
     end
     
     USER --> CLI
@@ -66,9 +65,9 @@ graph TB
     API --> LANG
     API --> APP
     
-    APP --> STRAT
+    APP --> MODE
     APP --> PARSER
-    STRAT --> CHUNK
+    MODE --> CHUNK
     PARSER --> ALGO
     
     CHUNK --> STATE
@@ -76,7 +75,6 @@ graph TB
     STATE --> ALGO
     ALGO --> RULES
     ALGO --> CROSS
-    RULES --> QUOTE
 ```
 
 ### Future Architecture (Planned)
@@ -108,7 +106,7 @@ graph TB
     style C_APP stroke-dasharray: 5 5
 ```
 
-Note: Streaming functionality is currently available through the existing adapters via the streaming processing strategy.
+Note: Streaming functionality is available through configuration presets that optimize chunk size and overlap for memory-efficient processing of large texts or continuous streams.
 
 ## Core Algorithm
 
@@ -174,6 +172,19 @@ The system is built around the **Delta-Stack Monoid** algorithm for parallel sen
 
 **Trade-off**: Additional abstraction layer to maintain.
 
+### 6. Simplified Execution Model
+
+**Decision**: Use enum-based execution modes instead of strategy pattern.
+
+**Rationale**:
+- Eliminates virtual dispatch overhead for better performance
+- Simpler to understand and maintain
+- All execution modes share the same core Delta-Stack algorithm
+- No loss of functionality - all modes still available
+- Direct method dispatch enables compiler optimizations
+
+**Trade-off**: Less extensible for adding new execution modes at runtime, but this is rarely needed in practice.
+
 ## Component Structure
 
 ### API Layer (`src/api/`)
@@ -237,27 +248,36 @@ pub trait LanguageRules: Send + Sync {
 Orchestrates the domain logic with various processing strategies:
 
 ```rust
-// Unified processor that delegates to strategies
-pub struct UnifiedProcessor {
-    rules: Arc<dyn LanguageRules>,
-    config: ProcessingConfig,
+// Delta-Stack processor with execution mode selection
+pub struct DeltaStackProcessor {
+    language_rules: Arc<dyn LanguageRules>,
+    execution_mode: ExecutionMode,
 }
 
-// Processing strategies
-pub trait ProcessingStrategy: Send + Sync {
-    fn process(&self, input: StrategyInput, 
-               language_rules: Arc<dyn LanguageRules>,
-               config: &ProcessingConfig) -> Result<StrategyOutput>;
-    fn suitability_score(&self, characteristics: &InputCharacteristics) -> f32;
-    fn supports_streaming(&self) -> bool;
+// Execution modes (no virtual dispatch)
+pub enum ExecutionMode {
+    Sequential,
+    Parallel { chunk_size: usize },
+    Adaptive,
+}
+
+impl DeltaStackProcessor {
+    pub fn process(&self, text: &str) -> Result<Vec<Boundary>> {
+        match &self.execution_mode {
+            ExecutionMode::Sequential => self.process_sequential(text),
+            ExecutionMode::Parallel { chunk_size } => self.process_parallel(text, *chunk_size),
+            ExecutionMode::Adaptive => self.process_adaptive(text),
+        }
+    }
 }
 ```
 
 Key responsibilities:
-- Strategy selection (sequential, parallel, streaming, adaptive)
+- Execution mode selection (sequential, parallel, adaptive)
 - Chunk management at valid UTF-8 boundaries
 - Cross-chunk boundary resolution
 - Performance optimization
+- Streaming support through overlap chunking configuration
 
 
 ### Adapter Layer
@@ -323,6 +343,15 @@ let config = Config::builder()
     .build()?;
 
 let processor = SentenceProcessor::with_config(config)?;
+
+// Streaming usage for large files or continuous input
+let config = Config::streaming()
+    .language("en")?
+    .build()?;
+
+let processor = SentenceProcessor::with_config(config)?;
+// Process large files or streams with memory-efficient chunking
+let output = processor.process(Input::from_file("large_document.txt"))?;
 ```
 
 ### CLI Usage
@@ -382,8 +411,10 @@ Yes! The library is designed for production use with:
 - ✅ Unified API layer with clean public interface
 - ✅ CLI adapter with stdin/file/glob support
 - ✅ Python bindings with NLTK compatibility
-- ✅ Streaming processing strategy
-- ✅ Adaptive strategy selection
+- ✅ Streaming support via configuration presets
+- ✅ Adaptive execution mode with automatic selection
+- ✅ Simplified execution model with enum-based modes
+- ✅ Consolidated processing pipeline
 - ✅ Cross-chunk boundary handling
 - ✅ UTF-8 safe chunking
 - ✅ Simple and flexible configuration API
