@@ -3,8 +3,8 @@
 ## Important Project Guidelines
 
 Before making any changes, please review:
-- **CONTRIBUTING.md** - Git workflow, branch naming, and development guidelines
-- **.github/PULL_REQUEST_TEMPLATE.md** - PR checklist and required information
+- @CONTRIBUTING.md - Git workflow, branch naming, and development guidelines
+- @.github/PULL_REQUEST_TEMPLATE.md - PR checklist and required information
 
 When asked to create PRs or commits, always reference these documents to ensure compliance with project standards.
 
@@ -15,10 +15,11 @@ When asked to create PRs or commits, always reference these documents to ensure 
 - Testing: criterion (benchmarks), proptest (property testing)
 
 ## Project Structure
-- `sakurs-core/` - Core Rust library implementing Δ-Stack Monoid algorithm
-- `sakurs-cli/` - Command-line interface for batch processing  
-- `sakurs-py/` - Python bindings via PyO3
-- `docs/ARCHITECTURE.md` - Detailed system architecture and design decisions
+- @sakurs-core/ - Core Rust library implementing Δ-Stack Monoid algorithm
+- @sakurs-cli - Command-line interface for batch processing  
+- @sakurs-py - Python bindings via PyO3
+- @docs/ARCHITECTURE.md - Detailed system architecture and design decisions
+- @docs/DELTA_STACK_ALGORITHM.md - Detailed algorithm description of this system's sentence boundary detection
 
 ## Commands
 - `cargo build` - Build all workspace crates
@@ -57,84 +58,6 @@ command -v tree >/dev/null 2>&1 && echo "tree is available" || echo "tree not fo
 - `make coverage-html` - Generate and open HTML coverage report
 - `make coverage-clean` - Clean coverage data
 
-### Benchmark Tools
-- `cargo bench` - Run performance benchmarks for Rust code
-- Python benchmarks in `benchmarks/` directory:
-  - Brown Corpus benchmark suite
-  - UD English EWT benchmark suite (r2.16)
-  - UD Japanese GSD benchmark suite (r2.16)
-  - Wikipedia throughput benchmarks (500MB samples)
-  - Performance comparison with NLTK and ja_sentence_segmenter baselines
-
-#### Quick Benchmark Commands
-```bash
-# Run all experiments (recommended)
-cd benchmarks/cli && ./run_experiments.sh
-
-# Prepare benchmark data
-cd benchmarks && uv run python cli/scripts/prepare_data.py
-
-# Run specific benchmark types
-cd benchmarks/cli
-./run_experiments.sh --skip-memory --skip-accuracy  # Throughput only
-./run_experiments.sh --threads 1,8 --test-runs 10   # Custom config
-
-# View results
-cat results/latest/results_tables.md
-```
-
-### Development Scripts
-- Benchmark runner: `python benchmarks/cli/run_benchmarks.py`
-- Data preparation: `python benchmarks/cli/scripts/prepare_data.py`
-  - Downloads Wikipedia samples (June 2024 dumps)
-  - Verifies UD Treebank versions (r2.16)
-  - Extracts test set statistics
-  - Manages dataset versioning
-- Data validation: Scripts in `benchmarks/data/` for corpus validation
-- Result aggregation: `python benchmarks/cli/scripts/aggregate_results.py`
-- Metrics calculation: `python benchmarks/cli/scripts/metrics.py`
-- Accuracy evaluation: `python benchmarks/cli/scripts/evaluate_accuracy.py`
-
-### Master Experiment Script
-Run comprehensive benchmarks from `benchmarks/cli/`:
-```bash
-# Run all experiments with default settings
-./run_experiments.sh
-
-# Prepare data and run experiments
-./run_experiments.sh --prepare-data
-
-# Custom configurations
-./run_experiments.sh --threads 1,4,8 --test-runs 5
-./run_experiments.sh --skip-memory --skip-accuracy  # Only throughput
-
-# Results are saved to timestamped directories with:
-# - Individual JSON results for each test
-# - Aggregated results in JSON format
-# - Formatted markdown tables ready for papers
-```
-
-#### Experiment Script Options
-- `-o, --output-dir DIR`: Output directory (default: results/YYYYMMDD_HHMMSS)
-- `-t, --threads LIST`: Thread counts to test (default: 1,2,4,8)
-- `-w, --warmup-runs NUM`: Number of warmup runs (default: 1)
-- `-r, --test-runs NUM`: Number of test runs (default: 3)
-- `-p, --prepare-data`: Download/prepare datasets before running
-- `--skip-throughput`: Skip throughput benchmarks
-- `--skip-memory`: Skip memory benchmarks
-- `--skip-accuracy`: Skip accuracy benchmarks
-
-#### Experiment Output Structure
-```
-results/20250704_143000/
-├── metadata.json              # System specs, versions, parameters
-├── throughput_*.json          # Individual throughput results
-├── memory_*.json              # Memory usage measurements
-├── accuracy_*.json            # Accuracy evaluation results
-├── aggregated_results.json    # All results combined
-└── results_tables.md          # Formatted tables for papers
-```
-
 ## Code Style & Conventions
 - Follow standard Rust naming conventions
 - Use `thiserror` for error handling across crates
@@ -149,6 +72,17 @@ results/20250704_143000/
 - Language rules as pluggable traits
 - Designed for true parallelism via rayon
 
+## Coding Policy
+- **DRY (Don't Repeat Yourself)**: Avoid duplicating code or logic. Abstract repeated functionality into reusable modules, functions, or components to enhance maintainability and readability.
+- **SOLID Principles**:
+  * **Single Responsibility Principle**: Each class or function should have a single, well-defined responsibility.
+  * **Open/Closed Principle**: Software entities should be open for extension but closed for modification.
+  * **Liskov Substitution Principle**: Derived classes must be substitutable for their base classes without altering correctness.
+  * **Interface Segregation Principle**: Interfaces should be minimal and specific, ensuring clients are not forced to depend on methods they do not use.
+  * **Dependency Inversion Principle**: Depend on abstractions (interfaces or abstract classes), not concrete implementations.
+- **YAGNI (You Aren't Gonna Need It)**: Do not implement features based purely on speculation. Code only what is necessary now, and avoid complexity from unnecessary future-proofing.
+- **Simple is Better**: Prioritize clarity and simplicity—but recognize that true simplicity emerges through thoughtful refinement of complexity. Aim for elegance by deeply understanding and simplifying inherently complex systems.
+
 ## Development Workflow
 - **MANDATORY**: Run CI verification commands before every commit:
   ```bash
@@ -158,11 +92,11 @@ results/20250704_143000/
   cargo check --workspace
   ```
 - ALWAYS run `cargo fmt` and `cargo clippy` before commits
-- Read `docs/ARCHITECTURE.md` before modifying core algorithm
+- Read @docs/ARCHITECTURE.md before modifying core algorithm
 - Add tests for new functionality - both unit and property tests
 - Benchmark performance-critical changes
-- Follow branch naming conventions from CONTRIBUTING.md
-- Use conventional commit format as described in CONTRIBUTING.md
+- Follow branch naming conventions from @CONTRIBUTING.md
+- Use conventional commit format as described in @CONTRIBUTING.md
 
 ## CI Verification Commands
 **Run these exact commands before committing to avoid CI failures:**
@@ -201,7 +135,7 @@ Coverage reports are automatically generated in CI and displayed in GitHub Actio
 
 ## Pull Request Guidelines
 When creating or helping with PRs:
-1. **MANDATORY**: Always use the PR template structure from `.github/PULL_REQUEST_TEMPLATE.md`
+1. **MANDATORY**: Always use the PR template structure from @.github/PULL_REQUEST_TEMPLATE.md
    - Use `gh pr create --body "$(cat <<'EOF' ... EOF)"` with template format
    - Fill out ALL required sections: Summary, Type of Change, Changes Made, etc.
    - Mark checkboxes with `[x]` for completed items
@@ -251,7 +185,7 @@ EOF
 - Branch from `main` for new features
 - Use descriptive branch names: `feature/`, `fix/`, `docs/`, `chore/`
 - Keep commits atomic and focused
-- Refer to CONTRIBUTING.md for detailed Git workflow and examples
+- Refer to @CONTRIBUTING.md for detailed Git workflow and examples
 
 ## Committing Changes with Git
 
@@ -300,12 +234,6 @@ For temporary analysis reports, documentation, and other working files:
   
   # Example output:
   # temp/2025-07-02-23:15:42_test-coverage-analysis.md
-  ```
-- **Manual Examples** (for reference only):
-  ```
-  temp/2025-07-02-10:30:00_test-coverage-analysis.md
-  temp/2025-07-02-14:15:30_performance-benchmarks.md
-  temp/2025-07-02-16:45:00_architecture-review.md
   ```
 
 ### Usage Guidelines
