@@ -45,7 +45,7 @@ fn test_possessive_forms() {
             vec![32, 46],
         ),
         ("James' car is fast. Mary's is faster.", vec![19, 37]),
-        ("The '90s were great. The 2000s too.", vec![]), // TODO: Fix apostrophe Δ suppression regression - should detect [20, 35]
+        ("The '90s were great. The 2000s too.", vec![20, 35]), // Fixed: apostrophe Δ suppression now works correctly
     ];
 
     for (text, expected_offsets) in test_cases {
@@ -168,7 +168,7 @@ fn test_edge_cases() {
         // Year abbreviation
         (
             "The '60s and '70s were different. Times changed.",
-            vec![], // TODO: Fix apostrophe Δ suppression regression - should detect [33, 48]
+            vec![33, 48], // Fixed: apostrophe Δ suppression now works correctly
         ),
     ];
 

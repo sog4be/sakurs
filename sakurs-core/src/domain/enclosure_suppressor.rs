@@ -137,6 +137,27 @@ impl EnglishEnclosureSuppressor {
         // Pattern: whitespace* + alphanumeric+ + optional '.' + ')'
         found_alnum && found_only_space_before_alnum
     }
+
+    /// Checks if an apostrophe is part of a year abbreviation (e.g., '90s, '60s)
+    fn is_year_abbreviation(&self, context: &EnclosureContext) -> bool {
+        // Check if preceded by whitespace or start of text
+        let prev_is_space_or_start = context
+            .preceding_chars
+            .last()
+            .map(|c| c.is_whitespace())
+            .unwrap_or(true);
+
+        // Check if followed by exactly 2 digits and 's'
+        if context.following_chars.len() >= 3 {
+            let follows_year_pattern = context.following_chars[0].is_ascii_digit()
+                && context.following_chars[1].is_ascii_digit()
+                && context.following_chars[2] == 's';
+
+            prev_is_space_or_start && follows_year_pattern
+        } else {
+            false
+        }
+    }
 }
 
 impl EnclosureSuppressor for EnglishEnclosureSuppressor {
@@ -147,6 +168,7 @@ impl EnclosureSuppressor for EnglishEnclosureSuppressor {
                 self.is_contraction_apostrophe(context)
                     || self.is_possessive_or_plural(context)
                     || self.is_measurement_mark(ch, context)
+                    || self.is_year_abbreviation(context)
             }
 
             // Double quotes that might be inch marks
@@ -243,8 +265,40 @@ mod tests {
         let context = create_context("90s", ".", 10, "90s'.");
         assert!(suppressor.should_suppress_enclosure('\'', &context));
 
-        // Test year abbreviations
+        // Test year abbreviations (should NOT be suppressed by this function)
         let context = create_context("", "90s", 0, "'90s");
+        assert!(!suppressor.is_possessive_or_plural(&context));
+    }
+
+    #[test]
+    fn test_year_abbreviations() {
+        let suppressor = EnglishEnclosureSuppressor::new();
+
+        // Test year abbreviations that should be suppressed
+        let context = create_context(" ", "90s", 10, " '90s");
+        assert!(suppressor.should_suppress_enclosure('\'', &context));
+
+        let context = create_context("", "60s", 0, "'60s");
+        assert!(suppressor.should_suppress_enclosure('\'', &context));
+
+        let context = create_context("\t", "20s", 5, "\t'20s");
+        assert!(suppressor.should_suppress_enclosure('\'', &context));
+
+        // Test Unicode apostrophe
+        let context = create_context(" ", "90s", 10, " '90s");
+        assert!(suppressor.should_suppress_enclosure('\u{2019}', &context));
+
+        // Test cases that should NOT be suppressed
+        let context = create_context("a", "90s", 10, "a'90s");
+        assert!(!suppressor.should_suppress_enclosure('\'', &context));
+
+        let context = create_context(" ", "9s", 10, " '9s");
+        assert!(!suppressor.should_suppress_enclosure('\'', &context));
+
+        let context = create_context(" ", "90a", 10, " '90a");
+        assert!(!suppressor.should_suppress_enclosure('\'', &context));
+
+        let context = create_context(" ", "900s", 10, " '900s");
         assert!(!suppressor.should_suppress_enclosure('\'', &context));
     }
 
