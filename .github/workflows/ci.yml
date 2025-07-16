@@ -25,7 +25,7 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Run clippy
-        run: cargo clippy --all-features --workspace --exclude sakurs-benchmarks -- -D warnings
+        run: cargo clippy --all-features --workspace -- -D warnings
 
   test:
     name: Test
@@ -42,7 +42,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all-features --workspace --exclude sakurs-py --exclude sakurs-benchmarks
+      - run: cargo test --all-features --workspace --exclude sakurs-py
       
       # Check sakurs-py separately (can't run normal tests for extension modules)
       - name: Check sakurs-py compilation
