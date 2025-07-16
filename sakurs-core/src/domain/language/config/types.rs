@@ -70,6 +70,8 @@ pub struct EnclosurePair {
 pub struct SuppressionConfig {
     #[serde(default)]
     pub fast_patterns: Vec<FastPattern>,
+    #[serde(default)]
+    pub regex_patterns: Vec<RegexPattern>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +83,13 @@ pub struct FastPattern {
     pub before: Option<String>,
     #[serde(default)]
     pub after: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegexPattern {
+    pub pattern: String,
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

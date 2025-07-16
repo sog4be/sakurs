@@ -178,15 +178,35 @@ impl ConfigurableLanguageRules {
                 .collect(),
         );
 
-        // Build suppressor
-        let suppressor = Suppressor::new(
-            config
-                .suppression
-                .fast_patterns
-                .iter()
-                .map(|p| (p.char, p.line_start, p.before.clone(), p.after.clone()))
-                .collect(),
-        );
+        // Build suppressor with regex patterns if available
+        let suppressor = if config.suppression.regex_patterns.is_empty() {
+            Suppressor::new(
+                config
+                    .suppression
+                    .fast_patterns
+                    .iter()
+                    .map(|p| (p.char, p.line_start, p.before.clone(), p.after.clone()))
+                    .collect(),
+            )
+        } else {
+            Suppressor::with_regex_patterns(
+                config
+                    .suppression
+                    .fast_patterns
+                    .iter()
+                    .map(|p| (p.char, p.line_start, p.before.clone(), p.after.clone()))
+                    .collect(),
+                config
+                    .suppression
+                    .regex_patterns
+                    .iter()
+                    .map(|p| (p.pattern.clone(), p.description.clone()))
+                    .collect(),
+            )
+            .map_err(|e| {
+                DomainError::InvalidLanguageRules(format!("Invalid regex pattern: {}", e))
+            })?
+        };
 
         Ok(Self {
             code: config.metadata.code.clone(),

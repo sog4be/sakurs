@@ -39,9 +39,27 @@ pairs = [
 
 [suppression]
 # Fast pattern matching for enclosure suppression
+# TODO: Fast patterns currently only look at single characters before/after.
+# This limitation prevents proper handling of patterns like "James'" where we need
+# to distinguish between "That's" (contraction) and "James'" (possessive).
+# Future enhancement: Extend fast_patterns to support multi-character sequences
+# or add a special "possessive" pattern type for better performance.
 fast_patterns = [
     { char = "'", before = "alpha", after = "alpha" },
-    { char = ")", line_start = true, before = "alnum" }
+    { char = "'", before = "s", after = "whitespace" },  # Possessive after s (partial support)
+    { char = ")", line_start = true, before = "alnum" }    # List items at line start
+]
+
+# Regex patterns for more complex matching
+regex_patterns = [
+    { pattern = "\\(\\d{1,3}\\)", description = "Numbered references like (1), (12), (123)" },
+    { pattern = "\\d+'\\d+\"", description = "Feet and inches like 5'9\"" },
+    { pattern = "\\d+°\\d+'", description = "Degrees and minutes like 45°30'" },
+    { pattern = "\\d+'", description = "Feet measurement like 6'" },
+    { pattern = "\\d+\"", description = "Inches measurement like 12\"" },
+    { pattern = "\\w+'s\\b", description = "Possessive forms like John's" },
+    { pattern = "\\ws'\\s", description = "Plural possessive like students'" },
+    { pattern = "\\w+s'\\s", description = "Singular possessive ending in s like James'" }
 ]
 
 [abbreviations]
