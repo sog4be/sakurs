@@ -246,6 +246,20 @@ impl LanguageRules for ConfigurableLanguageRules {
                 return BoundaryDecision::Boundary(BoundaryFlags::STRONG);
             }
 
+            // Check if current character is part of a future pattern
+            // This prevents creating boundaries at the first character of multi-character patterns
+            let next_char = context.following_context.chars().next();
+            if let Some(next) = next_char {
+                // Check if current + next forms a known pattern
+                let potential_pattern = format!("{}{}", ch, next);
+                for (pattern_str, _) in self.terminator_rules.patterns() {
+                    if pattern_str == &potential_pattern {
+                        // This is the first character of a pattern, don't create boundary
+                        return BoundaryDecision::NotBoundary;
+                    }
+                }
+            }
+
             // Check for abbreviations
             // context.position is the byte offset BEFORE the terminator (period)
             // We check if there's an abbreviation ending at this position

@@ -33,6 +33,11 @@ pub struct TerminatorRules {
 }
 
 impl TerminatorRules {
+    /// Get the configured patterns
+    pub fn patterns(&self) -> &[(String, TerminatorPattern)] {
+        &self.patterns
+    }
+
     /// Create new terminator rules from configuration
     pub fn new(chars: Vec<char>, patterns: Vec<(String, String)>) -> Self {
         let char_set: HashSet<char> = chars.into_iter().collect();
