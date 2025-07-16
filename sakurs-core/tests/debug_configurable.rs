@@ -1,9 +1,5 @@
 //! Debug test for configurable language rules
-//!
-//! Note: These tests are currently disabled as they need to be updated
-//! for the new configurable language rules system behavior.
 
-#![cfg(feature = "disabled_debug_tests")]
 use sakurs_core::{Input, SentenceProcessor};
 
 #[test]
