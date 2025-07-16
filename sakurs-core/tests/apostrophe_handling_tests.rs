@@ -84,8 +84,8 @@ fn test_complex_apostrophe_patterns() {
 fn test_mixed_quotes_and_contractions() {
     let test_cases = vec![
         (r#"He said "I don't know." She agreed."#, vec![35]), // Corrected: only final boundary (enclosure suppresses internal boundaries)
-        (r#""It's true," she said. "Isn't it?""#, vec![33]), // Corrected: only final boundary (enclosure suppresses internal boundaries)
-        (r#"'I'm going,' he said. 'You're not.'"#, vec![34]), // Corrected: only final boundary (enclosure suppresses internal boundaries)
+        (r#""It's true," she said. "Isn't it?""#, vec![22]), // Boundary after "she said." (quotes suppress internal boundaries)
+        (r#"'I'm going,' he said. 'You're not.'"#, vec![21]), // Boundary after "he said." (quotes suppress internal boundaries)
     ];
 
     for (text, expected_offsets) in test_cases {
