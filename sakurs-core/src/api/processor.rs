@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use crate::api::{Config, Error, Input, Language, Output};
 use crate::application::{DeltaStackProcessor, ExecutionMode, ProcessorConfig};
-use crate::domain::language::{EnglishLanguageRules, JapaneseLanguageRules, LanguageRules};
+use crate::domain::language::{ConfigurableLanguageRules, LanguageRules};
 
 /// Unified sentence processor with clean API
 pub struct SentenceProcessor {
@@ -38,8 +38,14 @@ impl SentenceProcessor {
     /// Create language rules based on the language
     fn create_language_rules(language: &Language) -> Arc<dyn LanguageRules> {
         match language {
-            Language::English => Arc::new(EnglishLanguageRules::new()),
-            Language::Japanese => Arc::new(JapaneseLanguageRules::new()),
+            Language::English => Arc::new(
+                ConfigurableLanguageRules::from_code("en")
+                    .expect("English configuration should be embedded"),
+            ),
+            Language::Japanese => Arc::new(
+                ConfigurableLanguageRules::from_code("ja")
+                    .expect("Japanese configuration should be embedded"),
+            ),
         }
     }
 

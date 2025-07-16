@@ -15,11 +15,11 @@
 //! # Usage
 //!
 //! ```rust
-//! use sakurs_core::domain::language::{LanguageRules, EnglishLanguageRules, BoundaryContext};
+//! use sakurs_core::domain::language::{LanguageRules, ConfigurableLanguageRules, BoundaryContext};
 //! use sakurs_core::domain::BoundaryFlags;
 //!
-//! // Create English-specific language rules
-//! let rules = EnglishLanguageRules::new();
+//! // Create language rules from configuration
+//! let rules = ConfigurableLanguageRules::from_code("en").unwrap();
 //!
 //! // Analyze a potential sentence boundary
 //! let context = BoundaryContext {
@@ -33,8 +33,8 @@
 //! let decision = rules.detect_sentence_boundary(&context);
 //! ```
 
-pub mod english;
-pub mod japanese;
+pub mod config;
+pub mod configurable;
 pub mod rules;
 pub mod traits;
 
@@ -44,14 +44,8 @@ pub use traits::{
     QuotationContext, QuotationDecision,
 };
 
-pub use rules::{AbbreviationRule, CompositeRule, PunctuationRule, QuotationRule};
-
-pub use english::{
-    CapitalizationAnalysis, EnglishAbbreviationRule, EnglishCapitalizationRule,
-    EnglishLanguageRules, EnglishNumberRule, EnglishQuotationRule,
-};
-
-pub use japanese::{JapaneseLanguageRules, JapanesePunctuationRule, JapaneseQuotationRule};
+// Re-export configurable language rules as the primary implementation
+pub use configurable::ConfigurableLanguageRules;
 
 /// Default mock implementation for testing
 ///
@@ -61,7 +55,6 @@ pub use japanese::{JapaneseLanguageRules, JapanesePunctuationRule, JapaneseQuota
 pub struct MockLanguageRules {
     pub language_code: String,
     pub language_name: String,
-    pub composite_rule: CompositeRule,
 }
 
 impl MockLanguageRules {
@@ -70,7 +63,6 @@ impl MockLanguageRules {
         Self {
             language_code: language_code.to_string(),
             language_name: language_name.to_string(),
-            composite_rule: CompositeRule::new(),
         }
     }
 
@@ -87,17 +79,40 @@ impl MockLanguageRules {
 
 impl LanguageRules for MockLanguageRules {
     fn detect_sentence_boundary(&self, context: &BoundaryContext) -> BoundaryDecision {
-        self.composite_rule.analyze_boundary(context)
+        // Simple mock implementation
+        match context.boundary_char {
+            '.' | '!' | '?' => BoundaryDecision::Boundary(crate::domain::BoundaryFlags::WEAK),
+            _ => BoundaryDecision::NotBoundary,
+        }
     }
 
     fn process_abbreviation(&self, text: &str, position: usize) -> AbbreviationResult {
-        self.composite_rule
-            .abbreviation_rule
-            .detect_abbreviation(text, position)
+        // Simple mock implementation - detect common abbreviations
+        let common_abbrs = ["Dr", "Mr", "Mrs", "Ms", "Inc", "Ltd"];
+
+        for abbr in &common_abbrs {
+            if position >= abbr.len() {
+                let start = position - abbr.len();
+                if position < text.len() && text.get(start..position) == Some(abbr) {
+                    return AbbreviationResult {
+                        is_abbreviation: true,
+                        length: abbr.len(),
+                        confidence: 0.9,
+                    };
+                }
+            }
+        }
+
+        AbbreviationResult {
+            is_abbreviation: false,
+            length: 0,
+            confidence: 0.0,
+        }
     }
 
-    fn handle_quotation(&self, context: &QuotationContext) -> QuotationDecision {
-        self.composite_rule.quotation_rule.classify_quote(context)
+    fn handle_quotation(&self, _context: &QuotationContext) -> QuotationDecision {
+        // Simple mock implementation
+        QuotationDecision::QuoteStart
     }
 
     fn language_code(&self) -> &str {
@@ -278,7 +293,6 @@ mod tests {
     #[test]
     fn test_re_exports() {
         // Test that we can use the re-exported types
-        let _rule = CompositeRule::new();
         let _decision = BoundaryDecision::NotBoundary;
 
         let _result = AbbreviationResult {
@@ -289,8 +303,8 @@ mod tests {
     }
 
     #[test]
-    fn test_english_language_rules_integration() {
-        let rules = EnglishLanguageRules::new();
+    fn test_configurable_language_rules_integration() {
+        let rules = ConfigurableLanguageRules::from_code("en").unwrap();
 
         assert_eq!(rules.language_code(), "en");
         assert_eq!(rules.language_name(), "English");
@@ -327,8 +341,8 @@ mod tests {
     }
 
     #[test]
-    fn test_english_rules_complex_scenarios() {
-        let rules = EnglishLanguageRules::new();
+    fn test_configurable_rules_complex_scenarios() {
+        let rules = ConfigurableLanguageRules::from_code("en").unwrap();
 
         // Test decimal numbers
         let context = BoundaryContext {
@@ -377,8 +391,8 @@ mod tests {
     }
 
     #[test]
-    fn test_english_abbreviation_processing() {
-        let rules = EnglishLanguageRules::new();
+    fn test_configurable_abbreviation_processing() {
+        let rules = ConfigurableLanguageRules::from_code("en").unwrap();
 
         // Test abbreviation detection at the end of known abbreviations
         let test_cases = vec![

@@ -234,11 +234,11 @@ impl DeltaStackProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::language::EnglishLanguageRules;
+    use crate::domain::language::ConfigurableLanguageRules;
 
     fn create_test_processor() -> DeltaStackProcessor {
         let config = ProcessorConfig::default();
-        let rules = Arc::new(EnglishLanguageRules::new());
+        let rules = Arc::new(ConfigurableLanguageRules::from_code("en").unwrap());
         DeltaStackProcessor::new(config, rules)
     }
 

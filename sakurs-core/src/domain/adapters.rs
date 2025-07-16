@@ -152,11 +152,11 @@ impl<T: LanguageRules> BoundaryAnalyzer for LanguageRulesAdapter<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::language::english::EnglishLanguageRules;
+    use crate::domain::language::ConfigurableLanguageRules;
 
     #[test]
     fn test_language_rules_adapter_character_classification() {
-        let rules = EnglishLanguageRules::new();
+        let rules = ConfigurableLanguageRules::from_code("en").unwrap();
         let adapter = LanguageRulesAdapter::new(rules);
 
         // Test sentence terminals
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_language_specific_rules_adapter() {
-        let rules = EnglishLanguageRules::new();
+        let rules = ConfigurableLanguageRules::from_code("en").unwrap();
         let adapter = LanguageRulesAdapter::new(rules);
 
         // Test abbreviation detection
@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_boundary_analyzer_adapter() {
-        let rules = EnglishLanguageRules::new();
+        let rules = ConfigurableLanguageRules::from_code("en").unwrap();
         let adapter = LanguageRulesAdapter::new(rules);
 
         let context = NewBoundaryContext {
@@ -242,9 +242,7 @@ mod tests {
 
     #[test]
     fn test_japanese_character_classification() {
-        use crate::domain::language::japanese::JapaneseLanguageRules;
-
-        let rules = JapaneseLanguageRules::new();
+        let rules = ConfigurableLanguageRules::from_code("ja").unwrap();
         let adapter = LanguageRulesAdapter::new(rules);
 
         // Test Japanese sentence terminals
