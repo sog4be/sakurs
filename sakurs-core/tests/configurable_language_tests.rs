@@ -3,7 +3,7 @@
 //! Note: Some tests are currently disabled as they need to be updated
 //! for the new configurable language rules system behavior.
 
-#![cfg(feature = "disabled_configurable_tests")]
+// Re-enabling specific tests with analysis of correct expected values
 use sakurs_core::{Input, SentenceProcessor};
 
 #[test]
