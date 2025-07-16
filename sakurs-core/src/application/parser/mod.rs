@@ -123,12 +123,27 @@ impl TextParser {
                 if !should_suppress {
                     if let Some(type_id) = language_rules.get_enclosure_type_id(ch) {
                         if type_id < enclosure_count {
-                            if enc_char.is_opening {
-                                local_depths[type_id] += 1;
+                            if enc_char.is_symmetric {
+                                // For symmetric quotes: depth 0 → +1, depth 1 → -1
+                                let current_depth = local_depths[type_id];
+                                if current_depth == 0 {
+                                    local_depths[type_id] += 1;
+                                } else if current_depth == 1 {
+                                    local_depths[type_id] -= 1;
+                                    min_depths[type_id] =
+                                        min_depths[type_id].min(local_depths[type_id]);
+                                } else {
+                                    // Depth 2 or higher: ignore (ML-based approach needed)
+                                }
                             } else {
-                                local_depths[type_id] -= 1;
-                                min_depths[type_id] =
-                                    min_depths[type_id].min(local_depths[type_id]);
+                                // For asymmetric enclosures: use is_opening flag
+                                if enc_char.is_opening {
+                                    local_depths[type_id] += 1;
+                                } else {
+                                    local_depths[type_id] -= 1;
+                                    min_depths[type_id] =
+                                        min_depths[type_id].min(local_depths[type_id]);
+                                }
                             }
                         }
                     }
@@ -177,7 +192,7 @@ impl TextParser {
                         }
                     }
                     BoundaryDecision::NotBoundary => {
-                        // Not a boundary candidate
+                        // No action needed
                     }
                     BoundaryDecision::NeedsMoreContext => {
                         // Record as weak boundary candidate

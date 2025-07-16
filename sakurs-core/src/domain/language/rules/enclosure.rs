@@ -26,6 +26,7 @@ struct EnclosureInfo {
     enclosure_type: EnclosureType,
     is_opening: bool,
     type_id: usize,
+    is_symmetric: bool,
 }
 
 impl EnclosureMap {
@@ -39,13 +40,14 @@ impl EnclosureMap {
             let enclosure_type = Self::determine_enclosure_type(open, close);
 
             if symmetric {
-                // For symmetric quotes, both characters can be opening or closing
+                // For symmetric quotes, the open/close behavior is context-dependent
                 char_map.insert(
                     open,
                     EnclosureInfo {
                         enclosure_type,
-                        is_opening: true, // Context-dependent, but default to opening
+                        is_opening: true, // Default to opening for symmetric quotes
                         type_id: idx,
+                        is_symmetric: true,
                     },
                 );
 
@@ -54,8 +56,9 @@ impl EnclosureMap {
                         close,
                         EnclosureInfo {
                             enclosure_type,
-                            is_opening: true, // Also context-dependent
+                            is_opening: true, // Also defaults to opening for symmetric quotes
                             type_id: idx,
+                            is_symmetric: true,
                         },
                     );
                 }
@@ -67,6 +70,7 @@ impl EnclosureMap {
                         enclosure_type,
                         is_opening: true,
                         type_id: idx,
+                        is_symmetric: false,
                     },
                 );
 
@@ -76,6 +80,7 @@ impl EnclosureMap {
                         enclosure_type,
                         is_opening: false,
                         type_id: idx,
+                        is_symmetric: false,
                     },
                 );
             }
@@ -100,6 +105,7 @@ impl EnclosureMap {
         self.char_map.get(&ch).map(|info| EnclosureChar {
             enclosure_type: info.enclosure_type,
             is_opening: info.is_opening,
+            is_symmetric: info.is_symmetric,
         })
     }
 

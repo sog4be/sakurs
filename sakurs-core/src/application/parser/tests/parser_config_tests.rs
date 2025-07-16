@@ -15,34 +15,42 @@ impl EnclosureRules for MockEnclosureRules {
             '(' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::Parenthesis,
                 is_opening: true,
+                is_symmetric: false,
             }),
             ')' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::Parenthesis,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '[' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::SquareBracket,
                 is_opening: true,
+                is_symmetric: false,
             }),
             ']' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::SquareBracket,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '{' if self.all_brackets => Some(EnclosureChar {
                 enclosure_type: EnclosureType::CurlyBrace,
                 is_opening: true,
+                is_symmetric: false,
             }),
             '}' if self.all_brackets => Some(EnclosureChar {
                 enclosure_type: EnclosureType::CurlyBrace,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '<' if self.all_brackets => Some(EnclosureChar {
                 enclosure_type: EnclosureType::Custom(0),
                 is_opening: true,
+                is_symmetric: false,
             }),
             '>' if self.all_brackets => Some(EnclosureChar {
                 enclosure_type: EnclosureType::Custom(0),
                 is_opening: false,
+                is_symmetric: false,
             }),
             _ => None,
         }

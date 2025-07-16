@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_config_creation() {
-        let config = PyProcessorConfig::new(4096, 128, Some(2));
+        let config = PyProcessorConfig::new(4096, 128, Some(2), 1048576);
         assert_eq!(config.chunk_size, 4096);
         assert_eq!(config.overlap_size, 128);
         assert_eq!(config.num_threads, Some(2));

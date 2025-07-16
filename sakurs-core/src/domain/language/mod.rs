@@ -132,74 +132,92 @@ impl LanguageRules for MockLanguageRules {
             '"' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::DoubleQuote,
                 is_opening: true, // Ambiguous straight quote
+                is_symmetric: true,
             }),
             '"' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::DoubleQuote,
                 is_opening: true,
+                is_symmetric: false,
             }),
             '"' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::DoubleQuote,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '\'' | '\u{2018}' | '\u{2019}' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::SingleQuote,
                 is_opening: matches!(ch, '\'' | '\u{2018}'),
+                is_symmetric: ch == '\'',
             }),
             '(' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::Parenthesis,
                 is_opening: true,
+                is_symmetric: false,
             }),
             ')' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::Parenthesis,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '「' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseQuote,
                 is_opening: true,
+                is_symmetric: false,
             }),
             '」' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseQuote,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '『' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseDoubleQuote,
                 is_opening: true,
+                is_symmetric: false,
             }),
             '』' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseDoubleQuote,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '〈' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseAngleBracket,
                 is_opening: true,
+                is_symmetric: false,
             }),
             '〉' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseAngleBracket,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '《' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseDoubleAngleBracket,
                 is_opening: true,
+                is_symmetric: false,
             }),
             '》' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseDoubleAngleBracket,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '【' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseLenticularBracket,
                 is_opening: true,
+                is_symmetric: false,
             }),
             '】' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseLenticularBracket,
                 is_opening: false,
+                is_symmetric: false,
             }),
             '〔' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseTortoiseShellBracket,
                 is_opening: true,
+                is_symmetric: false,
             }),
             '〕' => Some(EnclosureChar {
                 enclosure_type: EnclosureType::JapaneseTortoiseShellBracket,
                 is_opening: false,
+                is_symmetric: false,
             }),
             _ => None,
         }
