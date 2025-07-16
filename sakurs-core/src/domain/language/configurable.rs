@@ -229,6 +229,32 @@ impl LanguageRules for ConfigurableLanguageRules {
             return self.ellipsis_rules.evaluate_boundary(context);
         }
 
+        // Check if current character is part of an incomplete ellipsis pattern
+        // For example, if we're at the first or second '.' of "..."
+        if ch == '.' {
+            // Check if we're followed by more dots (incomplete ellipsis)
+            if let Some(next_ch) = context.following_context.chars().next() {
+                if next_ch == '.' {
+                    // We're part of an ellipsis pattern but not at the end
+                    return BoundaryDecision::NotBoundary;
+                }
+            }
+
+            // Check if we're preceded by dots (middle of ellipsis)
+            if let Some(prev_ch) = context.preceding_context.chars().last() {
+                if prev_ch == '.' {
+                    // Check if we're followed by another dot
+                    if let Some(next_ch) = context.following_context.chars().next() {
+                        if next_ch == '.' {
+                            // We're in the middle of "..."
+                            return BoundaryDecision::NotBoundary;
+                        }
+                    }
+                    // We might be at the end of ellipsis, let the ellipsis rules handle it
+                }
+            }
+        }
+
         // Check if it's a terminator
         if self.terminator_rules.is_terminator(ch) {
             // Create pattern context for pattern matching

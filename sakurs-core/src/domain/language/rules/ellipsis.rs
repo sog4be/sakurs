@@ -96,13 +96,24 @@ impl EllipsisRules {
     fn matches_pattern_at_position(&self, text: &str, position: usize, pattern: &str) -> bool {
         let pattern_len = pattern.len();
 
-        // Check if we're at the end of the pattern
-        if position + 1 >= pattern_len {
-            let start = position + 1 - pattern_len;
-            if start + pattern_len <= text.len() {
-                // Ensure we're at valid UTF-8 boundaries
-                if text.is_char_boundary(start) && text.is_char_boundary(start + pattern_len) {
-                    return &text[start..start + pattern_len] == pattern;
+        // For patterns like "...", we need to check if the current position
+        // is part of the pattern or at the end of it
+
+        // Check various possible positions where this character could be part of the pattern
+        for offset in 0..pattern_len {
+            // Calculate where the pattern would start if current position is at 'offset' within it
+            if position >= offset {
+                let start = position - offset;
+                let end = start + pattern_len;
+
+                if end <= text.len()
+                    && text.is_char_boundary(start)
+                    && text.is_char_boundary(end)
+                    && &text[start..end] == pattern
+                {
+                    // We're part of this pattern
+                    // Only consider it a complete pattern if we're at the last character
+                    return offset == pattern_len - 1;
                 }
             }
         }
