@@ -118,7 +118,28 @@ impl TerminatorRules {
     pub fn evaluate_single_terminator(&self, context: &BoundaryContext) -> BoundaryDecision {
         match context.boundary_char {
             '!' | '?' | '！' | '？' => BoundaryDecision::Boundary(BoundaryFlags::STRONG),
-            '.' | '。' => BoundaryDecision::Boundary(BoundaryFlags::WEAK),
+            '.' | '。' => {
+                // Check if this is a decimal number (digit before and after the dot)
+                let has_digit_before = context
+                    .preceding_context
+                    .chars()
+                    .last()
+                    .map(|ch| ch.is_ascii_digit())
+                    .unwrap_or(false);
+                let has_digit_after = context
+                    .following_context
+                    .chars()
+                    .next()
+                    .map(|ch| ch.is_ascii_digit())
+                    .unwrap_or(false);
+
+                if has_digit_before && has_digit_after {
+                    // This is a decimal number - not a sentence boundary
+                    BoundaryDecision::NotBoundary
+                } else {
+                    BoundaryDecision::Boundary(BoundaryFlags::WEAK)
+                }
+            }
             _ => BoundaryDecision::NotBoundary,
         }
     }

@@ -16,6 +16,99 @@ use crate::domain::{
     BoundaryFlags,
 };
 
+/// Extract the next word from the following context (first alphabetic sequence)
+fn extract_next_word(following_context: &str) -> Option<String> {
+    let mut chars = following_context.chars().peekable();
+
+    // Skip whitespace
+    while let Some(ch) = chars.peek() {
+        if ch.is_whitespace() {
+            chars.next();
+        } else {
+            break;
+        }
+    }
+
+    // Extract word characters
+    let mut word = String::new();
+    while let Some(ch) = chars.peek() {
+        if ch.is_alphabetic() {
+            word.push(chars.next().unwrap());
+        } else {
+            break;
+        }
+    }
+
+    if word.is_empty() {
+        None
+    } else {
+        Some(word)
+    }
+}
+
+/// Check if a word is a sentence starter (typically capitalized)
+/// This is a more conservative check that considers common sentence starters
+fn is_sentence_starter(word: &str) -> bool {
+    if let Some(first_char) = word.chars().next() {
+        // Must be uppercase and not a common proper noun pattern
+        if first_char.is_uppercase() {
+            // Common sentence starters
+            let common_starters = [
+                "He",
+                "She",
+                "It",
+                "They",
+                "We",
+                "I",
+                "You",
+                "This",
+                "That",
+                "These",
+                "Those",
+                "The",
+                "A",
+                "An",
+                "There",
+                "Here",
+                "Now",
+                "Then",
+                "However",
+                "But",
+                "And",
+                "So",
+                "Therefore",
+                "Moreover",
+                "Furthermore",
+                "Meanwhile",
+                "Finally",
+                "Also",
+                "Additionally",
+                "Nevertheless",
+                "Nonetheless",
+                "Consequently",
+                "Hence",
+                "Thus",
+                "What",
+                "When",
+                "Where",
+                "Why",
+                "How",
+                "Who",
+                "Which",
+                "Whose",
+                "Whom",
+            ];
+
+            // Check if it's a common sentence starter
+            common_starters.contains(&word)
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 /// Configurable language rules based on TOML configuration
 pub struct ConfigurableLanguageRules {
     /// Language metadata
@@ -138,6 +231,13 @@ impl LanguageRules for ConfigurableLanguageRules {
             // We check if there's an abbreviation ending at this position
             let abbr_result = self.process_abbreviation(&context.text, context.position);
             if abbr_result.is_abbreviation {
+                // Check if the next word is a sentence starter (capitalized word)
+                if let Some(next_word) = extract_next_word(&context.following_context) {
+                    if is_sentence_starter(&next_word) {
+                        // Abbreviation followed by sentence starter - create boundary
+                        return BoundaryDecision::Boundary(BoundaryFlags::WEAK);
+                    }
+                }
                 return BoundaryDecision::NotBoundary;
             }
 
@@ -155,7 +255,7 @@ impl LanguageRules for ConfigurableLanguageRules {
             if let Some(abbr_match) = self.abbreviation_trie.find_at_position(text, position - 1) {
                 // Check for word boundary at the start of the abbreviation
                 let abbr_start = position - abbr_match.length;
-                
+
                 // Simple word boundary check: the character before the abbreviation should not be alphanumeric
                 let has_word_boundary = if abbr_start == 0 {
                     true // Start of text is a valid boundary
@@ -166,7 +266,7 @@ impl LanguageRules for ConfigurableLanguageRules {
                         .map(|ch| !ch.is_alphanumeric())
                         .unwrap_or(true)
                 };
-                
+
                 if has_word_boundary {
                     AbbreviationResult {
                         is_abbreviation: true,
