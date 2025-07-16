@@ -106,7 +106,7 @@ fn test_configurable_performance() {
     let processor = SentenceProcessor::with_language("en").unwrap();
 
     // Generate a large text
-    let sentences = vec![
+    let sentences = [
         "This is sentence one.",
         "Dr. Smith said hello.",
         "What!? Really?",

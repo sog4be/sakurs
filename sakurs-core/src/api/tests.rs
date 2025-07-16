@@ -296,10 +296,7 @@ mod input_tests {
             struct FailingReader;
             impl Read for FailingReader {
                 fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        "Read failed",
-                    ))
+                    Err(std::io::Error::other("Read failed"))
                 }
             }
 
@@ -860,7 +857,7 @@ mod language_tests {
         fn test_clone_and_copy() {
             // Test that Language implements Clone and Copy
             let original = Language::Japanese;
-            let cloned = original.clone();
+            let cloned = original;
             let copied = original; // Copy
 
             assert_eq!(original, cloned);

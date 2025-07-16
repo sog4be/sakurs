@@ -194,19 +194,25 @@ mod tests {
     #[test]
     fn test_config_validation() {
         // Invalid chunk size
-        let mut config = Config::default();
-        config.chunk_size = 0;
+        let config = Config {
+            chunk_size: 0,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
 
         // Invalid overlap size
-        let mut config = Config::default();
-        config.chunk_size = 100;
-        config.overlap_size = 200;
+        let config = Config {
+            chunk_size: 100,
+            overlap_size: 200,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
 
         // Invalid thread count
-        let mut config = Config::default();
-        config.threads = Some(0);
+        let config = Config {
+            threads: Some(0),
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 

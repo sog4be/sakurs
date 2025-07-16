@@ -247,7 +247,7 @@ fn test_parallel_chunk_offset_calculation() {
     );
 
     // Verify correct positions
-    let expected_offsets = vec![25, 52, 78, 105]; // End positions
+    let expected_offsets = [25, 52, 78, 105]; // End positions
 
     assert_eq!(
         result.boundaries.len(),

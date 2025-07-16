@@ -149,7 +149,7 @@ fn test_memory_constrained_processing() {
     let expected_boundaries = 10100;
     let tolerance = 5;
     let actual_boundaries = result.boundaries.len() as i32;
-    let difference = (actual_boundaries - expected_boundaries as i32).abs();
+    let difference = (actual_boundaries - expected_boundaries).abs();
 
     assert!(
         difference <= tolerance,

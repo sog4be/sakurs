@@ -92,7 +92,7 @@ fn test_japanese_large_text() {
     // Should process all sentences (allowing for minor edge case differences)
     let boundary_count = result.boundaries.len();
     assert!(
-        boundary_count >= 498 && boundary_count <= 500,
+        (498..=500).contains(&boundary_count),
         "Expected ~500 boundaries, got {}",
         boundary_count
     );
