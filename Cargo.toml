@@ -3,8 +3,9 @@ members = [
     "sakurs-core",
     "sakurs-cli",
     "sakurs-py",
-    "benchmarks/core",
 ]
+# Benchmarks are temporarily excluded due to compilation issues
+# members = ["benchmarks/core"]
 resolver = "2"
 
 [workspace.package]
