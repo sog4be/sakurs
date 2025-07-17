@@ -159,6 +159,33 @@ fn test_unicode_apostrophes() {
 }
 
 #[test]
+fn test_multi_period_abbreviations() {
+    let test_cases = vec![
+        // Various multi-period abbreviations
+        ("I work at the U.N. headquarters.", vec![32]),
+        ("She has a Ph.D. in physics.", vec![27]),
+        ("The E.U. is a union.", vec![20]),
+        ("He lives in Washington D.C. today.", vec![34]),
+        // Multiple abbreviations
+        ("Dr. Smith has a Ph.D. from M.I.T. in Cambridge.", vec![47]),
+        // Abbreviation at end
+        ("I'm from the U.S.A.", vec![19]),
+        // Abbreviation followed by lowercase
+        ("The U.S.A. economy is large.", vec![28]),
+    ];
+
+    for (text, expected_offsets) in test_cases {
+        let boundaries = detect_sentences(text).unwrap();
+        let offsets = boundaries;
+        assert_eq!(
+            offsets, expected_offsets,
+            "Failed for text: '{}'\nGot: {:?}\nExpected: {:?}",
+            text, offsets, expected_offsets
+        );
+    }
+}
+
+#[test]
 fn test_edge_cases() {
     let test_cases = vec![
         // Multiple contractions in one sentence

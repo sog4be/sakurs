@@ -455,12 +455,12 @@ mod parser_tests {
         );
 
         // Should create boundary candidates after real sentence endings:
-        // - After "Ph.D." when followed by "He" (sentence starter) - may create multiple boundaries
+        // - After "Ph.D." when followed by "He" (sentence starter)
         // - After "Corp." when followed by "The" (sentence starter)
         // - After "billion!" (exclamation mark)
         // - After "Amazing." (period at end)
-        // Note: Ph.D. may create multiple boundaries due to multiple periods
-        assert_eq!(boundary_positions.len(), 5);
+        // Note: With proper multi-period abbreviation handling, Ph.D. creates only one boundary
+        assert_eq!(boundary_positions.len(), 4);
     }
 
     #[test]

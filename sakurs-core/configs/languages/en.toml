@@ -71,7 +71,7 @@ titles = [
 ]
 
 academic = [
-    "Ph.D", "M.D", "B.A", "M.A", "B.S", "M.S", "LL.B", "LL.M", "J.D", "D.D.S", "D.V.M"
+    "Ph.D", "M.D", "B.A", "M.A", "B.S", "M.S", "LL.B", "LL.M", "J.D", "D.D.S", "D.V.M", "M.I.T"
 ]
 
 business = [
@@ -83,7 +83,7 @@ time = [
 ]
 
 geographic = [
-    "U.S", "U.K", "U.S.A", "U.K", "E.U", "U.N",
+    "U.S", "U.K", "U.S.A", "U.K", "E.U", "U.N", "D.C",
     # Note: Added back St with specific common usage pattern to avoid false matches
     "St", "Ave", "Blvd", "Pkwy",
     # TODO: These short abbreviations need word boundary checking

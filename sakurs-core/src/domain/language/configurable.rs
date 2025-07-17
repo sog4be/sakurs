@@ -251,6 +251,12 @@ impl LanguageRules for ConfigurableLanguageRules {
                     // We might be at the end of ellipsis, let the ellipsis rules handle it
                 }
             }
+
+            // Check for multi-period abbreviations like U.S.A., Ph.D., etc.
+            // Pattern: single letter + period + single letter + period
+            if self.is_multi_period_abbreviation_context(context) {
+                return BoundaryDecision::NotBoundary;
+            }
         }
 
         // Check if it's a terminator
@@ -295,8 +301,12 @@ impl LanguageRules for ConfigurableLanguageRules {
                         // Abbreviation followed by sentence starter - create boundary
                         return BoundaryDecision::Boundary(BoundaryFlags::WEAK);
                     }
+                    // Abbreviation followed by non-sentence starter - not a boundary
+                    return BoundaryDecision::NotBoundary;
+                } else {
+                    // No following text (end of input) - create boundary
+                    return BoundaryDecision::Boundary(BoundaryFlags::WEAK);
                 }
-                return BoundaryDecision::NotBoundary;
             }
 
             // Default terminator evaluation
@@ -382,6 +392,80 @@ impl LanguageRules for ConfigurableLanguageRules {
 
     fn enclosure_suppressor(&self) -> Option<&dyn EnclosureSuppressor> {
         Some(&self.suppressor)
+    }
+}
+
+impl ConfigurableLanguageRules {
+    /// Check if we're in the middle of a multi-period abbreviation pattern
+    /// like U.S.A., Ph.D., M.D., etc.
+    fn is_multi_period_abbreviation_context(&self, context: &BoundaryContext) -> bool {
+        // We're at a period. Check if:
+        // 1. We're preceded by 1-2 letters (to handle Ph.D., M.D., etc.)
+        // 2. We're followed by optional whitespace + 1-2 letters + period
+
+        // Check preceding context - should end with 1-2 letters
+        let preceding_chars: Vec<char> = context.preceding_context.chars().collect();
+        if preceding_chars.is_empty() {
+            return false;
+        }
+
+        // Look back to find the start of the letter sequence
+        let mut letter_count = 0;
+        let mut idx = preceding_chars.len();
+
+        while idx > 0 && preceding_chars[idx - 1].is_alphabetic() && letter_count < 3 {
+            idx -= 1;
+            letter_count += 1;
+        }
+
+        // Must have 1-2 letters before the period
+        if letter_count == 0 || letter_count > 2 {
+            return false;
+        }
+
+        // Check that before the letters is either start or non-letter
+        if idx > 0 && preceding_chars[idx - 1].is_alphabetic() {
+            return false;
+        }
+
+        // Check following context - should be optional whitespace + letters + period
+        let following_chars: Vec<char> = context.following_context.chars().collect();
+        if following_chars.len() < 2 {
+            return false;
+        }
+
+        // Skip optional whitespace
+        let mut idx = 0;
+        while idx < following_chars.len() && following_chars[idx].is_whitespace() {
+            idx += 1;
+        }
+
+        // Need at least 2 more chars (letter + period)
+        if idx + 1 >= following_chars.len() {
+            return false;
+        }
+
+        // Count letters until we hit a non-letter
+        let mut letter_count = 0;
+        let _letter_start = idx;
+        while idx < following_chars.len()
+            && following_chars[idx].is_alphabetic()
+            && letter_count < 3
+        {
+            idx += 1;
+            letter_count += 1;
+        }
+
+        // Must have 1-2 letters and be followed by a period
+        if letter_count > 0
+            && letter_count <= 2
+            && idx < following_chars.len()
+            && following_chars[idx] == '.'
+        {
+            return true;
+        }
+
+        false
     }
 }
 
