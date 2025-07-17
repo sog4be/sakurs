@@ -59,14 +59,60 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_load_language_config() {
-        // This test will fail until we create the actual config files
-        // For now, we'll just test the error handling
+    fn test_get_language_config_unsupported() {
         match get_language_config("nonexistent") {
             Err(DomainError::UnsupportedLanguage(code)) => {
                 assert_eq!(code, "nonexistent");
             }
             _ => panic!("Expected UnsupportedLanguage error"),
         }
+    }
+
+    #[test]
+    fn test_get_language_config_english() {
+        let config = get_language_config("en").expect("English config should exist");
+        assert_eq!(config.metadata.code, "en");
+        assert_eq!(config.metadata.name, "English");
+        assert!(!config.abbreviations.categories.is_empty());
+    }
+
+    #[test]
+    fn test_get_language_config_japanese() {
+        let config = get_language_config("ja").expect("Japanese config should exist");
+        assert_eq!(config.metadata.code, "ja");
+        assert_eq!(config.metadata.name, "Japanese");
+    }
+
+    #[test]
+    fn test_list_available_languages() {
+        let languages = list_available_languages();
+        assert!(languages.contains(&"en"));
+        assert!(languages.contains(&"ja"));
+        assert_eq!(languages.len(), 2);
+    }
+
+    #[test]
+    fn test_list_available_languages_sorted() {
+        let mut languages = list_available_languages();
+        languages.sort();
+        assert_eq!(languages, vec!["en", "ja"]);
+    }
+
+    #[test]
+    fn test_get_language_config_multiple_times() {
+        // Test that the static initialization works correctly
+        let config1 = get_language_config("en").unwrap();
+        let config2 = get_language_config("en").unwrap();
+        assert!(std::ptr::eq(config1, config2)); // Same reference
+    }
+
+    #[test]
+    fn test_config_code_validation() {
+        // The embedded configs should have matching codes
+        let en_config = get_language_config("en").unwrap();
+        assert_eq!(en_config.metadata.code, "en");
+
+        let ja_config = get_language_config("ja").unwrap();
+        assert_eq!(ja_config.metadata.code, "ja");
     }
 }

@@ -27,6 +27,57 @@ mod api_tests {
     }
 
     #[test]
+    fn test_processor_with_invalid_language() {
+        let result = SentenceProcessor::with_language("invalid_lang");
+        assert!(result.is_err());
+        match result {
+            Err(Error::InvalidLanguage(msg)) => {
+                assert!(msg.contains("invalid_lang"));
+            }
+            _ => panic!("Expected InvalidLanguage error"),
+        }
+    }
+
+    #[test]
+    fn test_processor_with_invalid_config() {
+        // Invalid chunk size
+        let config_result = Config::builder().chunk_size(0).build();
+        assert!(config_result.is_err());
+
+        // Invalid overlap size
+        let config_result = Config::builder().chunk_size(100).overlap_size(100).build();
+        assert!(config_result.is_err());
+
+        // Invalid thread count
+        let config_result = Config::builder().threads(Some(0)).build();
+        assert!(config_result.is_err());
+    }
+
+    #[test]
+    fn test_process_invalid_utf8() {
+        let processor = SentenceProcessor::new();
+
+        // Invalid UTF-8 bytes
+        let invalid_utf8 = vec![0xFF, 0xFE, 0xFD];
+        let input = Input::from_bytes(invalid_utf8);
+        let result = processor.process(input);
+
+        assert!(result.is_err());
+        // Print the actual error for debugging
+        if let Err(e) = &result {
+            eprintln!("Actual error: {:?}", e);
+        }
+        match result {
+            Err(Error::Infrastructure(msg)) => {
+                assert!(
+                    msg.to_lowercase().contains("utf-8") || msg.to_lowercase().contains("utf8")
+                );
+            }
+            _ => panic!("Expected Infrastructure error for invalid UTF-8"),
+        }
+    }
+
+    #[test]
     fn test_config_defaults() {
         let default_config = Config::default();
         assert_eq!(default_config.language, Language::English);
@@ -102,6 +153,92 @@ mod api_tests {
         // Test invalid thread count
         let result = Config::builder().threads(Some(0)).build();
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_process_stream_error_handling() {
+        use std::io::{self, Read};
+
+        // Custom reader that always fails
+        struct FailingReader;
+        impl Read for FailingReader {
+            fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+                Err(io::Error::new(io::ErrorKind::Other, "Read failed"))
+            }
+        }
+
+        let processor = SentenceProcessor::new();
+        let result = processor.process_stream(FailingReader);
+
+        assert!(result.is_err());
+        match result {
+            Err(Error::Infrastructure(msg)) => {
+                assert!(msg.contains("Read failed"));
+            }
+            _ => panic!("Expected Infrastructure error"),
+        }
+    }
+
+    #[test]
+    fn test_process_with_extreme_config_values() {
+        // Test with minimum chunk size
+        let config = Config::builder()
+            .chunk_size(1)
+            .overlap_size(0)
+            .build()
+            .unwrap();
+        let processor = SentenceProcessor::with_config(config).unwrap();
+        let result = processor.process(Input::from_text("Test."));
+        assert!(result.is_ok());
+
+        // Test with single thread forced
+        let config = Config::builder().threads(Some(1)).build().unwrap();
+        let processor = SentenceProcessor::with_config(config).unwrap();
+        let result = processor.process(Input::from_text("Test. Another test."));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_process_empty_input() {
+        let processor = SentenceProcessor::new();
+
+        // Empty text
+        let result = processor.process(Input::from_text("")).unwrap();
+        assert!(result.boundaries.is_empty());
+        assert_eq!(result.metadata.stats.sentence_count, 0);
+
+        // Empty bytes
+        let result = processor.process(Input::from_bytes(vec![])).unwrap();
+        assert!(result.boundaries.is_empty());
+    }
+
+    #[test]
+    fn test_processor_with_all_execution_modes() {
+        let text = "First sentence. Second sentence. Third sentence.";
+
+        // Sequential mode (1 thread)
+        let config = Config::builder().threads(Some(1)).build().unwrap();
+        let processor = SentenceProcessor::with_config(config).unwrap();
+        let sequential_result = processor.process(Input::from_text(text)).unwrap();
+
+        // Parallel mode (2 threads)
+        let config = Config::builder().threads(Some(2)).build().unwrap();
+        let processor = SentenceProcessor::with_config(config).unwrap();
+        let parallel_result = processor.process(Input::from_text(text)).unwrap();
+
+        // Adaptive mode (default)
+        let processor = SentenceProcessor::new();
+        let adaptive_result = processor.process(Input::from_text(text)).unwrap();
+
+        // All modes should produce same boundaries
+        assert_eq!(
+            sequential_result.boundaries.len(),
+            parallel_result.boundaries.len()
+        );
+        assert_eq!(
+            sequential_result.boundaries.len(),
+            adaptive_result.boundaries.len()
+        );
     }
 }
 
