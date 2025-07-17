@@ -15,8 +15,8 @@ fn load_embedded_configs() -> Result<HashMap<String, LanguageConfig>, DomainErro
     let mut configs = HashMap::new();
 
     let embedded_configs = [
-        embed_language_config!("en", "../../../../configs/languages/en.toml"),
-        embed_language_config!("ja", "../../../../configs/languages/ja.toml"),
+        embed_language_config!("en", "../../../../configs/languages/english.toml"),
+        embed_language_config!("ja", "../../../../configs/languages/japanese.toml"),
     ];
 
     for (code, toml_content) in embedded_configs {
