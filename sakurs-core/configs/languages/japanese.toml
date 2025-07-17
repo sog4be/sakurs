@@ -1,0 +1,51 @@
+[metadata]
+code = "ja"
+name = "Japanese"
+
+[terminators]
+# Japanese and mixed punctuation
+chars = ["。", "！", "？", ".", "!", "?"]
+
+# No special patterns for Japanese
+patterns = []
+
+[ellipsis]
+treat_as_boundary = true
+patterns = ["…", "・・・", "..."]
+
+# Context rules
+context_rules = []
+
+# Exception patterns
+exceptions = [
+    { regex = "えーと[。．.]{3}", boundary = false }
+]
+
+[enclosures]
+# Japanese quotation marks and brackets
+pairs = [
+    { open = "「", close = "」" },
+    { open = "『", close = "』" },
+    { open = "（", close = "）" },
+    { open = "【", close = "】" },
+    { open = "［", close = "］" },
+    { open = "〈", close = "〉" },
+    { open = "《", close = "》" },
+    { open = "〔", close = "〕" },
+    { open = "(", close = ")" },
+    { open = "[", close = "]" },
+    { open = "{", close = "}" }
+]
+
+[suppression]
+# Minimal suppression rules for Japanese
+fast_patterns = [
+    { char = ")", line_start = true, before = "alnum" },
+    { char = "）", line_start = true, before = "alnum" }
+]
+
+[abbreviations]
+# Common English abbreviations used in Japanese text
+common = [
+    "Mr", "Dr", "Inc", "Ltd", "etc", "vs", "No"
+]

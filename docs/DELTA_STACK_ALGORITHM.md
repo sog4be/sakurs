@@ -170,6 +170,28 @@ Example: "U.S." split as "U." | "S."
 - Right chunk: `head_alpha = true`
 - Merge: Remove false boundary if both conditions met
 
+### Symmetric Enclosures (Same Open/Close Character)
+For enclosures where the opening and closing characters are identical (e.g., `"` and `'`), the algorithm uses **depth-based context determination**:
+
+```rust
+// Symmetric quote processing
+if current_depth == 0 {
+    depth += 1;  // Opening quote
+} else if current_depth == 1 {
+    depth -= 1;  // Closing quote
+} else {
+    // Depth ≥ 2: ignored (requires ML-based approach)
+}
+```
+
+**Key Properties:**
+- **Context-dependent**: Same character acts as opening or closing based on current nesting depth
+- **Depth limitation**: Rule-based processing limited to depth 1 for symmetric enclosures
+- **Parallel-safe**: Delta representation preserves nesting state across chunk boundaries
+- **Example**: `"He said \"Hello.\" She agreed."` → quotes at depth 0→1→0
+
+**Rationale**: Deeper nesting of symmetric quotes requires contextual understanding beyond rule-based systems (e.g., distinguishing between nested quotes and quoted speech within quotes). For such cases, machine learning approaches are recommended.
+
 ## Performance
 
 | Metric | Sequential | Parallel |

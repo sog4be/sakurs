@@ -46,7 +46,7 @@ graph TB
     
     subgraph "Domain Core (Inner Layer)"
         ALGO[Delta-Stack Monoid]
-        RULES[Language Rules<br/>- English<br/>- Japanese]
+        RULES[Language Rules<br/>- Configurable Rules<br/>- TOML-based Config]
         STATE[State Machine<br/>- PartialState<br/>- DeltaVec]
         CROSS[Cross-Chunk Logic]
     end
@@ -148,17 +148,18 @@ The system is built around the **Delta-Stack Monoid** algorithm for parallel sen
 
 **Trade-off**: Not available in WASM (we fall back to sequential).
 
-### 4. Language Rules as Traits
+### 4. Language Rules as Traits with Configuration-Based Implementation
 
-**Decision**: Define `LanguageRules` trait for language-specific logic.
+**Decision**: Define `LanguageRules` trait with configurable implementation loaded from TOML files.
 
 **Rationale**:
-- Easy to add new languages without modifying core
-- Community can contribute language implementations
-- Compile-time type safety
-- Future support for runtime plugin loading
+- Easy to add new languages without modifying core - just add a TOML configuration file
+- Community can contribute language implementations via simple configuration files
+- Compile-time type safety with runtime configuration flexibility
+- Embedded configurations at build time for zero runtime overhead
+- Consistent rule structure across all languages
 
-**Trade-off**: Requires careful trait design to remain stable.
+**Trade-off**: Requires careful trait design to remain stable and configuration schema versioning.
 
 ### 5. Unified Public API
 
@@ -235,11 +236,21 @@ pub trait Monoid {
     fn combine(&self, other: &Self) -> Self;
 }
 
-// Language-specific rules
+// Language-specific rules trait
 pub trait LanguageRules: Send + Sync {
     fn is_sentence_boundary(&self, state: &PartialState, offset: usize) -> BoundaryDecision;
     fn process_character(&self, ch: char, context: &ProcessingContext) -> CharacterEffect;
     // ... other methods
+}
+
+// Configurable implementation that loads from embedded TOML
+pub struct ConfigurableLanguageRules {
+    config: &'static LanguageConfig,  // Embedded at compile time
+    terminator_rules: TerminatorRules,
+    ellipsis_rules: EllipsisRules,
+    abbreviation_trie: AbbreviationTrie,
+    enclosure_map: EnclosureMap,
+    suppressor: Suppressor,
 }
 ```
 
@@ -290,6 +301,85 @@ Each adapter provides a different interface to the API layer:
 - **C API** (future): For integration with other languages
 
 Note: Streaming functionality is available through configuration presets that optimize for memory-efficient processing, accessible through all adapters.
+
+## Language Configuration System
+
+### Overview
+
+Sakurs uses a TOML-based configuration system for language rules, enabling easy addition of new languages without code changes. Language configurations are embedded at compile time for zero runtime overhead.
+
+### Configuration Structure
+
+Each language configuration file (`configs/languages/{language}.toml`) contains:
+
+```toml
+[metadata]
+code = "en"                    # ISO 639-1 language code
+name = "English"               # Human-readable name
+
+[terminators]
+chars = [".", "!", "?"]        # Basic sentence-ending punctuation
+patterns = [                   # Multi-character patterns
+    { pattern = "!?", name = "surprised_question" },
+    { pattern = "?!", name = "questioning_exclamation" }
+]
+
+[ellipsis]
+treat_as_boundary = true       # Default ellipsis behavior
+patterns = ["...", "…"]        # Ellipsis patterns to recognize
+context_rules = [              # Context-based decisions
+    { condition = "followed_by_capital", boundary = true },
+    { condition = "followed_by_lowercase", boundary = false }
+]
+exceptions = [                 # Regex-based exceptions
+    { regex = "\\b(um|uh|er)\\.\\.\\.", boundary = false }
+]
+
+[enclosures]
+pairs = [                      # Paired delimiters
+    { open = "(", close = ")" },
+    { open = "[", close = "]" },
+    { open = "'", close = "'", symmetric = true },
+    { open = '"', close = '"', symmetric = true }
+]
+
+[suppression]
+fast_patterns = [              # High-performance pattern matching
+    { char = "'", before = "alpha", after = "alpha" },  # Contractions
+    { char = ")", line_start = true, before = "alnum" } # List items
+]
+
+[abbreviations]
+common = ["Dr", "Mr", "Mrs", "Ms", "Prof", "Inc", "Ltd", "Co"]
+academic = ["Ph.D", "M.D", "B.A", "M.A", "B.S", "M.S"]
+locations = ["St", "Ave", "Blvd", "Rd", "Ct", "Pl"]
+# ... more categories
+```
+
+### Adding a New Language
+
+1. Create a new TOML file in `sakurs-core/configs/languages/{language_code}.toml`
+2. Define the language rules following the schema above
+3. Add the configuration to the loader in `config/loader.rs`:
+   ```rust
+   embed_language_config!("de", "../../../../configs/languages/german.toml"),
+   ```
+4. The language is now available through the standard API
+
+### Configuration Components
+
+- **TerminatorRules**: Handles sentence-ending punctuation and patterns
+- **EllipsisRules**: Context-aware ellipsis processing
+- **AbbreviationTrie**: High-performance abbreviation lookup using Trie data structure
+- **EnclosureMap**: Manages paired delimiters with automatic ID assignment
+- **Suppressor**: Fast pattern matching for special cases (contractions, possessives)
+
+### Performance Optimizations
+
+- Configurations are embedded at compile time using `include_str!`
+- ASCII lookup tables for O(1) character classification
+- Trie structure for efficient abbreviation matching
+- Minimal runtime overhead - configurations are parsed once at startup
 
 ## Performance Characteristics
 
@@ -407,7 +497,7 @@ Yes! The library is designed for production use with:
 ### Current Features (v0.1.0)
 - ✅ Core Delta-Stack Monoid algorithm
 - ✅ Parallel processing with rayon
-- ✅ English and Japanese language support
+- ✅ English and Japanese language support via configurable rules
 - ✅ Unified API layer with clean public interface
 - ✅ CLI adapter with stdin/file/glob support
 - ✅ Python bindings with NLTK compatibility
@@ -418,12 +508,13 @@ Yes! The library is designed for production use with:
 - ✅ Cross-chunk boundary handling
 - ✅ UTF-8 safe chunking
 - ✅ Simple and flexible configuration API
+- ✅ Configurable language rules system with TOML-based configuration
 
 ### Planned Features
 - 🚧 WASM adapter for browser support
 - 🚧 C API for other language bindings
-- 🚧 Additional language rules (German, French, Spanish)
-- 🚧 Runtime plugin system for language rules
+- 🚧 Additional language rules (German, French, Spanish) - easily addable via TOML configs
+- 🚧 Runtime plugin system for dynamic language rule loading
 - 🚧 SIMD optimizations for character scanning
 - 🚧 GPU acceleration for very large texts
 
@@ -432,7 +523,7 @@ Yes! The library is designed for production use with:
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup and guidelines.
 
 Key areas for contribution:
-- Language rule implementations
+- Language rule implementations via TOML configurations (see [Adding Languages](../ADDING_LANGUAGES.md))
 - Performance optimizations
 - Documentation improvements
 - Test coverage expansion

@@ -45,6 +45,8 @@ pub struct EnclosureChar {
     pub enclosure_type: EnclosureType,
     /// Whether this is an opening delimiter (true) or closing delimiter (false)
     pub is_opening: bool,
+    /// Whether this is a symmetric enclosure (same character for open and close)
+    pub is_symmetric: bool,
 }
 
 /// Trait for language-specific enclosure rules.
@@ -94,6 +96,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::DoubleQuote,
                 is_opening: true,
+                is_symmetric: false,
             },
         );
         char_map.insert(
@@ -101,6 +104,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::DoubleQuote,
                 is_opening: false,
+                is_symmetric: false,
             },
         );
         pair_map.insert('"', '"');
@@ -111,6 +115,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::SingleQuote,
                 is_opening: true,
+                is_symmetric: false,
             },
         );
         char_map.insert(
@@ -118,6 +123,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::SingleQuote,
                 is_opening: false,
+                is_symmetric: false,
             },
         );
         pair_map.insert('\'', '\'');
@@ -128,6 +134,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::DoubleQuote,
                 is_opening: true,
+                is_symmetric: false,
             },
         );
         char_map.insert(
@@ -135,6 +142,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::DoubleQuote,
                 is_opening: false,
+                is_symmetric: false,
             },
         );
         pair_map.insert('"', '"');
@@ -144,6 +152,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::SingleQuote,
                 is_opening: true,
+                is_symmetric: false,
             },
         );
         char_map.insert(
@@ -151,6 +160,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::SingleQuote,
                 is_opening: false,
+                is_symmetric: false,
             },
         );
         pair_map.insert('\u{2018}', '\u{2019}');
@@ -161,6 +171,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::Parenthesis,
                 is_opening: true,
+                is_symmetric: false,
             },
         );
         char_map.insert(
@@ -168,6 +179,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::Parenthesis,
                 is_opening: false,
+                is_symmetric: false,
             },
         );
         pair_map.insert('(', ')');
@@ -178,6 +190,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::SquareBracket,
                 is_opening: true,
+                is_symmetric: false,
             },
         );
         char_map.insert(
@@ -185,6 +198,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::SquareBracket,
                 is_opening: false,
+                is_symmetric: false,
             },
         );
         pair_map.insert('[', ']');
@@ -195,6 +209,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::CurlyBrace,
                 is_opening: true,
+                is_symmetric: false,
             },
         );
         char_map.insert(
@@ -202,6 +217,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::CurlyBrace,
                 is_opening: false,
+                is_symmetric: false,
             },
         );
         pair_map.insert('{', '}');
@@ -217,6 +233,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::FrenchQuote,
                 is_opening: true,
+                is_symmetric: false,
             },
         );
         self.char_map.insert(
@@ -224,6 +241,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::FrenchQuote,
                 is_opening: false,
+                is_symmetric: false,
             },
         );
         self.pair_map.insert('«', '»');
@@ -234,6 +252,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::GermanQuote,
                 is_opening: true,
+                is_symmetric: false,
             },
         );
         self.char_map.insert(
@@ -241,6 +260,7 @@ impl StandardEnclosureRules {
             EnclosureChar {
                 enclosure_type: EnclosureType::GermanQuote,
                 is_opening: false,
+                is_symmetric: false,
             },
         );
         self.pair_map.insert('„', '"');
@@ -261,7 +281,8 @@ impl EnclosureRules for StandardEnclosureRules {
                 } else {
                     EnclosureType::SingleQuote
                 },
-                is_opening: true, // Parser will determine actual direction
+                is_opening: true,   // Parser will determine actual direction
+                is_symmetric: true, // These are symmetric quotes
             }),
             _ => self.char_map.get(&ch).copied(),
         }

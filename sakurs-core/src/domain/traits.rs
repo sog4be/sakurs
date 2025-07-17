@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn test_character_class_variants() {
         // Ensure all variants are distinct
-        let variants = vec![
+        let variants = [
             CharacterClass::SentenceTerminal,
             CharacterClass::DelimiterOpen,
             CharacterClass::DelimiterClose,
@@ -502,7 +502,7 @@ mod tests {
 
     #[test]
     fn test_quote_type_variants() {
-        let variants = vec![
+        let variants = [
             QuoteType::Single,
             QuoteType::Double,
             QuoteType::JapaneseCorner,
@@ -524,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_quote_behavior_variants() {
-        let variants = vec![
+        let variants = [
             QuoteBehavior::AllowBoundaries,
             QuoteBehavior::SuppressBoundaries,
             QuoteBehavior::Contextual,
@@ -773,7 +773,7 @@ mod tests {
 
     #[test]
     fn test_rejection_reasons() {
-        let reasons = vec![
+        let reasons = [
             RejectionReason::Abbreviation,
             RejectionReason::InsideEnclosure,
             RejectionReason::InvalidFollowing,

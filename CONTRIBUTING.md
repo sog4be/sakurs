@@ -26,6 +26,15 @@ By participating in this project, you agree to abide by our Code of Conduct. Ple
 
 ## How to Contribute
 
+### Adding New Language Support
+
+One of the easiest ways to contribute is by adding support for new languages:
+
+1. Read the [Adding Languages Guide](docs/ADDING_LANGUAGES.md)
+2. Create a TOML configuration file for your language
+3. Add comprehensive tests
+4. Submit a pull request with example texts
+
 ### Reporting Issues
 
 - Check existing issues before creating a new one

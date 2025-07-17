@@ -638,4 +638,174 @@ mod tests {
         assert_eq!(manager.config().chunk_size, 1024);
         assert_eq!(manager.config().overlap_size, 64);
     }
+
+    #[test]
+    fn test_very_small_overlap_size() {
+        let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
+        let config = OverlapChunkConfig {
+            chunk_size: 50,
+            overlap_size: 1, // Minimum overlap
+            enable_cross_chunk: true,
+            ..Default::default()
+        };
+        let mut manager = OverlapChunkManager::new(config, suppressor);
+
+        let text = "First sentence. Second sentence. Third sentence.";
+        let result = manager.chunk_with_overlap_processing(text);
+
+        assert!(result.is_ok());
+        let chunks = result.unwrap();
+        assert!(!chunks.is_empty());
+    }
+
+    #[test]
+    fn test_overlap_size_at_maximum_allowed() {
+        let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
+        let config = OverlapChunkConfig {
+            chunk_size: 20,
+            overlap_size: 10, // Maximum allowed is half of chunk_size
+            enable_cross_chunk: true,
+            ..Default::default()
+        };
+        let mut manager = OverlapChunkManager::new(config, suppressor);
+
+        let text = "Test text.";
+        let result = manager.chunk_with_overlap_processing(text);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_empty_text_processing() {
+        let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
+        let mut manager = OverlapChunkManager::with_defaults(suppressor);
+
+        let result = manager.chunk_with_overlap_processing("");
+        assert!(result.is_ok());
+        let chunks = result.unwrap();
+        assert!(chunks.is_empty());
+    }
+
+    #[test]
+    fn test_single_character_text() {
+        let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
+        let config = OverlapChunkConfig {
+            chunk_size: 10,
+            overlap_size: 5,
+            ..Default::default()
+        };
+        let mut manager = OverlapChunkManager::new(config, suppressor);
+
+        let result = manager.chunk_with_overlap_processing(".");
+        assert!(result.is_ok());
+        let chunks = result.unwrap();
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].base_chunk.content, ".");
+    }
+
+    #[test]
+    fn test_text_smaller_than_chunk_size() {
+        let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
+        let config = OverlapChunkConfig {
+            chunk_size: 1000,
+            overlap_size: 100,
+            ..Default::default()
+        };
+        let mut manager = OverlapChunkManager::new(config, suppressor);
+
+        let text = "Short text.";
+        let result = manager.chunk_with_overlap_processing(text);
+
+        assert!(result.is_ok());
+        let chunks = result.unwrap();
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].base_chunk.content, text);
+    }
+
+    #[test]
+    fn test_cross_chunk_disabled() {
+        let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
+        let config = OverlapChunkConfig {
+            chunk_size: 15,
+            overlap_size: 5,
+            enable_cross_chunk: false, // Disabled
+            ..Default::default()
+        };
+        let mut manager = OverlapChunkManager::new(config, suppressor);
+
+        let text = "This isn't working.";
+        let result = manager.chunk_with_overlap_processing(text);
+
+        assert!(result.is_ok());
+        // With cross-chunk disabled, suppressions should not be detected across chunks
+    }
+
+    #[test]
+    fn test_multiple_suppressions_in_overlap() {
+        let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
+        let config = OverlapChunkConfig {
+            chunk_size: 30,
+            overlap_size: 15,
+            enable_cross_chunk: true,
+            ..Default::default()
+        };
+        let mut manager = OverlapChunkManager::new(config, suppressor);
+
+        // Multiple contractions that might fall in overlap region
+        let text = "It isn't working. That's why we can't continue.";
+        let result = manager.chunk_with_overlap_processing(text);
+
+        assert!(result.is_ok());
+        let chunks = result.unwrap();
+
+        // Check that suppressions are detected
+        let total_suppressions: usize = chunks.iter().map(|c| c.suppression_markers.len()).sum();
+        assert!(
+            total_suppressions > 0,
+            "Should detect multiple suppressions"
+        );
+    }
+
+    #[test]
+    fn test_chunk_with_only_whitespace() {
+        let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
+        let mut manager = OverlapChunkManager::with_defaults(suppressor);
+
+        let result = manager.chunk_with_overlap_processing("   \n\t   ");
+        assert!(result.is_ok());
+        let chunks = result.unwrap();
+        assert_eq!(chunks.len(), 1);
+    }
+
+    #[test]
+    fn test_large_overlap_relative_to_chunk() {
+        let suppressor = Arc::new(EnglishEnclosureSuppressor::new());
+        let config = OverlapChunkConfig {
+            chunk_size: 100,
+            overlap_size: 50, // Maximum allowed (50% overlap)
+            enable_cross_chunk: true,
+            ..Default::default()
+        };
+        let mut manager = OverlapChunkManager::new(config, suppressor);
+
+        let text = "A".repeat(300); // 300 characters
+        let result = manager.chunk_with_overlap_processing(&text);
+
+        assert!(result.is_ok());
+        let chunks = result.unwrap();
+
+        // With 50% overlap and 100 byte chunks on 300 chars, we should have at least 5 chunks
+        // Actually, let's just verify we have multiple chunks
+        assert!(
+            chunks.len() >= 2,
+            "Expected at least 2 chunks, got {}",
+            chunks.len()
+        );
+
+        // Verify all chunks are valid
+        for chunk in &chunks {
+            assert!(!chunk.base_chunk.content.is_empty());
+            assert!(chunk.base_chunk.end_offset <= text.len());
+        }
+    }
 }

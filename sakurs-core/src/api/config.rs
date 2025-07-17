@@ -194,19 +194,25 @@ mod tests {
     #[test]
     fn test_config_validation() {
         // Invalid chunk size
-        let mut config = Config::default();
-        config.chunk_size = 0;
+        let config = Config {
+            chunk_size: 0,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
 
         // Invalid overlap size
-        let mut config = Config::default();
-        config.chunk_size = 100;
-        config.overlap_size = 200;
+        let config = Config {
+            chunk_size: 100,
+            overlap_size: 200,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
 
         // Invalid thread count
-        let mut config = Config::default();
-        config.threads = Some(0);
+        let config = Config {
+            threads: Some(0),
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 
@@ -249,5 +255,138 @@ mod tests {
         assert_eq!(config.parallel_threshold, 256 * 1024);
         assert_eq!(config.overlap_size, 512);
         assert_eq!(config.threads, Some(4));
+    }
+
+    #[test]
+    fn test_config_validation_boundary_values() {
+        // Test chunk_size at minimum valid value
+        let config = Config {
+            chunk_size: 1,
+            overlap_size: 0,
+            ..Default::default()
+        };
+        assert!(config.validate().is_ok());
+
+        // Test overlap_size at maximum valid value (chunk_size - 1)
+        let config = Config {
+            chunk_size: 100,
+            overlap_size: 99,
+            ..Default::default()
+        };
+        assert!(config.validate().is_ok());
+
+        // Test overlap_size equals chunk_size (invalid)
+        let config = Config {
+            chunk_size: 100,
+            overlap_size: 100,
+            ..Default::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        match result {
+            Err(Error::Configuration(msg)) => {
+                assert!(msg.contains("overlap_size must be less than chunk_size"));
+            }
+            _ => panic!("Expected Configuration error"),
+        }
+
+        // Test threads at minimum valid value
+        let config = Config {
+            threads: Some(1),
+            ..Default::default()
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_config_builder_invalid_configurations() {
+        // Test building with invalid chunk_size
+        let result = Config::builder().chunk_size(0).build();
+        assert!(result.is_err());
+
+        // Test building with invalid overlap_size
+        let result = Config::builder().chunk_size(100).overlap_size(100).build();
+        assert!(result.is_err());
+
+        // Test building with invalid thread count
+        let result = Config::builder().threads(Some(0)).build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_config_builder_with_invalid_language() {
+        let result = Config::builder()
+            .language("invalid_lang")
+            .unwrap() // language() returns Ok
+            .build(); // Error occurs here during validation
+
+        assert!(result.is_err());
+        match result {
+            Err(Error::InvalidLanguage(msg)) => {
+                assert!(msg.contains("invalid_lang"));
+            }
+            _ => panic!("Expected InvalidLanguage error"),
+        }
+    }
+
+    #[test]
+    fn test_config_validation_error_messages() {
+        // Test chunk_size error message
+        let config = Config {
+            chunk_size: 0,
+            ..Default::default()
+        };
+        match config.validate() {
+            Err(Error::Configuration(msg)) => {
+                assert_eq!(msg, "chunk_size must be greater than 0");
+            }
+            _ => panic!("Expected specific error message"),
+        }
+
+        // Test threads error message
+        let config = Config {
+            threads: Some(0),
+            ..Default::default()
+        };
+        match config.validate() {
+            Err(Error::Configuration(msg)) => {
+                assert_eq!(msg, "threads must be greater than 0");
+            }
+            _ => panic!("Expected specific error message"),
+        }
+    }
+
+    #[test]
+    fn test_config_builder_partial_configuration() {
+        // Test building with only some fields set
+        let config = Config::builder().chunk_size(64 * 1024).build().unwrap();
+
+        assert_eq!(config.chunk_size, 64 * 1024);
+        assert_eq!(config.parallel_threshold, defaults::PARALLEL_THRESHOLD);
+        assert_eq!(config.overlap_size, defaults::OVERLAP_SIZE);
+        assert!(config.threads.is_none());
+    }
+
+    #[test]
+    fn test_config_builder_language_setting() {
+        // Test setting valid language
+        let config = Config::builder().language("en").unwrap().build().unwrap();
+        assert_eq!(config.language, Language::English);
+
+        let config = Config::builder().language("ja").unwrap().build().unwrap();
+        assert_eq!(config.language, Language::Japanese);
+    }
+
+    #[test]
+    fn test_large_configuration_values() {
+        // Test with very large valid values
+        let config = Config {
+            chunk_size: usize::MAX / 2,
+            overlap_size: 1024,
+            parallel_threshold: usize::MAX / 2,
+            threads: Some(1024),
+            ..Default::default()
+        };
+        assert!(config.validate().is_ok());
     }
 }

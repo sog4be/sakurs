@@ -8,10 +8,19 @@
 
 use crate::domain::{
     enclosure::EnclosureType,
-    language::{english::EnglishSentenceStarterRule, LanguageRules},
+    language::LanguageRules,
     types::{AbbreviationState, Boundary, BoundaryCandidate, BoundaryFlags, PartialState},
 };
 use std::collections::HashMap;
+
+/// Simple function to check if a word is commonly a sentence starter
+/// This is a temporary implementation to replace the deleted EnglishSentenceStarterRule
+fn is_sentence_starter(word: &str) -> bool {
+    // Common sentence starters that are typically capitalized
+    // This is a simplified version - in practice, this would be more sophisticated
+    let first_char = word.chars().next().unwrap_or(' ');
+    first_char.is_uppercase() && word.len() > 1
+}
 
 /// Enhanced abbreviation state with more context
 #[derive(Debug, Clone, PartialEq)]
@@ -234,9 +243,8 @@ impl CrossChunkValidator {
                 if state.abbreviation.is_cross_chunk_abbr(&next.abbreviation) {
                     // Check if the next chunk starts with a sentence starter
                     if let Some(ref first_word) = next.abbreviation.first_word {
-                        // Use EnglishSentenceStarterRule to check if it's a sentence starter
-                        let sentence_starter_rule = EnglishSentenceStarterRule::new();
-                        if sentence_starter_rule.is_sentence_starter(first_word) {
+                        // Simple sentence starter check - words that are commonly sentence starters
+                        if is_sentence_starter(first_word) {
                             // This is an abbreviation followed by a sentence starter
                             // The boundary should be kept as strong
                             return ValidationResult::Weakened(BoundaryFlags::STRONG);

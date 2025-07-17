@@ -543,10 +543,10 @@ mod tests {
         #[test]
         fn test_confidence_precision() {
             // Test that confidence maintains reasonable precision
-            let boundary = ConfirmedBoundary::new(100, 0.123456789);
+            let boundary = ConfirmedBoundary::new(100, 0.123_456_79);
 
             // Confidence should be stored with f32 precision
-            assert!((boundary.confidence - 0.123456789f32).abs() < 0.0000001);
+            assert!((boundary.confidence - 0.123_456_79_f32).abs() < 0.0000001);
         }
     }
 

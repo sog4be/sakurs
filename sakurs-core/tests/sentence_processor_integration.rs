@@ -18,7 +18,7 @@ fn test_end_to_end_english_processing() {
 
     // SentenceProcessor may detect fewer boundaries than TextProcessor
     // Just verify we have at least one boundary
-    assert!(result.boundaries.len() >= 1);
+    assert!(!result.boundaries.is_empty());
 
     // Verify metadata
     assert_eq!(result.metadata.stats.bytes_processed, text.len());
