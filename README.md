@@ -189,9 +189,16 @@ sakurs process -i input.txt | split -l 1 - sentence_
 
 The library consists of three main components:
 
-- **`sakurs-core`** - Core Rust library implementing the Δ-Stack Monoid algorithm
+- **`sakurs-core`** - Core Rust library implementing the Δ-Stack Monoid algorithm with configurable language rules
 - **`sakurs-cli`** - Command-line interface for batch processing
 - **`sakurs-py`** - Python bindings for easy integration
+
+### Key Features
+
+- **Configurable Language Rules**: Languages are defined via TOML configuration files, making it easy to add new languages or customize existing ones (see [Adding Languages](docs/ADDING_LANGUAGES.md))
+- **High Performance**: Parallel processing with near-linear speedup on multicore systems
+- **Memory Efficient**: Streaming support for processing large files with constant memory usage
+- **Extensible**: Clean architecture allows easy addition of new languages and adapters
 
 ## Contributing
 
