@@ -203,9 +203,7 @@ impl ConfigurableLanguageRules {
                     .map(|p| (p.pattern.clone(), p.description.clone()))
                     .collect(),
             )
-            .map_err(|e| {
-                DomainError::InvalidLanguageRules(format!("Invalid regex pattern: {}", e))
-            })?
+            .map_err(|e| DomainError::InvalidLanguageRules(format!("Invalid regex pattern: {e}")))?
         };
 
         Ok(Self {
@@ -277,7 +275,7 @@ impl LanguageRules for ConfigurableLanguageRules {
             let next_char = context.following_context.chars().next();
             if let Some(next) = next_char {
                 // Check if current + next forms a known pattern
-                let potential_pattern = format!("{}{}", ch, next);
+                let potential_pattern = format!("{ch}{next}");
                 for (pattern_str, _) in self.terminator_rules.patterns() {
                     if pattern_str == &potential_pattern {
                         // This is the first character of a pattern, don't create boundary

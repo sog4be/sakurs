@@ -69,7 +69,7 @@ impl EllipsisRules {
         let mut parsed_exceptions = Vec::new();
         for (pattern_str, is_boundary) in exceptions {
             let regex = Regex::new(&pattern_str)
-                .map_err(|e| format!("Invalid exception regex '{}': {}", pattern_str, e))?;
+                .map_err(|e| format!("Invalid exception regex '{pattern_str}': {e}"))?;
             parsed_exceptions.push(ExceptionPattern { regex, is_boundary });
         }
 

@@ -21,7 +21,7 @@ fn load_embedded_configs() -> Result<HashMap<String, LanguageConfig>, DomainErro
 
     for (code, toml_content) in embedded_configs {
         let config: LanguageConfig = toml::from_str(toml_content).map_err(|e| {
-            DomainError::ConfigurationError(format!("Failed to parse {} config: {}", code, e))
+            DomainError::ConfigurationError(format!("Failed to parse {code} config: {e}"))
         })?;
 
         // Validate that the config code matches
