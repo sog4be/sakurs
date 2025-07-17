@@ -58,8 +58,7 @@ regex_patterns = [
     { pattern = "\\d+'", description = "Feet measurement like 6'" },
     { pattern = "\\d+\"", description = "Inches measurement like 12\"" },
     { pattern = "\\w+'s\\b", description = "Possessive forms like John's" },
-    { pattern = "\\ws'\\s", description = "Plural possessive like students'" },
-    { pattern = "\\w+s'\\s", description = "Singular possessive ending in s like James'" }
+    { pattern = "\\ws'\\s", description = "Plural possessive like students'" }
 ]
 
 [abbreviations]
