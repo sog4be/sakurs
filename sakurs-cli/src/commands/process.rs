@@ -20,8 +20,19 @@ pub struct ProcessArgs {
     pub format: OutputFormat,
 
     /// Language for sentence detection rules
-    #[arg(short, long, value_enum, default_value = "english")]
-    pub language: Language,
+    /// NOTE: Mutually exclusive with --language-config
+    #[arg(short, long, value_enum, conflicts_with = "language_config")]
+    pub language: Option<Language>,
+
+    /// Path to external language configuration file (TOML format)
+    /// NOTE: Mutually exclusive with --language
+    #[arg(short = 'c', long, value_name = "FILE", conflicts_with = "language")]
+    pub language_config: Option<PathBuf>,
+
+    /// Language code for external configuration (optional)
+    /// NOTE: Only used with --language-config
+    #[arg(long, requires = "language_config")]
+    pub language_code: Option<String>,
 
     /// Force parallel processing even for small files
     #[arg(short, long)]
@@ -216,17 +227,75 @@ impl ProcessArgs {
 
     /// Create text processor with appropriate language rules
     fn create_processor(&self) -> Result<sakurs_core::SentenceProcessor> {
+        use crate::language_source::LanguageSource;
         use sakurs_core::{Config, SentenceProcessor};
 
-        let language_code = match self.language {
-            Language::English => "en",
-            Language::Japanese => "ja",
+        // Determine language source
+        let language_source = match (&self.language, &self.language_config) {
+            (Some(lang), None) => LanguageSource::BuiltIn(*lang),
+            (None, Some(path)) => LanguageSource::External {
+                path: path.clone(),
+                language_code: self.language_code.clone(),
+            },
+            (None, None) => LanguageSource::BuiltIn(Language::English), // Default
+            (Some(_), Some(_)) => unreachable!(),                       // clap handles conflicts
         };
 
-        // Build configuration with thread option handling
-        let mut builder = Config::builder()
-            .language(language_code)
-            .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?;
+        log::info!("Using language source: {}", language_source.display_name());
+
+        // Create processor based on language source
+        match language_source {
+            LanguageSource::BuiltIn(lang) => {
+                let language_code = lang.code();
+
+                // Build configuration with thread option handling
+                let builder = Config::builder()
+                    .language(language_code)
+                    .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?;
+
+                let builder = self.configure_builder(builder)?;
+
+                let config = builder
+                    .build()
+                    .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?;
+
+                SentenceProcessor::with_config(config)
+                    .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))
+            }
+            LanguageSource::External {
+                path,
+                language_code,
+            } => {
+                // Load external configuration
+                use sakurs_core::domain::language::ConfigurableLanguageRules;
+                use std::sync::Arc;
+
+                let rules = ConfigurableLanguageRules::from_file(&path, language_code.as_deref())
+                    .map_err(|e| {
+                    anyhow::anyhow!("Failed to load external language config: {}", e)
+                })?;
+
+                // Build configuration
+                let builder = Config::builder();
+                let builder = self.configure_builder(builder)?;
+
+                let config = builder
+                    .build()
+                    .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?;
+
+                // Create processor with custom rules
+                SentenceProcessor::with_custom_rules(config, Arc::new(rules))
+                    .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))
+            }
+        }
+    }
+
+    /// Configure the builder with common options
+    fn configure_builder(
+        &self,
+        builder: sakurs_core::ConfigBuilder,
+    ) -> Result<sakurs_core::ConfigBuilder> {
+        let mut builder = builder;
 
         // Handle thread count:
         // - If threads is specified, use that value
@@ -252,13 +321,7 @@ impl ProcessArgs {
         }
 
         // Note: adaptive mode now uses default configuration
-
-        let config = builder
-            .build()
-            .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?;
-
-        SentenceProcessor::with_config(config)
-            .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))
+        Ok(builder)
     }
 
     /// Process a file in streaming mode

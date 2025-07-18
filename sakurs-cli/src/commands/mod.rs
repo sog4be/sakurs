@@ -2,13 +2,22 @@
 
 use clap::Subcommand;
 
+pub mod generate_config;
 pub mod process;
+pub mod validate;
 
 /// Available CLI commands
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Process text files for sentence boundary detection
     Process(process::ProcessArgs),
+
+    /// Validate a language configuration file
+    Validate(validate::ValidateArgs),
+
+    /// Generate a language configuration template
+    #[command(name = "generate-config")]
+    GenerateConfig(generate_config::GenerateConfigArgs),
 
     /// List available components
     List {
@@ -38,7 +47,9 @@ mod tests {
             input: vec!["test.txt".to_string()],
             output: None,
             format: process::OutputFormat::Text,
-            language: process::Language::English,
+            language: Some(process::Language::English),
+            language_config: None,
+            language_code: None,
             parallel: false,
             adaptive: false,
             threads: None,
@@ -83,7 +94,9 @@ mod tests {
             input: vec!["test.txt".to_string()],
             output: None,
             format: process::OutputFormat::Text,
-            language: process::Language::English,
+            language: Some(process::Language::English),
+            language_config: None,
+            language_code: None,
             parallel: false,
             adaptive: false,
             threads: None,
@@ -101,11 +114,15 @@ mod tests {
         // Verify all variants can be matched
         match process_cmd {
             Commands::Process(_) => (),
+            Commands::Validate(_) => panic!("Should be Process"),
+            Commands::GenerateConfig(_) => panic!("Should be Process"),
             Commands::List { .. } => panic!("Should be Process"),
         }
 
         match list_cmd {
             Commands::Process(_) => panic!("Should be List"),
+            Commands::Validate(_) => panic!("Should be List"),
+            Commands::GenerateConfig(_) => panic!("Should be List"),
             Commands::List { .. } => (),
         }
     }

@@ -8,11 +8,20 @@ Sakurs uses a TOML-based configuration system that makes adding new languages st
 
 ## Quick Start
 
-To add a new language, you need to:
+You have two options for adding language support:
 
-1. Create a TOML configuration file
+### Option 1: External Configuration (Recommended for Testing)
+
+1. Generate a configuration template: `sakurs generate-config --language-code {code} --output {file}.toml`
+2. Edit the configuration file to define your language rules
+3. Validate it: `sakurs validate --language-config {file}.toml`
+4. Use it: `sakurs process -i text.txt --language-config {file}.toml`
+
+### Option 2: Built-in Configuration (For Contributing)
+
+1. Create a TOML configuration file in `sakurs-core/configs/languages/`
 2. Register it in the language loader
-3. Test your configuration
+3. Test your configuration and submit a PR
 
 ## Configuration File Structure
 
@@ -126,9 +135,29 @@ let embedded_configs = [
 
 ## Testing Your Configuration
 
+### Testing External Configurations
+
+Before submitting a built-in configuration, test it as an external config:
+
+```bash
+# Generate template
+sakurs generate-config --language-code test --output test-lang.toml
+
+# Edit the configuration...
+
+# Validate syntax and structure
+sakurs validate --language-config test-lang.toml
+
+# Test with sample text
+echo "Test sentence. Another one!" | sakurs process -i - --language-config test-lang.toml
+
+# Test with real files
+sakurs process -i sample.txt --language-config test-lang.toml
+```
+
 ### Unit Tests
 
-Add tests to verify your configuration loads correctly:
+For built-in configurations, add tests to verify your configuration loads correctly:
 
 ```rust
 #[test]

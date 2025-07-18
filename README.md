@@ -84,6 +84,23 @@ sakurs process -i text.txt -f markdown
 sakurs process -i text.txt
 ```
 
+### Using External Language Configuration
+
+```bash
+# Generate a language configuration template
+sakurs generate-config --language-code custom --output custom-lang.toml
+
+# Edit the configuration file to define your language rules
+# Then validate it
+sakurs validate --language-config custom-lang.toml
+
+# Use the custom configuration for processing
+sakurs process -i text.txt --language-config custom-lang.toml
+
+# Override the language code if needed
+sakurs process -i text.txt --language-config base.toml --language-code mycode
+```
+
 ### Advanced Options
 
 ```bash
@@ -117,10 +134,39 @@ Process text files to detect sentence boundaries.
 - `-o, --output <FILE>` - Output file (default: stdout)
 - `-f, --format <FORMAT>` - Output format: text, json, markdown (default: text)
 - `-l, --language <LANG>` - Language: english, japanese (default: english)
+- `--language-config <FILE>` - Path to external language configuration file (TOML)
+- `--language-code <CODE>` - Override language code when using external config
 - `-p, --parallel` - Force parallel processing
 - `-t, --threads <COUNT>` - Number of threads (default: auto)
 - `-q, --quiet` - Suppress progress output
 - `-v, --verbose` - Increase verbosity (can be repeated)
+
+**Note:** `--language` and `--language-config` are mutually exclusive.
+
+### `sakurs validate`
+
+Validate a language configuration file.
+
+```bash
+# Validate a custom language configuration
+sakurs validate --language-config my-language.toml
+```
+
+**Options:**
+- `-c, --language-config <FILE>` - Path to language configuration file to validate
+
+### `sakurs generate-config`
+
+Generate a language configuration template.
+
+```bash
+# Generate a template for a new language
+sakurs generate-config --language-code fr --output french.toml
+```
+
+**Options:**
+- `-l, --language-code <CODE>` - Language code for the new configuration
+- `-o, --output <FILE>` - Output file path
 
 ### `sakurs list`
 

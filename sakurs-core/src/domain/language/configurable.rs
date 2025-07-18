@@ -15,6 +15,7 @@ use crate::domain::{
     },
     BoundaryFlags,
 };
+use std::path::Path;
 
 /// Extract the next word from the following context (first alphabetic sequence)
 fn extract_next_word(following_context: &str) -> Option<String> {
@@ -128,6 +129,35 @@ impl ConfigurableLanguageRules {
     pub fn from_code(code: &str) -> Result<Self, DomainError> {
         let config = get_language_config(code)?;
         Self::from_config(config)
+    }
+
+    /// Create language rules from external file
+    pub fn from_file(path: &Path, language_code: Option<&str>) -> Result<Self, DomainError> {
+        let content = std::fs::read_to_string(path).map_err(|e| {
+            DomainError::ConfigurationError(format!(
+                "Failed to read file '{}': {}",
+                path.display(),
+                e
+            ))
+        })?;
+
+        let mut config: LanguageConfig = toml::from_str(&content).map_err(|e| {
+            DomainError::ConfigurationError(format!(
+                "Failed to parse TOML from '{}': {}",
+                path.display(),
+                e
+            ))
+        })?;
+
+        // Override language code if provided
+        if let Some(code) = language_code {
+            config.metadata.code = code.to_string();
+        }
+
+        // Validate configuration
+        config.validate()?;
+
+        Self::from_config(&config)
     }
 
     /// Create language rules from configuration
@@ -471,9 +501,139 @@ impl ConfigurableLanguageRules {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
     #[test]
-    fn test_configurable_rules_creation() {
-        // This test will work once we have the config files in place
-        // For now, we'll test that the structure compiles correctly
+    fn test_from_file_valid_config() {
+        let toml_content = r#"
+[metadata]
+code = "custom"
+name = "Custom Language"
+
+[terminators]
+chars = [".", "!", "?"]
+
+[ellipsis]
+patterns = ["..."]
+
+[enclosures]
+pairs = [
+    { open = "(", close = ")" }
+]
+
+[suppression]
+
+[abbreviations]
+common = ["etc", "vs"]
+"#;
+
+        // Create a temporary file
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", toml_content).unwrap();
+
+        // Test loading from file
+        let rules = ConfigurableLanguageRules::from_file(temp_file.path(), None).unwrap();
+        assert_eq!(rules.language_code(), "custom");
+        assert_eq!(rules.language_name(), "Custom Language");
+    }
+
+    #[test]
+    fn test_from_file_with_language_code_override() {
+        let toml_content = r#"
+[metadata]
+code = "original"
+name = "Original Language"
+
+[terminators]
+chars = ["."]
+
+[ellipsis]
+patterns = []
+
+[enclosures]
+pairs = []
+
+[suppression]
+
+[abbreviations]
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", toml_content).unwrap();
+
+        // Test loading with code override
+        let rules =
+            ConfigurableLanguageRules::from_file(temp_file.path(), Some("overridden")).unwrap();
+        assert_eq!(rules.language_code(), "overridden");
+        assert_eq!(rules.language_name(), "Original Language");
+    }
+
+    #[test]
+    fn test_from_file_invalid_toml() {
+        let invalid_toml = r#"
+[metadata
+code = "test"
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", invalid_toml).unwrap();
+
+        let result = ConfigurableLanguageRules::from_file(temp_file.path(), None);
+        assert!(result.is_err());
+        match result {
+            Err(DomainError::ConfigurationError(msg)) => {
+                assert!(msg.contains("Failed to parse TOML"));
+            }
+            _ => panic!("Expected ConfigurationError for invalid TOML"),
+        }
+    }
+
+    #[test]
+    fn test_from_file_nonexistent() {
+        let result =
+            ConfigurableLanguageRules::from_file(Path::new("/nonexistent/file.toml"), None);
+        assert!(result.is_err());
+        match result {
+            Err(DomainError::ConfigurationError(msg)) => {
+                assert!(msg.contains("Failed to read file"));
+            }
+            _ => panic!("Expected ConfigurationError for nonexistent file"),
+        }
+    }
+
+    #[test]
+    fn test_from_file_validation_error() {
+        let toml_content = r#"
+[metadata]
+code = ""
+name = "Test"
+
+[terminators]
+chars = ["."]
+
+[ellipsis]
+patterns = []
+
+[enclosures]
+pairs = []
+
+[suppression]
+
+[abbreviations]
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", toml_content).unwrap();
+
+        let result = ConfigurableLanguageRules::from_file(temp_file.path(), None);
+        assert!(result.is_err());
+        match result {
+            Err(DomainError::ConfigurationError(msg)) => {
+                assert!(msg.contains("Language code is required"));
+            }
+            _ => panic!("Expected ConfigurationError for validation failure"),
+        }
     }
 }
