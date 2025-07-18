@@ -34,6 +34,8 @@ fn main() -> CliResult<()> {
     // Execute the appropriate command
     match cli.command {
         Commands::Process(args) => args.execute(),
+        Commands::Validate(args) => args.execute(),
+        Commands::GenerateConfig(args) => args.execute(),
         Commands::List { subcommand } => execute_list(subcommand),
     }
 }
