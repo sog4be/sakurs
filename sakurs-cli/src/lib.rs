@@ -6,6 +6,7 @@
 pub mod commands;
 pub mod error;
 pub mod input;
+pub mod language_source;
 pub mod output;
 pub mod progress;
 

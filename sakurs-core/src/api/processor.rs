@@ -29,6 +29,17 @@ impl SentenceProcessor {
         Ok(Self { processor, config })
     }
 
+    /// Create a processor with custom language rules
+    pub fn with_custom_rules(
+        config: Config,
+        language_rules: Arc<dyn LanguageRules>,
+    ) -> Result<Self, Error> {
+        let processor_config = Self::build_processor_config(&config)?;
+        let processor = DeltaStackProcessor::new(processor_config, language_rules);
+
+        Ok(Self { processor, config })
+    }
+
     /// Create a processor for a specific language
     pub fn with_language(lang_code: impl Into<String>) -> Result<Self, Error> {
         let config = Config::builder().language(lang_code)?.build()?;
