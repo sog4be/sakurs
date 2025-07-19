@@ -7,26 +7,43 @@
 
 use pyo3::prelude::*;
 
-mod error;
+mod exceptions;
+mod output;
 mod processor;
 mod types;
 
-// use error::SakursError;
+use crate::exceptions::register_exceptions;
+use crate::output::{create_sentence_list, ProcessingMetadata, Sentence};
 use processor::PyProcessor;
 use types::PyProcessorConfig;
 
 /// Split text into sentences
 #[pyfunction]
-#[pyo3(signature = (text, language="en", config=None, threads=None))]
+#[pyo3(signature = (text, *, language="en", config=None, threads=None, return_details=false))]
 fn split(
     text: &str,
     language: &str,
     config: Option<PyProcessorConfig>,
     threads: Option<usize>,
+    return_details: bool,
     py: Python,
-) -> PyResult<Vec<String>> {
+) -> PyResult<PyObject> {
     let processor = PyProcessor::new(language, config)?;
-    processor.split(text, threads, py)
+
+    if return_details {
+        // Return List[Sentence] with detailed information
+        let result = processor.process_with_details(text, threads, py)?;
+        let sentences = create_sentence_list(py, text, &result.boundaries)?;
+
+        // Convert Vec<Sentence> to Python list
+        let py_list = pyo3::types::PyList::new(py, sentences)?;
+        Ok(py_list.into())
+    } else {
+        // Return List[str] for backward compatibility
+        let sentences = processor.split(text, threads, py)?;
+        let py_list = pyo3::types::PyList::new(py, sentences)?;
+        Ok(py_list.into())
+    }
 }
 
 /// Load a processor for the specified language (spaCy-style API)
@@ -51,16 +68,17 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyProcessor>()?;
     m.add_class::<PyProcessorConfig>()?;
 
+    // Output classes
+    m.add_class::<Sentence>()?;
+    m.add_class::<ProcessingMetadata>()?;
+
     // Main API functions
     m.add_function(wrap_pyfunction!(split, m)?)?;
     m.add_function(wrap_pyfunction!(load, m)?)?;
     m.add_function(wrap_pyfunction!(supported_languages, m)?)?;
 
-    // Exception classes
-    m.add(
-        "SakursError",
-        py.get_type::<pyo3::exceptions::PyRuntimeError>(),
-    )?;
+    // Register exception classes
+    register_exceptions(py, m)?;
 
     // Module metadata
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
@@ -115,6 +133,7 @@ mod tests {
         assert_eq!(config.chunk_size, 4096);
         assert_eq!(config.overlap_size, 128);
         assert_eq!(config.num_threads, Some(2));
+        assert_eq!(config.max_chunk_size, 1048576);
     }
 
     #[test]

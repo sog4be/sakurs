@@ -81,6 +81,8 @@ extend-select = [
 # PyO3 specific ignores
 "src/lib.rs" = ["D"]  # Don't check Rust files
 "*.pyi" = ["D"]       # Type stubs don't need docstrings
+# Test-specific ignores
+"tests/*" = ["PLR2004", "RUF001"]  # Magic numbers and Unicode in tests are OK
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
