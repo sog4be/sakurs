@@ -3,26 +3,31 @@ code = "ja"
 name = "Japanese"
 
 [terminators]
-# Japanese and mixed punctuation
-chars = ["。", "！", "？", ".", "!", "?"]
+# Japanese punctuation + half-width !? (commonly used in Japanese text)
+chars = ["。", "！", "？", "!", "?"]
 
-# No special patterns for Japanese
-patterns = []
+# Special patterns for emphasis (both full-width and half-width)
+patterns = [
+    { pattern = "！？", name = "surprised_question_fw" },
+    { pattern = "？！", name = "questioning_exclamation_fw" },
+    { pattern = "!?", name = "surprised_question" },
+    { pattern = "?!", name = "questioning_exclamation" }
+]
 
 [ellipsis]
 treat_as_boundary = true
-patterns = ["…", "・・・", "..."]
+patterns = ["…"]
 
 # Context rules
 context_rules = []
 
 # Exception patterns
 exceptions = [
-    { regex = "えーと[。．.]{3}", boundary = false }
+    { regex = "えーと…", boundary = false }
 ]
 
 [enclosures]
-# Japanese quotation marks and brackets
+# Japanese-specific brackets + half-width parentheses (commonly used)
 pairs = [
     { open = "「", close = "」" },
     { open = "『", close = "』" },
@@ -32,21 +37,17 @@ pairs = [
     { open = "〈", close = "〉" },
     { open = "《", close = "》" },
     { open = "〔", close = "〕" },
-    { open = "(", close = ")" },
-    { open = "[", close = "]" },
-    { open = "{", close = "}" }
+    { open = "(", close = ")" }
 ]
 
 [suppression]
-# Minimal suppression rules for Japanese
+# Japanese brackets + half-width parentheses
 fast_patterns = [
     { char = ")", line_start = true, before = "alnum" },
     { char = "）", line_start = true, before = "alnum" }
 ]
 
 [abbreviations]
-# Common English abbreviations used in Japanese text
-common = [
-    "Mr", "Dr", "Inc", "Ltd", "etc", "vs", "No"
-]
+# Empty - no English abbreviations needed for Japanese text
+common = []
 
