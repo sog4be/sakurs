@@ -72,10 +72,12 @@ pub struct ProcessArgs {
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 pub enum OutputFormat {
     /// Plain text with one sentence per line
+    #[value(alias = "txt")]
     Text,
     /// JSON array of sentences with metadata
     Json,
     /// Markdown formatted output
+    #[value(alias = "md")]
     Markdown,
 }
 
@@ -83,8 +85,10 @@ pub enum OutputFormat {
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 pub enum Language {
     /// English language rules
+    #[value(alias = "en", alias = "eng")]
     English,
     /// Japanese language rules
+    #[value(alias = "ja", alias = "jpn")]
     Japanese,
 }
 
