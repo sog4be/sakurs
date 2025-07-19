@@ -15,17 +15,19 @@ use crate::domain::{
     },
     BoundaryFlags,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-/// Extract the next word from the following context (first alphabetic sequence)
-fn extract_next_word(following_context: &str) -> Option<String> {
-    let mut chars = following_context.chars().peekable();
+/// Extract the next word from the following context and return (word, context_after_word)
+fn extract_next_word(following_context: &str) -> Option<(String, &str)> {
+    let mut char_indices = following_context.char_indices().peekable();
 
-    // Skip whitespace
-    while let Some(ch) = chars.peek() {
+    // Skip whitespace and track position
+    let mut word_start = 0;
+    while let Some((idx, ch)) = char_indices.peek() {
         if ch.is_whitespace() {
-            chars.next();
+            word_start = *idx + ch.len_utf8();
+            char_indices.next();
         } else {
             break;
         }
@@ -33,18 +35,27 @@ fn extract_next_word(following_context: &str) -> Option<String> {
 
     // Extract word characters
     let mut word = String::new();
-    while let Some(ch) = chars.peek() {
+    let mut word_end = word_start;
+    while let Some((idx, ch)) = char_indices.peek() {
         if ch.is_alphabetic() {
-            word.push(chars.next().unwrap());
+            word.push(*ch);
+            word_end = *idx + ch.len_utf8();
+            char_indices.next();
         } else {
+            word_end = *idx;
             break;
         }
+    }
+
+    // If we consumed all characters, word_end should be the length
+    if word_end == word_start && !word.is_empty() {
+        word_end = following_context.len();
     }
 
     if word.is_empty() {
         None
     } else {
-        Some(word)
+        Some((word, &following_context[word_end..]))
     }
 }
 
@@ -179,20 +190,25 @@ impl ConfigurableLanguageRules {
             .map_err(|e| DomainError::InvalidLanguageRules(format!("Invalid regex pattern: {e}")))?
         };
 
-        // Build sentence starter set for fast lookups
+        // Build sentence starter set for fast lookups (exact match, no normalization)
         let mut sentence_starter_set = HashSet::new();
-        for words in config.sentence_starters.categories.values() {
-            for word in words {
-                if word.len() >= config.sentence_starters.min_word_length {
-                    let normalized = if config.sentence_starters.case_sensitive {
-                        word.clone()
-                    } else {
-                        word.to_lowercase()
-                    };
-                    sentence_starter_set.insert(normalized);
+        let sentence_starter_config = if let Some(ref starters) = config.sentence_starters {
+            for words in starters.categories.values() {
+                for word in words {
+                    if word.len() >= starters.min_word_length {
+                        sentence_starter_set.insert(word.clone());
+                    }
                 }
             }
-        }
+            starters.clone()
+        } else {
+            // Default config when not present
+            SentenceStarterConfig {
+                categories: HashMap::new(),
+                require_following_space: true,
+                min_word_length: 1,
+            }
+        };
 
         Ok(Self {
             code: config.metadata.code.clone(),
@@ -202,7 +218,7 @@ impl ConfigurableLanguageRules {
             abbreviation_trie,
             enclosure_map,
             suppressor,
-            sentence_starter_config: config.sentence_starters.clone(),
+            sentence_starter_config,
             sentence_starter_set,
         })
     }
@@ -285,9 +301,11 @@ impl LanguageRules for ConfigurableLanguageRules {
             // We check if there's an abbreviation ending at this position
             let abbr_result = self.process_abbreviation(&context.text, context.position);
             if abbr_result.is_abbreviation {
-                // Check if the next word is a sentence starter (capitalized word)
-                if let Some(next_word) = extract_next_word(&context.following_context) {
-                    if self.is_sentence_starter(&next_word) {
+                // Check if the next word is a sentence starter
+                if let Some((next_word, remaining_context)) =
+                    extract_next_word(&context.following_context)
+                {
+                    if self.is_sentence_starter(&next_word, remaining_context) {
                         // Abbreviation followed by sentence starter - create boundary
                         return BoundaryDecision::Boundary(BoundaryFlags::WEAK);
                     }
@@ -387,34 +405,27 @@ impl LanguageRules for ConfigurableLanguageRules {
 
 impl ConfigurableLanguageRules {
     /// Check if a word is a sentence starter based on configuration
-    /// Returns true only if:
-    /// 1. The word is in the sentence starter list AND starts with uppercase
-    /// 2. OR use_uppercase_fallback is true AND the word starts with uppercase
-    fn is_sentence_starter(&self, word: &str) -> bool {
+    /// Returns true if the word is in the configured list and optionally requires following space
+    fn is_sentence_starter(&self, word: &str, following_context: &str) -> bool {
         if word.len() < self.sentence_starter_config.min_word_length {
             return false;
         }
 
-        // First check if the word starts with uppercase
-        let starts_with_uppercase = word.chars().next().is_some_and(|c| c.is_uppercase());
-        if !starts_with_uppercase {
-            return false; // If not uppercase, it's never a sentence starter
+        // Direct O(1) HashSet lookup (exact match, no normalization)
+        if !self.sentence_starter_set.contains(word) {
+            return false;
         }
 
-        // Now check if it's in our list
-        let normalized = if self.sentence_starter_config.case_sensitive {
-            word.to_string()
+        // Check if following space is required
+        if self.sentence_starter_config.require_following_space {
+            // Check if the context starts with whitespace
+            following_context
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_whitespace())
         } else {
-            word.to_lowercase()
-        };
-
-        // O(1) HashSet lookup
-        if self.sentence_starter_set.contains(&normalized) {
-            return true;
+            true
         }
-
-        // Fallback: if use_uppercase_fallback is true, any uppercase word is a starter
-        self.sentence_starter_config.use_uppercase_fallback
     }
 
     /// Check if we're in the middle of a multi-period abbreviation pattern

@@ -111,8 +111,7 @@ military = [
 ]
 
 [sentence_starters]
-case_sensitive = false
-use_uppercase_fallback = false  # Only listed words are sentence starters
+require_following_space = true  # "The patient" matches but "Theater" does not
 min_word_length = 1
 
 # Personal pronouns

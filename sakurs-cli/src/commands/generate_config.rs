@@ -130,18 +130,15 @@ common = ["etc", "vs", "e.g", "i.e"]
 
 # Sentence starters configuration
 [sentence_starters]
-# Whether to use case-sensitive matching (default: false)
-case_sensitive = false
-
-# Whether to treat any uppercase word as a sentence starter (default: false)
-# When false, only words in the configured lists are considered sentence starters
-use_uppercase_fallback = false
+# Whether to require whitespace after the sentence starter (default: true)
+# When true, "The patient" matches but "Theater" does not
+require_following_space = true
 
 # Minimum word length to consider (default: 1)
 min_word_length = 1
 
 # Categories of sentence starter words
-# Words must appear with uppercase first letter to be recognized as sentence starters
+# Words should be written exactly as they should be matched
 pronouns = ["I", "You", "He", "She", "It", "We", "They"]
 articles = ["The", "A", "An"]
 demonstratives = ["This", "That", "These", "Those"]
