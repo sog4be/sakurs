@@ -71,6 +71,7 @@ impl PyProcessor {
 
         // Convert boundaries to sentence list
         let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
+
         let result = PyProcessingResult::new(boundaries, output.metadata.stats, text.to_string());
 
         Ok(result.sentences())

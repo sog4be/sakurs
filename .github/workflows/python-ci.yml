@@ -122,7 +122,24 @@ jobs:
         run: |
           cd sakurs-py
           uv sync --dev
-          uv run maturin develop --features extension-module
+          # Build wheel instead of editable install for consistent behavior
+          uv run maturin build --release --features extension-module -o dist
+          
+      - name: Install built wheel (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd sakurs-py
+          # Find and install the built wheel
+          WHEEL_FILE=$(ls dist/*.whl | head -1)
+          uv pip install --force-reinstall "$WHEEL_FILE"
+          
+      - name: Install built wheel (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd sakurs-py
+          # Find and install the built wheel
+          $wheel = Get-ChildItem -Path dist -Filter *.whl | Select-Object -First 1
+          uv pip install --force-reinstall $wheel.FullName
       
       - name: Run Python tests
         run: |

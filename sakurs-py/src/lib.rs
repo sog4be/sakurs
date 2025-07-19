@@ -110,6 +110,46 @@ mod tests {
     }
 
     #[test]
+    fn test_japanese_sentence_splitting() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            // Create Japanese processor
+            let processor =
+                PyProcessor::new("ja", None).expect("Failed to create Japanese processor");
+
+            // Test basic Japanese text
+            let text = "こんにちは。元気ですか？はい、元気です！";
+            let result = processor.split(text, None, py);
+
+            assert!(result.is_ok());
+            let sentences = result.unwrap();
+
+            // Should split into 3 sentences
+            assert_eq!(
+                sentences.len(),
+                3,
+                "Expected 3 sentences but got {}",
+                sentences.len()
+            );
+            assert_eq!(sentences[0], "こんにちは。");
+            assert_eq!(sentences[1], "元気ですか？");
+            assert_eq!(sentences[2], "はい、元気です！");
+        });
+    }
+
+    #[test]
+    fn test_direct_core_japanese() {
+        // Test core directly without Python bindings
+        use sakurs_core::{Input, SentenceProcessor};
+
+        let processor = SentenceProcessor::with_language("ja").unwrap();
+        let text = "こんにちは。元気ですか？はい、元気です！";
+        let result = processor.process(Input::from_text(text)).unwrap();
+
+        assert_eq!(result.boundaries.len(), 3, "Expected 3 boundaries");
+    }
+
+    #[test]
     fn test_config_creation() {
         let config = PyProcessorConfig::new(4096, 128, Some(2), 1048576);
         assert_eq!(config.chunk_size, 4096);

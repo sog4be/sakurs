@@ -81,6 +81,8 @@ extend-select = [
 # PyO3 specific ignores
 "src/lib.rs" = ["D"]  # Don't check Rust files
 "*.pyi" = ["D"]       # Type stubs don't need docstrings
+# Japanese language tests contain fullwidth punctuation which is intentional
+"tests/test_*.py" = ["RUF001", "PLR2004"]  # Allow fullwidth chars and magic numbers in tests
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
