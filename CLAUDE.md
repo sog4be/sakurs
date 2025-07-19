@@ -275,3 +275,37 @@ EOF
 - Debug session logs and findings
 - Temporary research and analysis documents
 - Progress tracking and status reports
+
+## Python Bindings Development
+
+### Development Build Process
+**IMPORTANT**: Avoid using `maturin develop` for Python bindings development as it creates editable installs that don't update properly when Rust code changes.
+
+Instead, use:
+```bash
+# Build and install wheel (recommended)
+cd sakurs-py
+maturin build --release --features extension-module
+uv pip install --force-reinstall target/wheels/*.whl
+
+# Or use the Makefile
+make py-dev
+
+# After installation, use .venv/bin/python directly
+.venv/bin/python -m pytest tests/
+```
+
+### Common Issues
+- **Stale binaries**: If Python tests pass but don't reflect recent Rust changes, you may have a stale `.so` file from an editable install
+- **uv run reverts**: The `uv run` command may automatically revert to editable installs. Use `.venv/bin/python` directly after installing the wheel
+- **Development workflow**: Always rebuild and reinstall the wheel when making Rust code changes
+
+### Testing Python Bindings
+```bash
+# Run tests after building
+cd sakurs-py
+.venv/bin/python -m pytest tests/ -v
+
+# Or use make command
+make py-test
+```

@@ -122,7 +122,9 @@ jobs:
         run: |
           cd sakurs-py
           uv sync --dev
-          uv run maturin develop --features extension-module
+          # Build wheel instead of editable install for consistent behavior
+          uv run maturin build --release --features extension-module
+          uv pip install --force-reinstall target/wheels/*.whl
       
       - name: Run Python tests
         run: |
