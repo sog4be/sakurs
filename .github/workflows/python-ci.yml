@@ -123,8 +123,10 @@ jobs:
           cd sakurs-py
           uv sync --dev
           # Build wheel instead of editable install for consistent behavior
-          uv run maturin build --release --features extension-module
-          uv pip install --force-reinstall target/wheels/*.whl
+          uv run maturin build --release --features extension-module -o dist
+          # Find and install the built wheel
+          WHEEL_FILE=$(ls dist/*.whl | head -1)
+          uv pip install --force-reinstall "$WHEEL_FILE"
       
       - name: Run Python tests
         run: |

@@ -193,8 +193,9 @@ py-dev:
 	@echo "🐍 Building Python bindings for development..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run maturin build --release --features extension-module && \
-		uv pip install --force-reinstall target/wheels/*.whl && \
+		uv run maturin build --release --features extension-module -o dist && \
+		WHEEL_FILE=$$(ls dist/*.whl | head -1) && \
+		uv pip install --force-reinstall "$$WHEEL_FILE" && \
 		echo "✅ Python bindings built and installed from wheel!"; \
 		echo "💡 Note: Use .venv/bin/python directly instead of 'uv run' to avoid editable install issues"; \
 	else \
