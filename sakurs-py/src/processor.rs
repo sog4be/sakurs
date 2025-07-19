@@ -2,51 +2,96 @@
 
 #![allow(non_local_definitions)]
 
-use crate::error::SakursError;
+use crate::exceptions::InternalError;
 use crate::types::{PyProcessingResult, PyProcessorConfig};
 use pyo3::prelude::*;
 use sakurs_core::{Config, Input, SentenceProcessor};
 
-/// Main processor class for sentence boundary detection
-#[pyclass]
+/// Python interface for the sentence processor
+#[pyclass(name = "Processor")]
 pub struct PyProcessor {
     processor: SentenceProcessor,
     language: String,
 }
 
-#[pymethods]
 impl PyProcessor {
     /// Create a new processor for the specified language
-    #[new]
-    #[pyo3(signature = (language="en", config=None))]
     pub fn new(language: &str, config: Option<PyProcessorConfig>) -> PyResult<Self> {
-        // Validate language
         let lang_code = match language.to_lowercase().as_str() {
             "en" | "english" => "en",
             "ja" | "japanese" => "ja",
-            _ => return Err(SakursError::UnsupportedLanguage(language.to_string()).into()),
+            _ => return Err(InternalError::UnsupportedLanguage(language.to_string()).into()),
         };
 
         let processor = if let Some(cfg) = config {
+            // Build with custom configuration
+            let chunk_size = cfg.chunk_size.min(cfg.max_chunk_size);
+
             let rust_config = Config::builder()
                 .language(lang_code)
-                .map_err(|e| SakursError::ProcessingError(e.to_string()))?
-                .chunk_size(cfg.chunk_size) // Now in bytes, no conversion needed
-                .parallel_threshold(cfg.parallel_threshold)
+                .map_err(InternalError::from)?
+                .chunk_size(chunk_size) // Now in bytes, no conversion needed
                 .overlap_size(cfg.overlap_size)
                 .threads(cfg.num_threads)
                 .build()
-                .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
+                .map_err(InternalError::from)?;
             SentenceProcessor::with_config(rust_config)
         } else {
+            // Use default configuration
             SentenceProcessor::with_language(lang_code)
         }
-        .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
+        .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
-        Ok(Self {
+        Ok(PyProcessor {
             processor,
             language: language.to_string(),
         })
+    }
+
+    /// Process text and return detailed boundary information (internal method, not exposed to Python)
+    pub(crate) fn process_with_details(
+        &self,
+        text: &str,
+        threads: Option<usize>,
+        py: Python,
+    ) -> PyResult<sakurs_core::api::Output> {
+        // Apply thread override if provided
+        let output = if let Some(num_threads) = threads {
+            // Warn about threads parameter deprecation
+            let warnings = py.import("warnings")?;
+            warnings.call_method1(
+                "warn",
+                (
+                    "The 'threads' parameter is deprecated. Configure threads when creating the Processor.",
+                    py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
+                )
+            )?;
+
+            // Create a new processor with overridden thread count
+            let config = Config::builder()
+                .language(&self.language)
+                .map_err(InternalError::from)?
+                .threads(Some(num_threads))
+                .build()
+                .map_err(InternalError::from)?;
+            let processor = SentenceProcessor::with_config(config).map_err(InternalError::from)?;
+            py.allow_threads(|| processor.process(Input::from_text(text)))
+                .map_err(InternalError::from)?
+        } else {
+            py.allow_threads(|| self.processor.process(Input::from_text(text)))
+                .map_err(|e| InternalError::ProcessingError(e.to_string()))?
+        };
+
+        Ok(output)
+    }
+}
+
+#[pymethods]
+impl PyProcessor {
+    #[new]
+    #[pyo3(signature = (language="en", config=None))]
+    fn __new__(language: &str, config: Option<PyProcessorConfig>) -> PyResult<Self> {
+        Self::new(language, config)
     }
 
     /// Split text into sentences
@@ -67,7 +112,7 @@ impl PyProcessor {
         // Release GIL during processing for better performance
         let output = py
             .allow_threads(|| self.processor.process(Input::from_text(text)))
-            .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
+            .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
         // Convert boundaries to sentence list
         let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
