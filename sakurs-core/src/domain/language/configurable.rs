@@ -3,7 +3,7 @@ use crate::domain::{
     enclosure_suppressor::EnclosureSuppressor,
     error::DomainError,
     language::{
-        config::{get_language_config, LanguageConfig},
+        config::{get_language_config, LanguageConfig, SentenceStarterConfig},
         rules::{
             AbbreviationTrie, EllipsisRules, EnclosureMap, PatternContext, Suppressor,
             TerminatorRules,
@@ -15,6 +15,7 @@ use crate::domain::{
     },
     BoundaryFlags,
 };
+use std::collections::HashSet;
 use std::path::Path;
 
 /// Extract the next word from the following context (first alphabetic sequence)
@@ -47,69 +48,6 @@ fn extract_next_word(following_context: &str) -> Option<String> {
     }
 }
 
-/// Check if a word is a sentence starter (typically capitalized)
-/// This is a more conservative check that considers common sentence starters
-fn is_sentence_starter(word: &str) -> bool {
-    if let Some(first_char) = word.chars().next() {
-        // Must be uppercase and not a common proper noun pattern
-        if first_char.is_uppercase() {
-            // Common sentence starters
-            let common_starters = [
-                "He",
-                "She",
-                "It",
-                "They",
-                "We",
-                "I",
-                "You",
-                "This",
-                "That",
-                "These",
-                "Those",
-                "The",
-                "A",
-                "An",
-                "There",
-                "Here",
-                "Now",
-                "Then",
-                "However",
-                "But",
-                "And",
-                "So",
-                "Therefore",
-                "Moreover",
-                "Furthermore",
-                "Meanwhile",
-                "Finally",
-                "Also",
-                "Additionally",
-                "Nevertheless",
-                "Nonetheless",
-                "Consequently",
-                "Hence",
-                "Thus",
-                "What",
-                "When",
-                "Where",
-                "Why",
-                "How",
-                "Who",
-                "Which",
-                "Whose",
-                "Whom",
-            ];
-
-            // Check if it's a common sentence starter
-            common_starters.contains(&word)
-        } else {
-            false
-        }
-    } else {
-        false
-    }
-}
-
 /// Configurable language rules based on TOML configuration
 pub struct ConfigurableLanguageRules {
     /// Language metadata
@@ -122,6 +60,11 @@ pub struct ConfigurableLanguageRules {
     abbreviation_trie: AbbreviationTrie,
     enclosure_map: EnclosureMap,
     suppressor: Suppressor,
+
+    /// Sentence starter configuration
+    sentence_starter_config: SentenceStarterConfig,
+    /// Fast lookup set for sentence starters
+    sentence_starter_set: HashSet<String>,
 }
 
 impl ConfigurableLanguageRules {
@@ -236,6 +179,21 @@ impl ConfigurableLanguageRules {
             .map_err(|e| DomainError::InvalidLanguageRules(format!("Invalid regex pattern: {e}")))?
         };
 
+        // Build sentence starter set for fast lookups
+        let mut sentence_starter_set = HashSet::new();
+        for words in config.sentence_starters.categories.values() {
+            for word in words {
+                if word.len() >= config.sentence_starters.min_word_length {
+                    let normalized = if config.sentence_starters.case_sensitive {
+                        word.clone()
+                    } else {
+                        word.to_lowercase()
+                    };
+                    sentence_starter_set.insert(normalized);
+                }
+            }
+        }
+
         Ok(Self {
             code: config.metadata.code.clone(),
             name: config.metadata.name.clone(),
@@ -244,6 +202,8 @@ impl ConfigurableLanguageRules {
             abbreviation_trie,
             enclosure_map,
             suppressor,
+            sentence_starter_config: config.sentence_starters.clone(),
+            sentence_starter_set,
         })
     }
 }
@@ -327,7 +287,7 @@ impl LanguageRules for ConfigurableLanguageRules {
             if abbr_result.is_abbreviation {
                 // Check if the next word is a sentence starter (capitalized word)
                 if let Some(next_word) = extract_next_word(&context.following_context) {
-                    if is_sentence_starter(&next_word) {
+                    if self.is_sentence_starter(&next_word) {
                         // Abbreviation followed by sentence starter - create boundary
                         return BoundaryDecision::Boundary(BoundaryFlags::WEAK);
                     }
@@ -426,6 +386,37 @@ impl LanguageRules for ConfigurableLanguageRules {
 }
 
 impl ConfigurableLanguageRules {
+    /// Check if a word is a sentence starter based on configuration
+    /// Returns true only if:
+    /// 1. The word is in the sentence starter list AND starts with uppercase
+    /// 2. OR use_uppercase_fallback is true AND the word starts with uppercase
+    fn is_sentence_starter(&self, word: &str) -> bool {
+        if word.len() < self.sentence_starter_config.min_word_length {
+            return false;
+        }
+
+        // First check if the word starts with uppercase
+        let starts_with_uppercase = word.chars().next().is_some_and(|c| c.is_uppercase());
+        if !starts_with_uppercase {
+            return false; // If not uppercase, it's never a sentence starter
+        }
+
+        // Now check if it's in our list
+        let normalized = if self.sentence_starter_config.case_sensitive {
+            word.to_string()
+        } else {
+            word.to_lowercase()
+        };
+
+        // O(1) HashSet lookup
+        if self.sentence_starter_set.contains(&normalized) {
+            return true;
+        }
+
+        // Fallback: if use_uppercase_fallback is true, any uppercase word is a starter
+        self.sentence_starter_config.use_uppercase_fallback
+    }
+
     /// Check if we're in the middle of a multi-period abbreviation pattern
     /// like U.S.A., Ph.D., M.D., etc.
     fn is_multi_period_abbreviation_context(&self, context: &BoundaryContext) -> bool {
@@ -527,6 +518,9 @@ pairs = [
 
 [abbreviations]
 common = ["etc", "vs"]
+
+[sentence_starters]
+common = ["The", "A"]
 "#;
 
         // Create a temporary file
@@ -558,6 +552,9 @@ pairs = []
 [suppression]
 
 [abbreviations]
+
+[sentence_starters]
+common = ["The"]
 "#;
 
         let mut temp_file = NamedTempFile::new().unwrap();
@@ -622,6 +619,9 @@ pairs = []
 [suppression]
 
 [abbreviations]
+
+[sentence_starters]
+common = ["The"]
 "#;
 
         let mut temp_file = NamedTempFile::new().unwrap();

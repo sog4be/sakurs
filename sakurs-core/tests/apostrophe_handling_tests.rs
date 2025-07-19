@@ -215,6 +215,7 @@ fn test_multi_period_abbreviations() {
         ("I work at the U.N. headquarters.", vec![32]),
         ("She has a Ph.D. in physics.", vec![27]),
         ("The E.U. is a union.", vec![20]),
+        // "today" is lowercase, not a sentence starter
         ("He lives in Washington D.C. today.", vec![34]),
         // Multiple abbreviations
         ("Dr. Smith has a Ph.D. from M.I.T. in Cambridge.", vec![47]),

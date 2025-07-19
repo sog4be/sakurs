@@ -127,6 +127,27 @@ common = ["etc", "vs", "e.g", "i.e"]
 # geographic = ["St", "Ave", "Blvd"]
 # measurement = ["oz", "lb", "kg", "km"]
 # month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+# Sentence starters configuration
+[sentence_starters]
+# Whether to use case-sensitive matching (default: false)
+case_sensitive = false
+
+# Whether to treat any uppercase word as a sentence starter (default: false)
+# When false, only words in the configured lists are considered sentence starters
+use_uppercase_fallback = false
+
+# Minimum word length to consider (default: 1)
+min_word_length = 1
+
+# Categories of sentence starter words
+# Words must appear with uppercase first letter to be recognized as sentence starters
+pronouns = ["I", "You", "He", "She", "It", "We", "They"]
+articles = ["The", "A", "An"]
+demonstratives = ["This", "That", "These", "Those"]
+conjunctions = ["However", "But", "And", "So", "Therefore"]
+interrogatives = ["What", "When", "Where", "Why", "How", "Who"]
+# Add more categories as needed
 "#,
             self.language_code, self.language_code
         )
@@ -163,6 +184,7 @@ mod tests {
         assert!(template.contains("[metadata]"));
         assert!(template.contains("[terminators]"));
         assert!(template.contains("[abbreviations]"));
+        assert!(template.contains("[sentence_starters]"));
     }
 
     #[test]

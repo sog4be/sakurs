@@ -14,10 +14,11 @@ use crate::domain::{
 use std::collections::HashMap;
 
 /// Simple function to check if a word is commonly a sentence starter
-/// This is a temporary implementation to replace the deleted EnglishSentenceStarterRule
+/// This is a simplified version used specifically for cross-chunk validation.
+/// The main implementation with configurable language-specific rules is in ConfigurableLanguageRules.
 fn is_sentence_starter(word: &str) -> bool {
-    // Common sentence starters that are typically capitalized
-    // This is a simplified version - in practice, this would be more sophisticated
+    // For cross-chunk validation, we use a simple heuristic:
+    // A word is considered a sentence starter if it begins with uppercase and has length > 1
     let first_char = word.chars().next().unwrap_or(' ');
     first_char.is_uppercase() && word.len() > 1
 }

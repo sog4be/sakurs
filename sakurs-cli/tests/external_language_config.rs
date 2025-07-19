@@ -34,6 +34,7 @@ fn test_generate_config_command() {
     assert!(content.contains("[metadata]"));
     assert!(content.contains("[terminators]"));
     assert!(content.contains("[abbreviations]"));
+    assert!(content.contains("[sentence_starters]"));
 }
 
 /// Test validating a valid configuration
@@ -64,6 +65,9 @@ pairs = [
 
 [abbreviations]
 common = ["Mr", "Mrs", "Dr"]
+
+[sentence_starters]
+common = ["The", "A"]
 "#;
 
     fs::write(&config_path, config_content).unwrap();
@@ -104,6 +108,9 @@ pairs = []
 [suppression]
 
 [abbreviations]
+
+[sentence_starters]
+common = ["The"]
 "#;
 
     fs::write(&config_path, config_content).unwrap();
@@ -157,6 +164,9 @@ fast_patterns = [
 [abbreviations]
 titles = ["Dr", "Mr", "Mrs", "Ms"]
 common = ["etc", "vs"]
+
+[sentence_starters]
+common = ["The", "He", "She", "It", "They", "We", "Hello", "How", "I"]
 "#;
 
     fs::write(&config_path, config_content).unwrap();
@@ -205,6 +215,9 @@ pairs = []
 [suppression]
 
 [abbreviations]
+
+[sentence_starters]
+common = ["The"]
 "#;
 
     fs::write(&config_path, config_content).unwrap();
@@ -276,6 +289,9 @@ pairs = []
 [suppression]
 
 [abbreviations]
+
+[sentence_starters]
+common = ["The"]
 "#;
 
     fs::write(&config_path, config_content).unwrap();
@@ -319,6 +335,9 @@ pairs = []
 [suppression]
 
 [abbreviations]
+
+[sentence_starters]
+common = ["The"]
 "#;
 
     fs::write(&config_path, config_content).unwrap();

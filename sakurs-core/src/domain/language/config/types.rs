@@ -10,6 +10,7 @@ pub struct LanguageConfig {
     pub enclosures: EnclosureConfig,
     pub suppression: SuppressionConfig,
     pub abbreviations: AbbreviationConfig,
+    pub sentence_starters: SentenceStarterConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,8 +100,33 @@ pub struct AbbreviationConfig {
     pub categories: HashMap<String, Vec<String>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SentenceStarterConfig {
+    /// Categories of sentence starter words
+    #[serde(flatten)]
+    pub categories: HashMap<String, Vec<String>>,
+
+    /// Whether to use case-sensitive matching (default: false)
+    #[serde(default)]
+    pub case_sensitive: bool,
+
+    /// Whether to treat any uppercase-starting word as a sentence starter (default: false)
+    /// When false, only words in the configured lists are considered sentence starters.
+    /// This prevents false positives with proper nouns like "Smith" after abbreviations.
+    #[serde(default)]
+    pub use_uppercase_fallback: bool,
+
+    /// Minimum word length to consider (default: 1)
+    #[serde(default = "default_one")]
+    pub min_word_length: usize,
+}
+
 fn default_true() -> bool {
     true
+}
+
+fn default_one() -> usize {
+    1
 }
 
 impl LanguageConfig {
@@ -167,6 +193,22 @@ impl LanguageConfig {
             // It's OK to have no ellipsis patterns
         }
 
+        // Validate sentence starters
+        if self.sentence_starters.categories.is_empty() {
+            return Err(DomainError::ConfigurationError(
+                "At least one sentence starter category is required".to_string(),
+            ));
+        }
+
+        // Validate each category has at least one word
+        for (category, words) in &self.sentence_starters.categories {
+            if words.is_empty() {
+                return Err(DomainError::ConfigurationError(format!(
+                    "Sentence starter category '{category}' cannot be empty"
+                )));
+            }
+        }
+
         Ok(())
     }
 }
@@ -206,6 +248,10 @@ mod tests {
             [abbreviations]
             titles = ["Dr", "Mr", "Mrs"]
             common = ["etc", "vs"]
+
+            [sentence_starters]
+            pronouns = ["I", "You", "He"]
+            articles = ["The", "A", "An"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -213,6 +259,8 @@ mod tests {
         assert_eq!(config.terminators.chars.len(), 3);
         assert_eq!(config.enclosures.pairs.len(), 2);
         assert_eq!(config.abbreviations.categories["titles"].len(), 3);
+        assert_eq!(config.sentence_starters.categories["pronouns"].len(), 3);
+        assert_eq!(config.sentence_starters.categories["articles"].len(), 3);
     }
 
     #[test]
@@ -234,6 +282,9 @@ mod tests {
             [suppression]
 
             [abbreviations]
+
+            [sentence_starters]
+            common = ["The", "A"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -259,6 +310,9 @@ mod tests {
             [suppression]
 
             [abbreviations]
+
+            [sentence_starters]
+            common = ["The"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -289,6 +343,9 @@ mod tests {
             [suppression]
 
             [abbreviations]
+
+            [sentence_starters]
+            common = ["The"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -322,6 +379,9 @@ mod tests {
             ]
 
             [abbreviations]
+
+            [sentence_starters]
+            common = ["The"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -354,6 +414,9 @@ mod tests {
 
             [abbreviations]
             titles = []
+
+            [sentence_starters]
+            common = ["The"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -362,6 +425,71 @@ mod tests {
                 assert!(msg.contains("Abbreviation category 'titles' cannot be empty"));
             }
             _ => panic!("Expected ConfigurationError for empty abbreviation category"),
+        }
+    }
+
+    #[test]
+    fn test_language_config_validate_empty_sentence_starters() {
+        let toml_str = r#"
+            [metadata]
+            code = "test"
+            name = "Test Language"
+
+            [terminators]
+            chars = ["."]
+
+            [ellipsis]
+            patterns = []
+
+            [enclosures]
+            pairs = []
+
+            [suppression]
+
+            [abbreviations]
+
+            [sentence_starters]
+        "#;
+
+        let config: LanguageConfig = toml::from_str(toml_str).unwrap();
+        match config.validate() {
+            Err(DomainError::ConfigurationError(msg)) => {
+                assert!(msg.contains("At least one sentence starter category is required"));
+            }
+            _ => panic!("Expected ConfigurationError for empty sentence starters"),
+        }
+    }
+
+    #[test]
+    fn test_language_config_validate_empty_sentence_starter_category() {
+        let toml_str = r#"
+            [metadata]
+            code = "test"
+            name = "Test Language"
+
+            [terminators]
+            chars = ["."]
+
+            [ellipsis]
+            patterns = []
+
+            [enclosures]
+            pairs = []
+
+            [suppression]
+
+            [abbreviations]
+
+            [sentence_starters]
+            common = []
+        "#;
+
+        let config: LanguageConfig = toml::from_str(toml_str).unwrap();
+        match config.validate() {
+            Err(DomainError::ConfigurationError(msg)) => {
+                assert!(msg.contains("Sentence starter category 'common' cannot be empty"));
+            }
+            _ => panic!("Expected ConfigurationError for empty sentence starter category"),
         }
     }
 }

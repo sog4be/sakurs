@@ -337,7 +337,8 @@ mod tests {
                 .to_string(),
         };
 
-        // Should not detect boundary after "Dr."
+        // "Dr." followed by "Smith" - "Smith" starts with uppercase but is not in
+        // the sentence starter list, and use_uppercase_fallback=false, so no boundary
         assert_eq!(
             rules.detect_sentence_boundary(&context),
             BoundaryDecision::NotBoundary
