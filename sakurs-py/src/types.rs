@@ -83,9 +83,9 @@ impl PyProcessingResult {
         let mut last_end = 0;
 
         for &boundary_offset in &self.boundaries {
-            // boundary_offset points to the sentence-ending punctuation
-            // We want to include it in the sentence
-            let end = (boundary_offset + 1).min(text.len());
+            // boundary_offset points to the position AFTER the sentence-ending punctuation
+            // So we use it directly as the end position
+            let end = boundary_offset.min(text.len());
 
             if end > last_end {
                 if let Some(sentence) = text.get(last_end..end) {

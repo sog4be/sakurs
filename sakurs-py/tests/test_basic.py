@@ -84,3 +84,60 @@ def test_sentence_count(text, min_sentences):
 
     sentences = sakurs.split(text)
     assert len(sentences) >= min_sentences
+
+
+def test_japanese_basic():
+    """Test basic Japanese sentence tokenization."""
+    if sakurs is None:
+        pytest.skip("sakurs module not built yet")
+
+    # Test with common Japanese punctuation
+    text = "こんにちは。元気ですか？はい、元気です！"
+    sentences = sakurs.split(text, language="ja")
+
+    assert len(sentences) == 3
+    assert sentences[0] == "こんにちは。"
+    assert sentences[1] == "元気ですか？"
+    assert sentences[2] == "はい、元気です！"
+
+
+def test_japanese_with_brackets():
+    """Test Japanese sentence tokenization with brackets."""
+    if sakurs is None:
+        pytest.skip("sakurs module not built yet")
+
+    # Test with Japanese quotation marks (鉤括弧)
+    text = "彼は「おはよう！」と言った。「本当ですか？」と私は聞きました。"
+    sentences = sakurs.split(text, language="ja")
+    assert len(sentences) == 2
+    assert sentences[0] == "彼は「おはよう！」と言った。"
+    assert sentences[1] == "「本当ですか？」と私は聞きました。"
+
+
+def test_japanese_mixed_punctuation():
+    """Test Japanese with various punctuation marks."""
+    if sakurs is None:
+        pytest.skip("sakurs module not built yet")
+
+    # Test with mixed punctuation including exclamation marks
+    text = "すごい！これは素晴らしいです。「本当に？」と彼女は尋ねた。はい、本当です！"
+    sentences = sakurs.split(text, language="ja")
+    assert len(sentences) == 4
+    assert sentences[0] == "すごい！"
+    assert sentences[1] == "これは素晴らしいです。"
+    assert sentences[2] == "「本当に？」と彼女は尋ねた。"
+    assert sentences[3] == "はい、本当です！"
+
+
+def test_japanese_nested_quotes():
+    """Test Japanese with nested quotation marks."""
+    if sakurs is None:
+        pytest.skip("sakurs module not built yet")
+
+    # Test with nested quotes and various end punctuation
+    text = "田中さんは「彼女が『すごい！』と言った」と話しました。面白いですね？"
+    sentences = sakurs.split(text, language="ja")
+    assert len(sentences) == 2
+    # First sentence contains nested quotes
+    assert "『すごい！』" in sentences[0]
+    assert sentences[1] == "面白いですね？"
