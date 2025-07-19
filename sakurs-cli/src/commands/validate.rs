@@ -76,6 +76,9 @@ pairs = []
 [suppression]
 
 [abbreviations]
+
+[sentence_starters]
+common = ["The", "A"]
 "#;
 
         let mut temp_file = NamedTempFile::new().unwrap();

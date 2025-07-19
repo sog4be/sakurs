@@ -435,7 +435,8 @@ mod parser_tests {
             .map(|b| b.local_offset)
             .collect();
 
-        // Should not create boundaries after some abbreviations
+        // With use_uppercase_fallback=false, "Smith" is NOT a sentence starter
+        // So NO boundary should be created after "Dr."
         assert!(!boundary_positions.contains(&3)); // After "Dr." (followed by "Smith", not a sentence starter)
         assert!(!boundary_positions.contains(&95)); // After "$2.5" decimal
 

@@ -23,7 +23,7 @@ fn test_english_abbreviations() {
     let text = "Dr. Smith works at Apple Inc. and lives on Main St. in the city.";
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // Should recognize abbreviations and not split
+    // "and" is lowercase, not a sentence starter (even though "And" is in the list)
     assert_eq!(result.boundaries.len(), 1);
     assert_eq!(result.boundaries[0].offset, 64); // Only after the final period
 }

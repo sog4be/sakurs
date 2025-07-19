@@ -127,6 +127,24 @@ common = ["etc", "vs", "e.g", "i.e"]
 # geographic = ["St", "Ave", "Blvd"]
 # measurement = ["oz", "lb", "kg", "km"]
 # month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+# Sentence starters configuration
+[sentence_starters]
+# Whether to require whitespace after the sentence starter (default: true)
+# When true, "The patient" matches but "Theater" does not
+require_following_space = true
+
+# Minimum word length to consider (default: 1)
+min_word_length = 1
+
+# Categories of sentence starter words
+# Words should be written exactly as they should be matched
+pronouns = ["I", "You", "He", "She", "It", "We", "They"]
+articles = ["The", "A", "An"]
+demonstratives = ["This", "That", "These", "Those"]
+conjunctions = ["However", "But", "And", "So", "Therefore"]
+interrogatives = ["What", "When", "Where", "Why", "How", "Who"]
+# Add more categories as needed
 "#,
             self.language_code, self.language_code
         )
@@ -163,6 +181,7 @@ mod tests {
         assert!(template.contains("[metadata]"));
         assert!(template.contains("[terminators]"));
         assert!(template.contains("[abbreviations]"));
+        assert!(template.contains("[sentence_starters]"));
     }
 
     #[test]

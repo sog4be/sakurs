@@ -49,3 +49,4 @@ fast_patterns = [
 common = [
     "Mr", "Dr", "Inc", "Ltd", "etc", "vs", "No"
 ]
+

@@ -10,6 +10,8 @@ pub struct LanguageConfig {
     pub enclosures: EnclosureConfig,
     pub suppression: SuppressionConfig,
     pub abbreviations: AbbreviationConfig,
+    #[serde(default)]
+    pub sentence_starters: Option<SentenceStarterConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,8 +101,29 @@ pub struct AbbreviationConfig {
     pub categories: HashMap<String, Vec<String>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SentenceStarterConfig {
+    /// Categories of sentence starter words
+    /// Words should be written exactly as they should be matched (case-sensitive)
+    #[serde(flatten)]
+    pub categories: HashMap<String, Vec<String>>,
+
+    /// Whether to require whitespace after the sentence starter (default: true)
+    /// When true, "The patient" matches but "Theater" does not
+    #[serde(default = "default_true")]
+    pub require_following_space: bool,
+
+    /// Minimum word length to consider (default: 1)
+    #[serde(default = "default_one")]
+    pub min_word_length: usize,
+}
+
 fn default_true() -> bool {
     true
+}
+
+fn default_one() -> usize {
+    1
 }
 
 impl LanguageConfig {
@@ -167,6 +190,25 @@ impl LanguageConfig {
             // It's OK to have no ellipsis patterns
         }
 
+        // Validate sentence starters if present
+        if let Some(ref sentence_starters) = self.sentence_starters {
+            if sentence_starters.categories.is_empty() {
+                return Err(DomainError::ConfigurationError(
+                    "If sentence_starters section is present, at least one category is required"
+                        .to_string(),
+                ));
+            }
+
+            // Validate each category has at least one word
+            for (category, words) in &sentence_starters.categories {
+                if words.is_empty() {
+                    return Err(DomainError::ConfigurationError(format!(
+                        "Sentence starter category '{category}' cannot be empty"
+                    )));
+                }
+            }
+        }
+
         Ok(())
     }
 }
@@ -206,6 +248,10 @@ mod tests {
             [abbreviations]
             titles = ["Dr", "Mr", "Mrs"]
             common = ["etc", "vs"]
+
+            [sentence_starters]
+            pronouns = ["I", "You", "He"]
+            articles = ["The", "A", "An"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -213,6 +259,10 @@ mod tests {
         assert_eq!(config.terminators.chars.len(), 3);
         assert_eq!(config.enclosures.pairs.len(), 2);
         assert_eq!(config.abbreviations.categories["titles"].len(), 3);
+        assert!(config.sentence_starters.is_some());
+        let starters = config.sentence_starters.unwrap();
+        assert_eq!(starters.categories["pronouns"].len(), 3);
+        assert_eq!(starters.categories["articles"].len(), 3);
     }
 
     #[test]
@@ -234,10 +284,39 @@ mod tests {
             [suppression]
 
             [abbreviations]
+
+            [sentence_starters]
+            common = ["The", "A"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_language_config_validate_no_sentence_starters() {
+        let toml_str = r#"
+            [metadata]
+            code = "test"
+            name = "Test Language"
+
+            [terminators]
+            chars = ["."]
+
+            [ellipsis]
+            patterns = []
+
+            [enclosures]
+            pairs = []
+
+            [suppression]
+
+            [abbreviations]
+        "#;
+
+        let config: LanguageConfig = toml::from_str(toml_str).unwrap();
+        assert!(config.validate().is_ok());
+        assert!(config.sentence_starters.is_none());
     }
 
     #[test]
@@ -259,6 +338,9 @@ mod tests {
             [suppression]
 
             [abbreviations]
+
+            [sentence_starters]
+            common = ["The"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -289,6 +371,9 @@ mod tests {
             [suppression]
 
             [abbreviations]
+
+            [sentence_starters]
+            common = ["The"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -322,6 +407,9 @@ mod tests {
             ]
 
             [abbreviations]
+
+            [sentence_starters]
+            common = ["The"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -354,6 +442,9 @@ mod tests {
 
             [abbreviations]
             titles = []
+
+            [sentence_starters]
+            common = ["The"]
         "#;
 
         let config: LanguageConfig = toml::from_str(toml_str).unwrap();
@@ -362,6 +453,73 @@ mod tests {
                 assert!(msg.contains("Abbreviation category 'titles' cannot be empty"));
             }
             _ => panic!("Expected ConfigurationError for empty abbreviation category"),
+        }
+    }
+
+    #[test]
+    fn test_language_config_validate_empty_sentence_starters() {
+        let toml_str = r#"
+            [metadata]
+            code = "test"
+            name = "Test Language"
+
+            [terminators]
+            chars = ["."]
+
+            [ellipsis]
+            patterns = []
+
+            [enclosures]
+            pairs = []
+
+            [suppression]
+
+            [abbreviations]
+
+            [sentence_starters]
+        "#;
+
+        let config: LanguageConfig = toml::from_str(toml_str).unwrap();
+        match config.validate() {
+            Err(DomainError::ConfigurationError(msg)) => {
+                assert!(msg.contains(
+                    "If sentence_starters section is present, at least one category is required"
+                ));
+            }
+            _ => panic!("Expected ConfigurationError for empty sentence starters"),
+        }
+    }
+
+    #[test]
+    fn test_language_config_validate_empty_sentence_starter_category() {
+        let toml_str = r#"
+            [metadata]
+            code = "test"
+            name = "Test Language"
+
+            [terminators]
+            chars = ["."]
+
+            [ellipsis]
+            patterns = []
+
+            [enclosures]
+            pairs = []
+
+            [suppression]
+
+            [abbreviations]
+
+            [sentence_starters]
+            common = []
+        "#;
+
+        let config: LanguageConfig = toml::from_str(toml_str).unwrap();
+        match config.validate() {
+            Err(DomainError::ConfigurationError(msg)) => {
+                assert!(msg.contains("Sentence starter category 'common' cannot be empty"));
+            }
+            _ => panic!("Expected ConfigurationError for empty sentence starter category"),
         }
     }
 }
