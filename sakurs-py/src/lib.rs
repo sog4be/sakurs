@@ -14,7 +14,7 @@ mod processor;
 mod types;
 
 use exceptions::{register_exceptions, InternalError};
-use output::{boundaries_to_sentences, ProcessingMetadata, Sentence};
+use output::{boundaries_to_sentences_with_char_offsets, ProcessingMetadata, Sentence};
 use processor::PyProcessor;
 use sakurs_core::{Config, Input, SentenceProcessor};
 use std::time::Instant;
@@ -106,12 +106,15 @@ fn split(
 
     let processing_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
 
-    // Extract boundaries
-    let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
-
     if return_details {
-        // Return list of Sentence objects
-        let sentences = boundaries_to_sentences(text, &boundaries, py)?;
+        // Return list of Sentence objects with character offsets
+        let boundaries_with_offsets: Vec<(usize, usize)> = output
+            .boundaries
+            .iter()
+            .map(|b| (b.char_offset, b.offset))
+            .collect();
+        let sentences =
+            boundaries_to_sentences_with_char_offsets(text, &boundaries_with_offsets, py)?;
 
         // Determine actual execution mode used (from strategy)
         let execution_mode_str = match output.metadata.strategy_used.as_str() {
@@ -139,20 +142,32 @@ fn split(
         // Return list of sentences directly when return_details=True
         Ok(PyList::new(py, sentences)?.unbind().into())
     } else {
-        // Return list of strings
+        // Return list of strings using character offsets
         let mut sentences = Vec::new();
-        let mut start = 0;
+        let mut start_char = 0;
+        let mut start_byte = 0;
 
-        for &end in &boundaries {
-            if end > start && end <= text.len() {
-                sentences.push(text[start..end].to_string());
-                start = end;
+        // Create a mapping of character positions to byte positions
+        let char_to_byte: Vec<(usize, usize)> = text
+            .char_indices()
+            .enumerate()
+            .map(|(char_pos, (byte_pos, _))| (char_pos, byte_pos))
+            .collect();
+
+        for boundary in &output.boundaries {
+            let end_char = boundary.char_offset;
+            let end_byte = boundary.offset;
+
+            if end_char > start_char && end_byte <= text.len() {
+                sentences.push(text[start_byte..end_byte].to_string());
+                start_char = end_char;
+                start_byte = end_byte;
             }
         }
 
         // Handle any remaining text
-        if start < text.len() {
-            sentences.push(text[start..].to_string());
+        if start_byte < text.len() {
+            sentences.push(text[start_byte..].to_string());
         }
 
         Ok(PyList::new(py, sentences)?.unbind().into())

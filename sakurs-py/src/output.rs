@@ -124,28 +124,31 @@ impl ProcessingMetadata {
     }
 }
 
-/// Helper function to convert boundaries and text into Sentence objects
-pub fn boundaries_to_sentences(
+/// Helper function to convert boundaries and text into Sentence objects using character offsets
+pub fn boundaries_to_sentences_with_char_offsets(
     text: &str,
-    boundaries: &[usize],
+    boundaries: &[(usize, usize)], // (char_offset, byte_offset)
     py: Python,
 ) -> PyResult<Vec<Sentence>> {
     let mut sentences = Vec::new();
-    let mut start = 0;
+    let mut start_char = 0;
+    let mut start_byte = 0;
 
-    for &end in boundaries {
-        if end > start && end <= text.len() {
-            let sentence_text = text[start..end].to_string();
-            let sentence = Sentence::new(sentence_text, start, end, Some(1.0), None, py)?;
+    for &(end_char, end_byte) in boundaries {
+        if end_char > start_char && end_byte <= text.len() {
+            let sentence_text = text[start_byte..end_byte].to_string();
+            let sentence = Sentence::new(sentence_text, start_char, end_char, Some(1.0), None, py)?;
             sentences.push(sentence);
-            start = end;
+            start_char = end_char;
+            start_byte = end_byte;
         }
     }
 
     // Handle any remaining text after the last boundary
-    if start < text.len() {
-        let sentence_text = text[start..].to_string();
-        let sentence = Sentence::new(sentence_text, start, text.len(), Some(1.0), None, py)?;
+    if start_byte < text.len() {
+        let sentence_text = text[start_byte..].to_string();
+        let char_count = text.chars().count();
+        let sentence = Sentence::new(sentence_text, start_char, char_count, Some(1.0), None, py)?;
         sentences.push(sentence);
     }
 

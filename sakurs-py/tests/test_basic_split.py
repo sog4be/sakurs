@@ -55,6 +55,13 @@ class TestSplitFunction:
         assert sent0.end == 12
         assert sent0.confidence == 1.0
 
+        # Check second sentence details
+        sent1 = sentences[1]
+        assert sent1.text == " How are you?"
+        assert sent1.start == 12
+        assert sent1.end == 25
+        assert sent1.confidence == 1.0
+
         # When return_details=True, we get Sentence objects
         # Metadata is not directly accessible in the current implementation
 
@@ -150,6 +157,45 @@ class TestSplitFunction:
         """Test that invalid execution_mode raises appropriate error."""
         with pytest.raises(sakurs.ConfigurationError):
             sakurs.split("Hello world.", execution_mode="invalid")  # type: ignore[call-overload]
+
+    def test_multiple_sentences_offsets(self):
+        """Test that offsets are correct for multiple sentences."""
+        text = "First sentence. Second one. Third! Fourth?"
+        result = sakurs.split(text, return_details=True)
+
+        assert len(result) == 4
+
+        # Verify each sentence's text and offsets
+        expected = [
+            ("First sentence.", 0, 15),
+            (" Second one.", 15, 27),
+            (" Third!", 27, 34),
+            (" Fourth?", 34, 42),
+        ]
+
+        for i, (expected_text, expected_start, expected_end) in enumerate(expected):
+            sent = result[i]
+            assert sent.text == expected_text, f"Sentence {i}: text mismatch"
+            assert sent.start == expected_start, f"Sentence {i}: start offset mismatch"
+            assert sent.end == expected_end, f"Sentence {i}: end offset mismatch"
+            # Verify the text slice matches
+            assert text[sent.start : sent.end] == sent.text, (
+                f"Sentence {i}: slice doesn't match text"
+            )
+
+    def test_japanese_offsets(self):
+        """Test that offsets work correctly with multi-byte Japanese characters."""
+        text = "これは日本語です。とても面白い！最後の文。"
+        result = sakurs.split(text, return_details=True, language="ja")
+
+        assert len(result) == 3
+
+        # Japanese text uses multi-byte characters, so we need to be careful with offsets
+        for i, sent in enumerate(result):
+            # Verify the text slice matches
+            assert text[sent.start : sent.end] == sent.text, (
+                f"Sentence {i}: slice doesn't match text"
+            )
 
 
 class TestSentenceClass:
