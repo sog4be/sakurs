@@ -133,7 +133,9 @@ titles = ["Dr", "Mr"]
 common = ["etc", "vs"]
 """
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".toml", delete=False, encoding="utf-8"
+    ) as f:
         f.write(toml_content)
         temp_path = Path(f.name)
 
