@@ -4,6 +4,7 @@
 
 use crate::exceptions::InternalError;
 use crate::input::PyInput;
+use crate::language_config::LanguageConfig;
 use crate::types::{PyProcessingResult, PyProcessorConfig};
 use pyo3::prelude::*;
 use sakurs_core::{Config, SentenceProcessor};
@@ -14,29 +15,26 @@ pub struct PyProcessor {
     processor: SentenceProcessor,
     language: String,
     config: PyProcessorConfig,
+    #[allow(dead_code)]
+    custom_config: bool, // Track if using custom language config
 }
 
 #[pymethods]
 impl PyProcessor {
     /// Create a new processor for the specified language
     #[new]
-    #[pyo3(signature = (*, language=None, threads=None, chunk_size=None, execution_mode="adaptive", streaming=false, stream_chunk_size=10*1024*1024))]
+    #[pyo3(signature = (*, language=None, language_config=None, threads=None, chunk_size=None, execution_mode="adaptive", streaming=false, stream_chunk_size=10*1024*1024))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         language: Option<&str>,
+        language_config: Option<LanguageConfig>,
         threads: Option<usize>,
         chunk_size: Option<usize>,
         execution_mode: &str,
         streaming: bool,
         stream_chunk_size: usize,
+        py: Python,
     ) -> PyResult<Self> {
-        // Validate language
-        let lang = language.unwrap_or("en");
-        let lang_code = match lang.to_lowercase().as_str() {
-            "en" | "english" => "en",
-            "ja" | "japanese" => "ja",
-            _ => return Err(InternalError::UnsupportedLanguage(lang.to_string()).into()),
-        };
-
         // Create Python config for internal use
         let py_config = PyProcessorConfig::new(
             chunk_size.unwrap_or(if streaming {
@@ -49,10 +47,47 @@ impl PyProcessor {
             1024 * 1024, // parallel_threshold
         );
 
-        // Build Rust configuration
-        let mut config_builder = Config::builder()
-            .language(lang_code)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
+        // Build Rust configuration and optionally custom language rules
+        let (mut config_builder, language_display, is_custom, custom_rules) =
+            if let Some(lang_config) = language_config {
+                // Use custom language configuration
+                let core_config = lang_config.to_core_config(py)?;
+                let display_name = format!("custom({})", lang_config.metadata.code);
+
+                // Create custom language rules from the config
+                use sakurs_core::domain::language::ConfigurableLanguageRules;
+                use std::sync::Arc;
+
+                let language_rules = ConfigurableLanguageRules::from_config(&core_config)
+                    .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
+                let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
+                    Arc::new(language_rules);
+
+                (
+                    Config::builder()
+                        .language("en") // Default, will be overridden
+                        .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
+                    display_name,
+                    true,
+                    Some(language_rules_arc),
+                )
+            } else {
+                // Use built-in language
+                let lang = language.unwrap_or("en");
+                let lang_code = match lang.to_lowercase().as_str() {
+                    "en" | "english" => "en",
+                    "ja" | "japanese" => "ja",
+                    _ => return Err(InternalError::UnsupportedLanguage(lang.to_string()).into()),
+                };
+                (
+                    Config::builder()
+                        .language(lang_code)
+                        .map_err(|e| InternalError::ProcessingError(e.to_string()))?,
+                    lang.to_string(),
+                    false,
+                    None,
+                )
+            };
 
         // Handle execution mode
         match execution_mode {
@@ -89,13 +124,20 @@ impl PyProcessor {
             .build()
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
-        let processor = SentenceProcessor::with_config(rust_config)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
+        // Create processor with custom rules if provided
+        let processor = if let Some(rules) = custom_rules {
+            SentenceProcessor::with_custom_rules(rust_config, rules)
+                .map_err(|e| InternalError::ProcessingError(e.to_string()))?
+        } else {
+            SentenceProcessor::with_config(rust_config)
+                .map_err(|e| InternalError::ProcessingError(e.to_string()))?
+        };
 
         Ok(Self {
             processor,
-            language: lang.to_string(),
+            language: language_display,
             config: py_config,
+            custom_config: is_custom,
         })
     }
 

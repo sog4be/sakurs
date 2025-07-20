@@ -10,12 +10,14 @@ use pyo3::types::PyList;
 
 mod exceptions;
 mod input;
+mod language_config;
 mod output;
 mod processor;
 mod types;
 
 use exceptions::{register_exceptions, InternalError};
 use input::PyInput;
+use language_config::LanguageConfig;
 use output::{boundaries_to_sentences_with_char_offsets, ProcessingMetadata, Sentence};
 use processor::PyProcessor;
 use sakurs_core::{Config, SentenceProcessor};
@@ -27,6 +29,7 @@ use types::PyProcessorConfig;
 /// Args:
 ///     input: Text string, file path, bytes, or file-like object to split
 ///     language: Language code ("en", "ja") for built-in rules (default: "en")
+///     language_config: Custom language configuration
 ///     threads: Number of threads for parallel processing (None for auto)
 ///     chunk_size: Chunk size in bytes for parallel processing (default: 256KB)
 ///     parallel: Force parallel processing even for small inputs
@@ -38,12 +41,13 @@ use types::PyProcessorConfig;
 /// Returns:
 ///     List of sentence strings or Sentence objects if return_details=True
 #[pyfunction]
-#[pyo3(signature = (input, *, language=None, threads=None, chunk_size=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
+#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_size=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 #[allow(unused_variables)]
 fn split(
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
+    language_config: Option<LanguageConfig>,
     threads: Option<usize>,
     chunk_size: Option<usize>,
     parallel: bool,
@@ -61,22 +65,46 @@ fn split(
     // Convert to core Input type and get the text content
     let (core_input, text) = py_input.into_core_input_and_text(py, encoding)?;
 
-    // Determine language
-    let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
-        "en" | "english" => "en",
-        "ja" | "japanese" => "ja",
-        _ => {
-            return Err(InternalError::UnsupportedLanguage(
-                language.unwrap_or("unknown").to_string(),
-            )
-            .into())
-        }
-    };
+    // Build configuration and optionally custom language rules
+    let (mut config_builder, custom_rules) = if let Some(lang_config) = language_config {
+        // Use custom language configuration
+        let core_config = lang_config.to_core_config(py)?;
 
-    // Build configuration
-    let mut config_builder = Config::builder()
-        .language(lang_code)
-        .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
+        // Create custom language rules from the config
+        use sakurs_core::domain::language::ConfigurableLanguageRules;
+        use std::sync::Arc;
+
+        let language_rules = ConfigurableLanguageRules::from_config(&core_config)
+            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
+        let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
+            Arc::new(language_rules);
+
+        // Use default language in config builder (will be overridden by custom rules)
+        (
+            Config::builder()
+                .language("en") // Default, will be overridden
+                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
+            Some(language_rules_arc),
+        )
+    } else {
+        // Use built-in language
+        let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
+            "en" | "english" => "en",
+            "ja" | "japanese" => "ja",
+            _ => {
+                return Err(InternalError::UnsupportedLanguage(
+                    language.unwrap_or("unknown").to_string(),
+                )
+                .into())
+            }
+        };
+        (
+            Config::builder()
+                .language(lang_code)
+                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
+            None,
+        )
+    };
 
     // Handle execution mode and performance parameters
     match execution_mode {
@@ -114,9 +142,14 @@ fn split(
         .build()
         .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
 
-    // Create processor
-    let processor = SentenceProcessor::with_config(config)
-        .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
+    // Create processor with custom rules if provided
+    let processor = if let Some(rules) = custom_rules {
+        SentenceProcessor::with_custom_rules(config, rules)
+            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
+    } else {
+        SentenceProcessor::with_config(config)
+            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
+    };
 
     // execution_mode is now properly handled in the configuration above
 
@@ -221,15 +254,18 @@ fn load(
     threads: Option<usize>,
     chunk_size: Option<usize>,
     execution_mode: &str,
+    py: Python,
 ) -> PyResult<PyProcessor> {
     // Create processor with the specified parameters
     PyProcessor::new(
         Some(language),
+        None, // language_config
         threads,
         chunk_size,
         execution_mode,
         false,            // streaming
         10 * 1024 * 1024, // stream_chunk_size (not used when streaming=false)
+        py,
     )
 }
 
@@ -249,6 +285,22 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyProcessorConfig>()?;
     m.add_class::<Sentence>()?;
     m.add_class::<ProcessingMetadata>()?;
+
+    // Language configuration classes
+    m.add_class::<LanguageConfig>()?;
+    m.add_class::<language_config::MetadataConfig>()?;
+    m.add_class::<language_config::TerminatorConfig>()?;
+    m.add_class::<language_config::TerminatorPattern>()?;
+    m.add_class::<language_config::EllipsisConfig>()?;
+    m.add_class::<language_config::ContextRule>()?;
+    m.add_class::<language_config::ExceptionPattern>()?;
+    m.add_class::<language_config::EnclosureConfig>()?;
+    m.add_class::<language_config::EnclosurePair>()?;
+    m.add_class::<language_config::SuppressionConfig>()?;
+    m.add_class::<language_config::FastPattern>()?;
+    m.add_class::<language_config::RegexPattern>()?;
+    m.add_class::<language_config::AbbreviationConfig>()?;
+    m.add_class::<language_config::SentenceStarterConfig>()?;
 
     // Main API functions
     m.add_function(pyo3::wrap_pyfunction!(split, m)?)?;
@@ -293,15 +345,20 @@ mod tests {
     fn test_split_function() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
+            // Create a Python string as input
+            let input_str = pyo3::types::PyString::new(py, "Hello world. How are you?");
+
             // Test basic split
             let result = split(
-                "Hello world. How are you?",
-                None,
-                None,
-                None,
-                false,
+                input_str.as_ref(),
+                None,  // language
+                None,  // language_config
+                None,  // threads
+                None,  // chunk_size
+                false, // parallel
                 "adaptive",
-                false,
+                false, // return_details
+                false, // preserve_whitespace
                 "utf-8",
                 py,
             );
@@ -310,7 +367,7 @@ mod tests {
             let sentences: Vec<String> = result.unwrap().extract(py).unwrap();
             assert_eq!(sentences.len(), 2);
             assert_eq!(sentences[0], "Hello world.");
-            assert_eq!(sentences[1], " How are you?");
+            assert_eq!(sentences[1], "How are you?");
         });
     }
 
@@ -318,15 +375,20 @@ mod tests {
     fn test_split_with_details() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
+            // Create a Python string as input
+            let input_str = pyo3::types::PyString::new(py, "Hello world. How are you?");
+
             // Test split with return_details=true
             let result = split(
-                "Hello world. How are you?",
-                None,
-                None,
-                None,
-                false,
+                input_str.as_ref(),
+                None,  // language
+                None,  // language_config
+                None,  // threads
+                None,  // chunk_size
+                false, // parallel
                 "adaptive",
-                true,
+                true,  // return_details
+                false, // preserve_whitespace
                 "utf-8",
                 py,
             );

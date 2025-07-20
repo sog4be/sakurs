@@ -962,6 +962,7 @@ dependencies = [
  "pyo3",
  "sakurs-core",
  "thiserror",
+ "toml 0.8.23",
 ]
 
 [[package]]
