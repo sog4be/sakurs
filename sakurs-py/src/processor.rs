@@ -2,7 +2,7 @@
 
 #![allow(non_local_definitions)]
 
-use crate::error::SakursError;
+use crate::exceptions::InternalError;
 use crate::types::{PyProcessingResult, PyProcessorConfig};
 use pyo3::prelude::*;
 use sakurs_core::{Config, Input, SentenceProcessor};
@@ -24,24 +24,24 @@ impl PyProcessor {
         let lang_code = match language.to_lowercase().as_str() {
             "en" | "english" => "en",
             "ja" | "japanese" => "ja",
-            _ => return Err(SakursError::UnsupportedLanguage(language.to_string()).into()),
+            _ => return Err(InternalError::UnsupportedLanguage(language.to_string()).into()),
         };
 
         let processor = if let Some(cfg) = config {
             let rust_config = Config::builder()
                 .language(lang_code)
-                .map_err(|e| SakursError::ProcessingError(e.to_string()))?
+                .map_err(|e| InternalError::ProcessingError(e.to_string()))?
                 .chunk_size(cfg.chunk_size) // Now in bytes, no conversion needed
                 .parallel_threshold(cfg.parallel_threshold)
                 .overlap_size(cfg.overlap_size)
                 .threads(cfg.num_threads)
                 .build()
-                .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
+                .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
             SentenceProcessor::with_config(rust_config)
         } else {
             SentenceProcessor::with_language(lang_code)
         }
-        .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
+        .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
         Ok(Self {
             processor,
@@ -67,7 +67,7 @@ impl PyProcessor {
         // Release GIL during processing for better performance
         let output = py
             .allow_threads(|| self.processor.process(Input::from_text(text)))
-            .map_err(|e| SakursError::ProcessingError(e.to_string()))?;
+            .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
         // Convert boundaries to sentence list
         let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
@@ -75,17 +75,6 @@ impl PyProcessor {
         let result = PyProcessingResult::new(boundaries, output.metadata.stats, text.to_string());
 
         Ok(result.sentences())
-    }
-
-    /// Extract sentences as a list of strings (legacy method, use split() instead)
-    #[pyo3(signature = (text, threads=None))]
-    pub fn sentences(
-        &self,
-        text: &str,
-        threads: Option<usize>,
-        py: Python,
-    ) -> PyResult<Vec<String>> {
-        self.split(text, threads, py)
     }
 
     /// Get supported language

@@ -1,21 +1,85 @@
 """Type stubs for sakurs Python bindings."""
 
-from typing import overload
+from typing import Any, Literal, overload
 
 __version__: str
 
+# Exception types
+class SakursError(Exception):
+    """Base exception for all sakurs errors."""
+
+    ...
+
+class InvalidLanguageError(SakursError):
+    """Raised when language code is not recognized."""
+
+    ...
+
+class ProcessingError(SakursError):
+    """Raised when text processing fails."""
+
+    ...
+
+class ConfigurationError(SakursError):
+    """Raised when configuration is invalid."""
+
+    ...
+
+# Output types
+class Sentence:
+    """Sentence with metadata."""
+
+    text: str
+    start: int
+    end: int
+    confidence: float
+    metadata: dict[str, Any]
+
+    def __init__(
+        self,
+        text: str,
+        start: int,
+        end: int,
+        confidence: float = 1.0,
+        metadata: dict[str, Any] | None = None,
+    ) -> None: ...
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+class ProcessingMetadata:
+    """Processing statistics and information."""
+
+    total_sentences: int
+    processing_time_ms: float
+    threads_used: int
+    chunk_size_used: int
+    execution_mode_used: str
+
+    def __init__(
+        self,
+        total_sentences: int,
+        processing_time_ms: float,
+        threads_used: int,
+        chunk_size_used: int,
+        execution_mode_used: str,
+    ) -> None: ...
+    def __repr__(self) -> str: ...
+
+# Configuration
 class ProcessorConfig:
     """Configuration for text processing."""
 
     chunk_size: int
     overlap_size: int
     num_threads: int | None
+    parallel_threshold: int
 
     def __init__(
         self,
-        chunk_size: int = 8192,
+        chunk_size: int = 262144,  # 256KB
         overlap_size: int = 256,
         num_threads: int | None = None,
+        parallel_threshold: int = 1048576,  # 1MB
     ) -> None: ...
     def __repr__(self) -> str: ...
 
@@ -32,37 +96,47 @@ class Processor:
         text: str,
         threads: int | None = None,
     ) -> list[str]: ...
-    def sentences(
-        self,
-        text: str,
-        threads: int | None = None,
-    ) -> list[str]: ...  # Deprecated: use split() instead
     @property
     def language(self) -> str: ...
     @property
     def supports_parallel(self) -> bool: ...
     def __repr__(self) -> str: ...
 
+# Main API functions
 @overload
 def split(
-    text: str,
+    input: str,
     *,
-    language: str = "en",
-    config: ProcessorConfig | None = None,
+    language: str | None = None,
     threads: int | None = None,
+    chunk_size: int | None = None,
+    parallel: bool = False,
+    execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
+    return_details: Literal[False] = False,
+    encoding: str = "utf-8",
 ) -> list[str]: ...
 @overload
 def split(
-    text: str,
-    language: str = "en",
-    config: ProcessorConfig | None = None,
+    input: str,
+    *,
+    language: str | None = None,
     threads: int | None = None,
-) -> list[str]: ...
+    chunk_size: int | None = None,
+    parallel: bool = False,
+    execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
+    return_details: Literal[True],
+    encoding: str = "utf-8",
+) -> list[Sentence]: ...
 def load(
     language: str,
-    config: ProcessorConfig | None = None,
-) -> Processor: ...
-def supported_languages() -> list[str]: ...
+    *,
+    threads: int | None = None,
+    chunk_size: int | None = None,
+    execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
+) -> Processor:
+    """Load a processor for a specific language."""
+    ...
 
-# Exception types
-class SakursError(Exception): ...
+def supported_languages() -> list[str]:
+    """Get list of supported languages."""
+    ...

@@ -1,0 +1,153 @@
+//! Output types for Python bindings
+
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+
+/// Sentence with metadata
+#[pyclass]
+pub struct Sentence {
+    /// The text content of the sentence
+    #[pyo3(get)]
+    pub text: String,
+
+    /// Character offset where the sentence starts in the original text
+    #[pyo3(get)]
+    pub start: usize,
+
+    /// Character offset where the sentence ends in the original text
+    #[pyo3(get)]
+    pub end: usize,
+
+    /// Confidence score for the sentence boundary (future extension)
+    #[pyo3(get)]
+    pub confidence: f32,
+
+    /// Additional metadata as a dictionary
+    #[pyo3(get)]
+    pub metadata: Py<PyAny>,
+}
+
+#[pymethods]
+impl Sentence {
+    /// Create a new Sentence instance
+    #[new]
+    #[pyo3(signature = (text, start, end, confidence=1.0, metadata=None))]
+    pub fn new(
+        text: String,
+        start: usize,
+        end: usize,
+        confidence: Option<f32>,
+        metadata: Option<Bound<'_, PyDict>>,
+        py: Python,
+    ) -> PyResult<Self> {
+        let metadata = if let Some(dict) = metadata {
+            dict.unbind()
+        } else {
+            PyDict::new(py).into()
+        };
+
+        Ok(Self {
+            text,
+            start,
+            end,
+            confidence: confidence.unwrap_or(1.0),
+            metadata: metadata.into(),
+        })
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Sentence(text='{}', start={}, end={}, confidence={})",
+            self.text, self.start, self.end, self.confidence
+        )
+    }
+
+    fn __str__(&self) -> String {
+        self.text.clone()
+    }
+}
+
+/// Processing statistics and metadata
+#[pyclass]
+#[derive(Clone)]
+pub struct ProcessingMetadata {
+    /// Total number of sentences found
+    #[pyo3(get)]
+    pub total_sentences: usize,
+
+    /// Processing time in milliseconds
+    #[pyo3(get)]
+    pub processing_time_ms: f64,
+
+    /// Number of threads used for processing
+    #[pyo3(get)]
+    pub threads_used: usize,
+
+    /// Chunk size used for processing (in bytes)
+    #[pyo3(get)]
+    pub chunk_size_used: usize,
+
+    /// Execution mode used ("sequential", "parallel", or "adaptive")
+    #[pyo3(get)]
+    pub execution_mode_used: String,
+}
+
+#[pymethods]
+impl ProcessingMetadata {
+    /// Create a new ProcessingMetadata instance
+    #[new]
+    pub fn new(
+        total_sentences: usize,
+        processing_time_ms: f64,
+        threads_used: usize,
+        chunk_size_used: usize,
+        execution_mode_used: String,
+    ) -> Self {
+        Self {
+            total_sentences,
+            processing_time_ms,
+            threads_used,
+            chunk_size_used,
+            execution_mode_used,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ProcessingMetadata(total_sentences={}, processing_time_ms={:.2}, threads_used={}, chunk_size_used={}, execution_mode_used='{}')",
+            self.total_sentences,
+            self.processing_time_ms,
+            self.threads_used,
+            self.chunk_size_used,
+            self.execution_mode_used
+        )
+    }
+}
+
+/// Helper function to convert boundaries and text into Sentence objects
+pub fn boundaries_to_sentences(
+    text: &str,
+    boundaries: &[usize],
+    py: Python,
+) -> PyResult<Vec<Sentence>> {
+    let mut sentences = Vec::new();
+    let mut start = 0;
+
+    for &end in boundaries {
+        if end > start && end <= text.len() {
+            let sentence_text = text[start..end].to_string();
+            let sentence = Sentence::new(sentence_text, start, end, Some(1.0), None, py)?;
+            sentences.push(sentence);
+            start = end;
+        }
+    }
+
+    // Handle any remaining text after the last boundary
+    if start < text.len() {
+        let sentence_text = text[start..].to_string();
+        let sentence = Sentence::new(sentence_text, start, text.len(), Some(1.0), None, py)?;
+        sentences.push(sentence);
+    }
+
+    Ok(sentences)
+}
