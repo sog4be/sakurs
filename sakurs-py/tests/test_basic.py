@@ -45,7 +45,6 @@ def test_processor_creation(language):
     processor = sakurs.load(language)
     assert processor is not None
     assert hasattr(processor, "split")
-    assert hasattr(processor, "sentences")  # Legacy support
 
 
 def test_unsupported_language_error():
@@ -53,7 +52,7 @@ def test_unsupported_language_error():
     if sakurs is None:
         pytest.skip("sakurs module not built yet")
 
-    with pytest.raises(RuntimeError, match="Unsupported language"):
+    with pytest.raises(sakurs.InvalidLanguageError):
         sakurs.load("unsupported_language")
 
 
