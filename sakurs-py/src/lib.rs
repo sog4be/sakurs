@@ -78,8 +78,32 @@ fn split(
         .language(lang_code)
         .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
 
-    if let Some(t) = threads {
-        config_builder = config_builder.threads(Some(t));
+    // Handle execution mode and performance parameters
+    match execution_mode {
+        "sequential" => {
+            // Force sequential mode by setting threads to 1
+            config_builder = config_builder.threads(Some(1));
+        }
+        "parallel" => {
+            // Use provided threads or let it default to all available
+            config_builder = config_builder.threads(threads);
+            // If parallel flag is set, ensure we use lower threshold
+            if parallel {
+                config_builder = config_builder.parallel_threshold(0);
+            }
+        }
+        "adaptive" => {
+            // Let the system decide based on text size
+            if let Some(t) = threads {
+                config_builder = config_builder.threads(Some(t));
+            }
+        }
+        _ => {
+            return Err(InternalError::ConfigurationError(format!(
+                "Invalid execution_mode: {execution_mode}"
+            ))
+            .into())
+        }
     }
 
     if let Some(cs) = chunk_size {
@@ -94,17 +118,7 @@ fn split(
     let processor = SentenceProcessor::with_config(config)
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
-    // Note: execution_mode is a parameter for future use when the core API supports it
-    // For now, we validate it but don't use it directly
-    match execution_mode {
-        "sequential" | "parallel" | "adaptive" => {}
-        _ => {
-            return Err(InternalError::ConfigurationError(format!(
-                "Invalid execution_mode: {execution_mode}"
-            ))
-            .into())
-        }
-    }
+    // execution_mode is now properly handled in the configuration above
 
     // Release GIL during processing for better performance
     let output = py
@@ -202,18 +216,21 @@ fn split(
 /// Load a processor for the specified language (spaCy-style API)
 #[pyfunction]
 #[pyo3(signature = (language, *, threads=None, chunk_size=None, execution_mode="adaptive"))]
-#[allow(unused_variables)]
 fn load(
     language: &str,
     threads: Option<usize>,
     chunk_size: Option<usize>,
     execution_mode: &str,
 ) -> PyResult<PyProcessor> {
-    // Create a config with the specified parameters
-    let config =
-        PyProcessorConfig::new(chunk_size.unwrap_or(256 * 1024), 256, threads, 1024 * 1024);
-
-    PyProcessor::new(language, Some(config))
+    // Create processor with the specified parameters
+    PyProcessor::new(
+        Some(language),
+        threads,
+        chunk_size,
+        execution_mode,
+        false,            // streaming
+        10 * 1024 * 1024, // stream_chunk_size (not used when streaming=false)
+    )
 }
 
 /// Get list of supported languages
