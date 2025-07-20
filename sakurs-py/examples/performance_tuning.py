@@ -36,44 +36,66 @@ def main() -> None:
     print("-" * 70)
 
     # Default configuration
-    default_processor = sakurs.Processor("en")
+    default_processor = sakurs.Processor(language="en")
     benchmark_split(base_text, default_processor, "Default")
 
     # Small chunks (more overhead, but may be better for memory)
-    small_config = sakurs.ProcessorConfig(
-        chunk_size=4096,
-        overlap_size=128,
-        num_threads=None,  # Auto
+    small_processor = sakurs.Processor(
+        language="en", chunk_size=4096, execution_mode="adaptive"
     )
-    small_processor = sakurs.Processor("en", small_config)
     benchmark_split(base_text, small_processor, "Small chunks")
 
     # Large chunks (less overhead for long texts)
-    large_config = sakurs.ProcessorConfig(
-        chunk_size=32768, overlap_size=512, num_threads=None
+    large_processor = sakurs.Processor(
+        language="en", chunk_size=32768, execution_mode="adaptive"
     )
-    large_processor = sakurs.Processor("en", large_config)
     benchmark_split(base_text, large_processor, "Large chunks")
 
-    # Single-threaded (for comparison)
-    single_config = sakurs.ProcessorConfig(
-        chunk_size=8192, overlap_size=256, num_threads=1
+    # Sequential mode (single-threaded)
+    sequential_processor = sakurs.Processor(
+        language="en", chunk_size=8192, execution_mode="sequential"
     )
-    single_processor = sakurs.Processor("en", single_config)
-    benchmark_split(base_text, single_processor, "Single-threaded")
+    benchmark_split(base_text, sequential_processor, "Sequential")
 
-    # Multi-threaded
-    multi_config = sakurs.ProcessorConfig(
-        chunk_size=8192, overlap_size=256, num_threads=4
+    # Parallel mode with 4 threads
+    parallel_processor = sakurs.Processor(
+        language="en", chunk_size=8192, threads=4, execution_mode="parallel"
     )
-    multi_processor = sakurs.Processor("en", multi_config)
-    benchmark_split(base_text, multi_processor, "4 threads")
+    benchmark_split(base_text, parallel_processor, "Parallel (4 threads)")
+
+    # Streaming mode (for large files)
+    streaming_processor = sakurs.Processor(
+        language="en",
+        streaming=True,
+        stream_chunk_size=1024 * 1024,  # 1MB
+    )
+    benchmark_split(base_text, streaming_processor, "Streaming mode")
+
+    print("\nPerformance Comparison using split() function:")
+    print("-" * 70)
+
+    # Direct split() function with different modes
+    start = time.perf_counter()
+    _ = sakurs.split(base_text, execution_mode="sequential")
+    sequential_time = (time.perf_counter() - start) * 1000
+    print(f"Sequential mode:     {sequential_time:7.2f}ms")
+
+    start = time.perf_counter()
+    _ = sakurs.split(base_text, execution_mode="parallel", threads=4)
+    parallel_time = (time.perf_counter() - start) * 1000
+    print(f"Parallel (4 threads): {parallel_time:7.2f}ms")
+
+    start = time.perf_counter()
+    _ = sakurs.split(base_text, execution_mode="adaptive")
+    adaptive_time = (time.perf_counter() - start) * 1000
+    print(f"Adaptive mode:       {adaptive_time:7.2f}ms")
 
     print("\nTips:")
     print("- For short texts (<10KB), default settings are usually best")
     print("- For long texts, increase chunk_size to reduce overhead")
-    print("- For batch processing, configure threads based on CPU cores")
-    print("- For interactive use, limit threads to avoid UI freezing")
+    print("- For batch processing, use parallel mode with appropriate thread count")
+    print("- For interactive use, use adaptive mode for automatic optimization")
+    print("- For memory-constrained environments, use streaming mode")
 
 
 if __name__ == "__main__":

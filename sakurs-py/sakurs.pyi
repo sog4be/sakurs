@@ -93,19 +93,41 @@ class Processor:
 
     def __init__(
         self,
-        language: str = "en",
-        config: ProcessorConfig | None = None,
+        *,
+        language: str | None = None,
+        threads: int | None = None,
+        chunk_size: int | None = None,
+        execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
+        streaming: bool = False,
+        stream_chunk_size: int = 10485760,  # 10MB
     ) -> None: ...
+    @overload
     def split(
         self,
         input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
-        threads: int | None = None,
+        *,
+        return_details: Literal[False] = False,
         encoding: str = "utf-8",
     ) -> list[str]: ...
+    @overload
+    def split(
+        self,
+        input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
+        *,
+        return_details: Literal[True],
+        encoding: str = "utf-8",
+    ) -> list[Sentence]: ...
     @property
     def language(self) -> str: ...
     @property
     def supports_parallel(self) -> bool: ...
+    def __enter__(self) -> Processor: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> bool: ...
     def __repr__(self) -> str: ...
 
 # Main API functions

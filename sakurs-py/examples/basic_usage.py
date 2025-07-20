@@ -26,7 +26,7 @@ def main() -> None:
 
     # Example 3: Using Processor for multiple texts
     print("=== Example 3: Reusing Processor ===")
-    processor = sakurs.Processor("en")
+    processor = sakurs.Processor(language="en")
 
     texts = [
         "First document. It has two sentences.",

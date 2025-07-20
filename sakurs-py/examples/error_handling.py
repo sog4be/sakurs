@@ -11,7 +11,7 @@ def main() -> None:
     # Example 1: Unsupported language
     print("1. Handling unsupported language:")
     try:
-        processor = sakurs.Processor("fr")  # French is not supported
+        processor = sakurs.Processor(language="fr")  # French is not supported
     except sakurs.SakursError as e:
         print(f"   Error caught: {e}")
     print()
@@ -56,14 +56,12 @@ def main() -> None:
     print(f"   Result: {sentences}")
     print()
 
-    # Example 5: Deprecated parameter warning
-    print("5. Handling deprecated parameters:")
-    processor = sakurs.Processor("en")
-    print("   Calling split with deprecated 'threads' parameter...")
-    # This will trigger a deprecation warning
-    sentences = processor.split("Test text.", threads=4)
-    print(f"   Result: {sentences}")
-    print("   (Check above for deprecation warning)")
+    # Example 5: Performance parameters
+    print("5. Using performance parameters:")
+    processor = sakurs.Processor(language="en", threads=4, execution_mode="parallel")
+    sentences = processor.split("Test text. Another sentence. Yet another one.")
+    print(f"   Result with parallel processing: {sentences}")
+    print("   (Configured with 4 threads in parallel mode)")
 
 
 if __name__ == "__main__":
