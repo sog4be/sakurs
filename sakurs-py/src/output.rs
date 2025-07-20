@@ -128,6 +128,7 @@ impl ProcessingMetadata {
 pub fn boundaries_to_sentences_with_char_offsets(
     text: &str,
     boundaries: &[(usize, usize)], // (char_offset, byte_offset)
+    preserve_whitespace: bool,
     py: Python,
 ) -> PyResult<Vec<Sentence>> {
     let mut sentences = Vec::new();
@@ -137,7 +138,23 @@ pub fn boundaries_to_sentences_with_char_offsets(
     for &(end_char, end_byte) in boundaries {
         if end_char > start_char && end_byte <= text.len() {
             let sentence_text = text[start_byte..end_byte].to_string();
-            let sentence = Sentence::new(sentence_text, start_char, end_char, Some(1.0), None, py)?;
+
+            // Calculate offsets based on whether we trim whitespace
+            let (final_text, final_start, final_end) = if preserve_whitespace {
+                (sentence_text, start_char, end_char)
+            } else {
+                // Trim the text but keep original offsets
+                let trimmed = sentence_text.trim();
+                if trimmed.is_empty() {
+                    // Skip empty sentences
+                    start_char = end_char;
+                    start_byte = end_byte;
+                    continue;
+                }
+                (trimmed.to_string(), start_char, end_char)
+            };
+
+            let sentence = Sentence::new(final_text, final_start, final_end, Some(1.0), None, py)?;
             sentences.push(sentence);
             start_char = end_char;
             start_byte = end_byte;
@@ -148,7 +165,21 @@ pub fn boundaries_to_sentences_with_char_offsets(
     if start_byte < text.len() {
         let sentence_text = text[start_byte..].to_string();
         let char_count = text.chars().count();
-        let sentence = Sentence::new(sentence_text, start_char, char_count, Some(1.0), None, py)?;
+
+        let (final_text, final_start, final_end) = if preserve_whitespace {
+            (sentence_text, start_char, char_count)
+        } else {
+            // Trim the text but keep original offsets
+            let trimmed = sentence_text.trim();
+            if !trimmed.is_empty() {
+                (trimmed.to_string(), start_char, char_count)
+            } else {
+                // Skip empty sentences
+                return Ok(sentences);
+            }
+        };
+
+        let sentence = Sentence::new(final_text, final_start, final_end, Some(1.0), None, py)?;
         sentences.push(sentence);
     }
 

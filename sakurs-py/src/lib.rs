@@ -30,12 +30,13 @@ use types::PyProcessorConfig;
 ///     parallel: Force parallel processing even for small inputs
 ///     execution_mode: Processing strategy ("sequential", "parallel", "adaptive")
 ///     return_details: Return Sentence objects with metadata instead of strings
+///     preserve_whitespace: Keep leading/trailing whitespace in sentences (default: False)
 ///     encoding: Text encoding for file/binary inputs
 ///
 /// Returns:
 ///     List of sentence strings or Sentence objects if return_details=True
 #[pyfunction]
-#[pyo3(signature = (input, *, language=None, threads=None, chunk_size=None, parallel=false, execution_mode="adaptive", return_details=false, encoding="utf-8"))]
+#[pyo3(signature = (input, *, language=None, threads=None, chunk_size=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
 #[allow(unused_variables)]
 #[allow(clippy::too_many_arguments)]
 fn split(
@@ -46,6 +47,7 @@ fn split(
     parallel: bool,
     execution_mode: &str,
     return_details: bool,
+    preserve_whitespace: bool,
     encoding: &str,
     py: Python,
 ) -> PyResult<PyObject> {
@@ -113,8 +115,12 @@ fn split(
             .iter()
             .map(|b| (b.char_offset, b.offset))
             .collect();
-        let sentences =
-            boundaries_to_sentences_with_char_offsets(text, &boundaries_with_offsets, py)?;
+        let sentences = boundaries_to_sentences_with_char_offsets(
+            text,
+            &boundaries_with_offsets,
+            preserve_whitespace,
+            py,
+        )?;
 
         // Determine actual execution mode used (from strategy)
         let execution_mode_str = match output.metadata.strategy_used.as_str() {
@@ -159,7 +165,14 @@ fn split(
             let end_byte = boundary.offset;
 
             if end_char > start_char && end_byte <= text.len() {
-                sentences.push(text[start_byte..end_byte].to_string());
+                let sentence = text[start_byte..end_byte].to_string();
+                // Trim whitespace unless preserve_whitespace is True
+                let sentence = if preserve_whitespace {
+                    sentence
+                } else {
+                    sentence.trim().to_string()
+                };
+                sentences.push(sentence);
                 start_char = end_char;
                 start_byte = end_byte;
             }
@@ -167,7 +180,14 @@ fn split(
 
         // Handle any remaining text
         if start_byte < text.len() {
-            sentences.push(text[start_byte..].to_string());
+            let sentence = text[start_byte..].to_string();
+            // Trim whitespace unless preserve_whitespace is True
+            let sentence = if preserve_whitespace {
+                sentence
+            } else {
+                sentence.trim().to_string()
+            };
+            sentences.push(sentence);
         }
 
         Ok(PyList::new(py, sentences)?.unbind().into())

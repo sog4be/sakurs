@@ -113,6 +113,7 @@ def split(
     parallel: bool = False,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
     return_details: Literal[False] = False,
+    preserve_whitespace: bool = False,
     encoding: str = "utf-8",
 ) -> list[str]: ...
 @overload
@@ -125,6 +126,7 @@ def split(
     parallel: bool = False,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
     return_details: Literal[True],
+    preserve_whitespace: bool = False,
     encoding: str = "utf-8",
 ) -> list[Sentence]: ...
 def load(

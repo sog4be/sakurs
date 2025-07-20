@@ -15,9 +15,10 @@ class TestSplitFunction:
 
         assert isinstance(result, list)
         assert len(result) == 3
+        # Default behavior: sentences are trimmed
         assert result[0] == "Hello world."
-        assert result[1] == " How are you?"
-        assert result[2] == " I'm fine, thanks!"
+        assert result[1] == "How are you?"
+        assert result[2] == "I'm fine, thanks!"
 
     def test_split_with_language_parameter(self):
         """Test split with explicit language parameter."""
@@ -50,6 +51,7 @@ class TestSplitFunction:
         assert hasattr(sent0, "confidence")
         assert hasattr(sent0, "metadata")
 
+        # Default behavior: text is trimmed but offsets point to original positions
         assert sent0.text == "Hello world."
         assert sent0.start == 0
         assert sent0.end == 12
@@ -57,8 +59,8 @@ class TestSplitFunction:
 
         # Check second sentence details
         sent1 = sentences[1]
-        assert sent1.text == " How are you?"
-        assert sent1.start == 12
+        assert sent1.text == "How are you?"  # Trimmed by default
+        assert sent1.start == 12  # Original position (includes leading space)
         assert sent1.end == 25
         assert sent1.confidence == 1.0
 
@@ -107,13 +109,14 @@ class TestSplitFunction:
         assert result[0] == text
 
     def test_split_with_multiple_spaces(self):
-        """Test split preserves spacing."""
+        """Test split with multiple spaces between sentences."""
         text = "First sentence.    Second sentence.  Third."
         result = sakurs.split(text)
         assert len(result) == 3
+        # Default behavior: sentences are trimmed
         assert result[0] == "First sentence."
-        assert result[1] == "    Second sentence."
-        assert result[2] == "  Third."
+        assert result[1] == "Second sentence."
+        assert result[2] == "Third."
 
     def test_split_with_abbreviations(self):
         """Test split handles abbreviations correctly."""
@@ -121,7 +124,7 @@ class TestSplitFunction:
         result = sakurs.split(text)
         assert len(result) == 2
         assert result[0] == "Dr. Smith went to the U.S.A. yesterday."
-        assert result[1] == " He had a meeting."
+        assert result[1] == "He had a meeting."  # Trimmed by default
 
     def test_split_with_quotes(self):
         """Test split handles quotes correctly."""
@@ -166,11 +169,12 @@ class TestSplitFunction:
         assert len(result) == 4
 
         # Verify each sentence's text and offsets
+        # Default behavior: text is trimmed but offsets point to original positions
         expected = [
             ("First sentence.", 0, 15),
-            (" Second one.", 15, 27),
-            (" Third!", 27, 34),
-            (" Fourth?", 34, 42),
+            ("Second one.", 15, 27),  # Text is trimmed
+            ("Third!", 27, 34),  # Text is trimmed
+            ("Fourth?", 34, 42),  # Text is trimmed
         ]
 
         for i, (expected_text, expected_start, expected_end) in enumerate(expected):
@@ -178,10 +182,7 @@ class TestSplitFunction:
             assert sent.text == expected_text, f"Sentence {i}: text mismatch"
             assert sent.start == expected_start, f"Sentence {i}: start offset mismatch"
             assert sent.end == expected_end, f"Sentence {i}: end offset mismatch"
-            # Verify the text slice matches
-            assert text[sent.start : sent.end] == sent.text, (
-                f"Sentence {i}: slice doesn't match text"
-            )
+            # Note: text[sent.start:sent.end] includes leading spaces, but sent.text is trimmed
 
     def test_japanese_offsets(self):
         """Test that offsets work correctly with multi-byte Japanese characters."""
@@ -191,11 +192,55 @@ class TestSplitFunction:
         assert len(result) == 3
 
         # Japanese text uses multi-byte characters, so we need to be careful with offsets
+        # Since Japanese doesn't typically have spaces between sentences, trimming doesn't affect the text
         for i, sent in enumerate(result):
-            # Verify the text slice matches
+            # For Japanese without spaces, trimmed text equals original slice
             assert text[sent.start : sent.end] == sent.text, (
-                f"Sentence {i}: slice doesn't match text"
+                f"Sentence {i}: slice matches text for Japanese"
             )
+
+    def test_preserve_whitespace_option(self):
+        """Test preserve_whitespace=True option."""
+        text = "First sentence.    Second one.  Third!"
+
+        # Default behavior: trim whitespace
+        result_trimmed = sakurs.split(text)
+        assert result_trimmed == ["First sentence.", "Second one.", "Third!"]
+
+        # With preserve_whitespace=True
+        result_preserved = sakurs.split(text, preserve_whitespace=True)
+        assert len(result_preserved) == 3
+        assert result_preserved[0] == "First sentence."
+        assert result_preserved[1] == "    Second one."  # Leading spaces preserved
+        assert result_preserved[2] == "  Third!"  # Leading spaces preserved
+
+    def test_preserve_whitespace_with_details(self):
+        """Test preserve_whitespace=True with return_details=True."""
+        text = "Hello world.  How are you?   I'm fine!"
+
+        # Default: trimmed text
+        result_default = sakurs.split(text, return_details=True)
+        assert len(result_default) == 3
+        assert result_default[0].text == "Hello world."
+        assert result_default[1].text == "How are you?"  # Trimmed
+        assert result_default[2].text == "I'm fine!"  # Trimmed
+
+        # Offsets should still point to original positions
+        assert result_default[1].start == 12  # Points to space before "How"
+        assert text[result_default[1].start : result_default[1].end] == "  How are you?"
+
+        # With preserve_whitespace=True
+        result_preserved = sakurs.split(
+            text, return_details=True, preserve_whitespace=True
+        )
+        assert len(result_preserved) == 3
+        assert result_preserved[0].text == "Hello world."
+        assert result_preserved[1].text == "  How are you?"  # Spaces preserved
+        assert result_preserved[2].text == "   I'm fine!"  # Spaces preserved
+
+        # Offsets match exactly
+        for sent in result_preserved:
+            assert text[sent.start : sent.end] == sent.text
 
 
 class TestSentenceClass:
