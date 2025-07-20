@@ -3,9 +3,10 @@
 #![allow(non_local_definitions)]
 
 use crate::exceptions::InternalError;
+use crate::input::PyInput;
 use crate::types::{PyProcessingResult, PyProcessorConfig};
 use pyo3::prelude::*;
-use sakurs_core::{Config, Input, SentenceProcessor};
+use sakurs_core::{Config, SentenceProcessor};
 
 /// Main processor class for sentence boundary detection
 #[pyclass]
@@ -50,8 +51,14 @@ impl PyProcessor {
     }
 
     /// Split text into sentences
-    #[pyo3(signature = (text, threads=None))]
-    pub fn split(&self, text: &str, threads: Option<usize>, py: Python) -> PyResult<Vec<String>> {
+    #[pyo3(signature = (input, threads=None, encoding="utf-8"))]
+    pub fn split(
+        &self,
+        input: &Bound<'_, PyAny>,
+        threads: Option<usize>,
+        encoding: &str,
+        py: Python,
+    ) -> PyResult<Vec<String>> {
         // Warn about deprecated threads parameter using Python warnings module
         if threads.is_some() {
             let warnings = py.import("warnings")?;
@@ -64,15 +71,21 @@ impl PyProcessor {
             )?;
         }
 
+        // Extract input from Python object
+        let py_input = PyInput::from_py_object(py, input)?;
+
+        // Convert to core Input type and get the text content
+        let (core_input, text) = py_input.into_core_input_and_text(py, encoding)?;
+
         // Release GIL during processing for better performance
         let output = py
-            .allow_threads(|| self.processor.process(Input::from_text(text)))
+            .allow_threads(|| self.processor.process(core_input))
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
         // Convert boundaries to sentence list
         let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
 
-        let result = PyProcessingResult::new(boundaries, output.metadata.stats, text.to_string());
+        let result = PyProcessingResult::new(boundaries, output.metadata.stats, text);
 
         Ok(result.sentences())
     }

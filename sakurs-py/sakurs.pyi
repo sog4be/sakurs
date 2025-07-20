@@ -1,6 +1,11 @@
 """Type stubs for sakurs Python bindings."""
 
-from typing import Any, Literal, overload
+from pathlib import Path
+from typing import Any, BinaryIO, Literal, Protocol, TextIO, overload
+
+class FileProtocol(Protocol):
+    """Protocol for file-like objects with read() method."""
+    def read(self, size: int = -1) -> str | bytes: ...
 
 __version__: str
 
@@ -93,8 +98,9 @@ class Processor:
     ) -> None: ...
     def split(
         self,
-        text: str,
+        input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
         threads: int | None = None,
+        encoding: str = "utf-8",
     ) -> list[str]: ...
     @property
     def language(self) -> str: ...
@@ -105,7 +111,7 @@ class Processor:
 # Main API functions
 @overload
 def split(
-    input: str,
+    input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
     *,
     language: str | None = None,
     threads: int | None = None,
@@ -118,7 +124,7 @@ def split(
 ) -> list[str]: ...
 @overload
 def split(
-    input: str,
+    input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
     *,
     language: str | None = None,
     threads: int | None = None,

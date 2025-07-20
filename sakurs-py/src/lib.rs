@@ -9,21 +9,23 @@ use pyo3::prelude::*;
 use pyo3::types::PyList;
 
 mod exceptions;
+mod input;
 mod output;
 mod processor;
 mod types;
 
 use exceptions::{register_exceptions, InternalError};
+use input::PyInput;
 use output::{boundaries_to_sentences_with_char_offsets, ProcessingMetadata, Sentence};
 use processor::PyProcessor;
-use sakurs_core::{Config, Input, SentenceProcessor};
+use sakurs_core::{Config, SentenceProcessor};
 use std::time::Instant;
 use types::PyProcessorConfig;
 
 /// Split text into sentences
 ///
 /// Args:
-///     input: Text string to split
+///     input: Text string, file path, bytes, or file-like object to split
 ///     language: Language code ("en", "ja") for built-in rules (default: "en")
 ///     threads: Number of threads for parallel processing (None for auto)
 ///     chunk_size: Chunk size in bytes for parallel processing (default: 256KB)
@@ -31,16 +33,16 @@ use types::PyProcessorConfig;
 ///     execution_mode: Processing strategy ("sequential", "parallel", "adaptive")
 ///     return_details: Return Sentence objects with metadata instead of strings
 ///     preserve_whitespace: Keep leading/trailing whitespace in sentences (default: False)
-///     encoding: Text encoding for file/binary inputs
+///     encoding: Text encoding for file/binary inputs (default: "utf-8")
 ///
 /// Returns:
 ///     List of sentence strings or Sentence objects if return_details=True
 #[pyfunction]
 #[pyo3(signature = (input, *, language=None, threads=None, chunk_size=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
-#[allow(unused_variables)]
 #[allow(clippy::too_many_arguments)]
+#[allow(unused_variables)]
 fn split(
-    input: &str,
+    input: &Bound<'_, PyAny>,
     language: Option<&str>,
     threads: Option<usize>,
     chunk_size: Option<usize>,
@@ -53,8 +55,11 @@ fn split(
 ) -> PyResult<PyObject> {
     let start_time = Instant::now();
 
-    // For now, we only support text input
-    let text = input;
+    // Extract input from Python object
+    let py_input = PyInput::from_py_object(py, input)?;
+
+    // Convert to core Input type and get the text content
+    let (core_input, text) = py_input.into_core_input_and_text(py, encoding)?;
 
     // Determine language
     let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
@@ -103,7 +108,7 @@ fn split(
 
     // Release GIL during processing for better performance
     let output = py
-        .allow_threads(|| processor.process(Input::from_text(text)))
+        .allow_threads(|| processor.process(core_input))
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     let processing_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -116,7 +121,7 @@ fn split(
             .map(|b| (b.char_offset, b.offset))
             .collect();
         let sentences = boundaries_to_sentences_with_char_offsets(
-            text,
+            &text,
             &boundaries_with_offsets,
             preserve_whitespace,
             py,
@@ -154,7 +159,7 @@ fn split(
         let mut start_byte = 0;
 
         // Create a mapping of character positions to byte positions
-        let char_to_byte: Vec<(usize, usize)> = text
+        let _char_to_byte: Vec<(usize, usize)> = text
             .char_indices()
             .enumerate()
             .map(|(char_pos, (byte_pos, _))| (char_pos, byte_pos))
@@ -229,9 +234,9 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ProcessingMetadata>()?;
 
     // Main API functions
-    m.add_function(wrap_pyfunction!(split, m)?)?;
-    m.add_function(wrap_pyfunction!(load, m)?)?;
-    m.add_function(wrap_pyfunction!(supported_languages, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(split, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(load, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(supported_languages, m)?)?;
 
     // Register custom exceptions
     register_exceptions(py, m)?;
