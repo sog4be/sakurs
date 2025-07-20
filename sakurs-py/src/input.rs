@@ -59,14 +59,16 @@ impl PyInput {
             }
 
             PyInput::Path(path) => {
-                // Read the file content to return it
-                let text = std::fs::read_to_string(&path).map_err(|e| {
+                // Read the file content as bytes first
+                let bytes = std::fs::read(&path).map_err(|e| {
                     PyErr::new::<pyo3::exceptions::PyIOError, _>(format!(
                         "Failed to read file '{}': {}",
                         path.display(),
                         e
                     ))
                 })?;
+                // Decode with the specified encoding
+                let text = decode_bytes(&bytes, encoding)?;
                 Ok((Input::from_file(path), text))
             }
 
@@ -102,7 +104,7 @@ fn read_file_object(py: Python, obj: &PyObject, encoding: &str) -> PyResult<Stri
 fn decode_bytes(bytes: &[u8], encoding: &str) -> PyResult<String> {
     match encoding.to_lowercase().as_str() {
         "utf-8" | "utf8" => String::from_utf8(bytes.to_vec()).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyUnicodeDecodeError, _>(format!(
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Failed to decode bytes as UTF-8: {e}"
             ))
         }),
@@ -110,7 +112,7 @@ fn decode_bytes(bytes: &[u8], encoding: &str) -> PyResult<String> {
             if bytes.is_ascii() {
                 Ok(String::from_utf8_lossy(bytes).to_string())
             } else {
-                Err(PyErr::new::<pyo3::exceptions::PyUnicodeDecodeError, _>(
+                Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                     "Failed to decode bytes as ASCII: non-ASCII characters found",
                 ))
             }
