@@ -9,6 +9,7 @@ pub struct LanguageConfig {
     pub ellipsis: EllipsisConfig,
     pub enclosures: EnclosureConfig,
     pub suppression: SuppressionConfig,
+    #[serde(default)]
     pub abbreviations: AbbreviationConfig,
     #[serde(default)]
     pub sentence_starters: Option<SentenceStarterConfig>,
@@ -95,7 +96,7 @@ pub struct RegexPattern {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AbbreviationConfig {
     #[serde(flatten)]
     pub categories: HashMap<String, Vec<String>>,

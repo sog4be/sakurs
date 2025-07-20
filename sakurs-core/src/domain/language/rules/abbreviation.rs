@@ -39,6 +39,11 @@ impl AbbreviationTrie {
         }
     }
 
+    /// Check if the trie is empty (contains no abbreviations)
+    pub fn is_empty(&self) -> bool {
+        self.root.children.is_empty()
+    }
+
     /// Insert an abbreviation into the trie
     pub fn insert(&mut self, abbreviation: &str, category: Option<String>) {
         let normalized = if self.case_sensitive {
@@ -77,6 +82,11 @@ impl AbbreviationTrie {
 
     /// Find the longest abbreviation ending at the given position
     pub fn find_at_position(&self, text: &str, position: usize) -> Option<AbbreviationMatch> {
+        // Early exit if trie is empty
+        if self.is_empty() {
+            return None;
+        }
+
         if position >= text.len() {
             return None;
         }
@@ -250,5 +260,35 @@ mod tests {
         let match_result = trie.find_at_position(text, 4);
 
         assert!(match_result.is_none());
+    }
+
+    #[test]
+    fn test_empty_trie() {
+        let trie = AbbreviationTrie::new(false);
+
+        // Verify trie is empty
+        assert!(trie.is_empty());
+
+        // Verify find_at_position returns None immediately for empty trie
+        let text = "This is a test. With some text.";
+        assert_eq!(trie.find_at_position(text, 14), None); // Position of first period
+        assert_eq!(trie.find_at_position(text, 30), None); // Position of second period
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let mut trie = AbbreviationTrie::new(false);
+
+        // Initially empty
+        assert!(trie.is_empty());
+
+        // Not empty after insertion
+        trie.insert("Dr", None);
+        assert!(!trie.is_empty());
+
+        // Still not empty with more insertions
+        trie.insert("Mr", None);
+        trie.insert("Mrs", None);
+        assert!(!trie.is_empty());
     }
 }

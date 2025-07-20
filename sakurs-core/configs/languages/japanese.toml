@@ -47,7 +47,3 @@ fast_patterns = [
     { char = "）", line_start = true, before = "alnum" }
 ]
 
-[abbreviations]
-# Empty - no English abbreviations needed for Japanese text
-common = []
-
