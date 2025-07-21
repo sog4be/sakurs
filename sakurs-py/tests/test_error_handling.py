@@ -80,7 +80,7 @@ class TestParameterValidation:
     def test_valid_integer_parameters(self):
         """Test that integer parameters work correctly."""
         # These should work without errors
-        sentences = list(sakurs.stream_split("Hello. World.", chunk_size_mb=1))
+        sentences = list(sakurs.iter_split("Hello. World.", chunk_size=1024 * 1024))
         assert len(sentences) == 2
 
         sentences = sakurs.split("Hello. World.", threads=2, chunk_size=1024)
@@ -149,5 +149,5 @@ class TestInputValidation:
         sentences = sakurs.split("")
         assert sentences == []
 
-        sentences = list(sakurs.stream_split(""))
+        sentences = list(sakurs.iter_split(""))
         assert sentences == []

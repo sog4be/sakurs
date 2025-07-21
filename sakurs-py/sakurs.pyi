@@ -241,6 +241,12 @@ class SentenceIterator:
     def __iter__(self) -> SentenceIterator: ...
     def __next__(self) -> str: ...
 
+class LargeFileIterator:
+    """Iterator for memory-efficient large file processing."""
+
+    def __iter__(self) -> LargeFileIterator: ...
+    def __next__(self) -> str: ...
+
 class LanguageConfig:
     """Complete language configuration."""
 
@@ -356,17 +362,41 @@ def load(
     """Load a processor for a specific language."""
     ...
 
-def stream_split(
+def iter_split(
     input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
     *,
     language: str | None = None,
     language_config: LanguageConfig | None = None,
-    chunk_size_mb: int = 10,
-    overlap_size: int = 1024,
-    preserve_whitespace: bool = False,
+    threads: int | None = None,
+    chunk_size: int | None = None,
     encoding: str = "utf-8",
 ) -> SentenceIterator:
-    """Stream sentences from large files without loading entire content."""
+    """
+    Process input and return sentences as an iterator.
+
+    This function loads the entire input into memory but returns results
+    incrementally for responsive processing. For true memory-efficient
+    streaming of large files, use split_large_file().
+    """
+    ...
+
+def split_large_file(
+    file_path: str | Path,
+    *,
+    language: str | None = None,
+    language_config: LanguageConfig | None = None,
+    max_memory_mb: int = 100,
+    overlap_size: int = 1024,
+    encoding: str = "utf-8",
+) -> LargeFileIterator:
+    """
+    Process large files with limited memory usage.
+
+    This function reads and processes the file in chunks, ensuring memory
+    usage stays within the specified limit. Sentences that span chunk
+    boundaries are handled correctly but may be delayed until the next
+    chunk is processed.
+    """
     ...
 
 def supported_languages() -> list[str]:

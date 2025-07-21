@@ -271,41 +271,87 @@ fn load(
     )
 }
 
-/// Stream sentences from large files without loading entire content
+/// Process input and return sentences as an iterator
+///
+/// This function loads the entire input into memory but returns results
+/// incrementally for responsive processing. For true memory-efficient
+/// streaming of large files, use split_large_file().
 ///
 /// Args:
-///     input: Text string, file path, bytes, or file-like object to stream
+///     input: Text string, file path, bytes, or file-like object
 ///     language: Language code ("en", "ja") for built-in rules (default: "en")
 ///     language_config: Custom language configuration
-///     chunk_size_mb: Size of chunks to process in MB (default: 10)
-///     overlap_size: Size of overlap between chunks in bytes (default: 1024)
-///     preserve_whitespace: Keep leading/trailing whitespace in sentences (default: False)
+///     threads: Number of threads for parallel processing (None for auto)
+///     chunk_size: Chunk size in bytes for parallel processing (default: 256KB)
 ///     encoding: Text encoding for file/binary inputs (default: "utf-8")
 ///
 /// Returns:
 ///     Iterator that yields sentences one at a time
 #[pyfunction]
-#[pyo3(signature = (input, *, language=None, language_config=None, chunk_size_mb=10, overlap_size=1024, preserve_whitespace=false, encoding="utf-8"))]
+#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_size=None, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
-fn stream_split(
+fn iter_split(
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
     language_config: Option<LanguageConfig>,
-    chunk_size_mb: usize,
-    overlap_size: usize,
-    preserve_whitespace: bool,
+    threads: Option<usize>,
+    chunk_size: Option<usize>,
     encoding: &str,
     py: Python,
 ) -> PyResult<iterator::SentenceIterator> {
-    stream::create_stream_iterator(
+    stream::create_iter_split_iterator(
         py,
         input,
         language,
         language_config,
-        chunk_size_mb,
+        threads,
+        chunk_size,
+        encoding,
+    )
+}
+
+/// Process large files with limited memory usage
+///
+/// This function reads and processes the file in chunks, ensuring memory
+/// usage stays within the specified limit. Sentences that span chunk
+/// boundaries are handled correctly but may be delayed until the next
+/// chunk is processed.
+///
+/// Args:
+///     file_path: Path to the file to process
+///     language: Language code ("en", "ja") for built-in rules (default: "en")
+///     language_config: Custom language configuration
+///     max_memory_mb: Maximum memory to use in MB (default: 100)
+///     overlap_size: Bytes to overlap between chunks for boundary handling (default: 1024)
+///     encoding: File encoding (default: "utf-8")
+///
+/// Returns:
+///     Iterator yielding sentences as they are found
+///
+/// Note:
+///     Due to the nature of chunk processing, sentences near chunk
+///     boundaries may be yielded slightly out of order compared to
+///     their position in the file.
+#[pyfunction]
+#[pyo3(signature = (file_path, *, language=None, language_config=None, max_memory_mb=100, overlap_size=1024, encoding="utf-8"))]
+#[allow(clippy::too_many_arguments)]
+fn split_large_file(
+    file_path: &str,
+    language: Option<&str>,
+    language_config: Option<LanguageConfig>,
+    max_memory_mb: usize,
+    overlap_size: usize,
+    encoding: &str,
+    py: Python,
+) -> PyResult<stream::LargeFileIterator> {
+    stream::create_large_file_iterator(
+        py,
+        file_path,
+        language,
+        language_config,
+        max_memory_mb,
         overlap_size,
         encoding,
-        preserve_whitespace,
     )
 }
 
@@ -326,6 +372,7 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Sentence>()?;
     m.add_class::<ProcessingMetadata>()?;
     m.add_class::<iterator::SentenceIterator>()?;
+    m.add_class::<stream::LargeFileIterator>()?;
 
     // Language configuration classes
     m.add_class::<LanguageConfig>()?;
@@ -346,7 +393,8 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Main API functions
     m.add_function(pyo3::wrap_pyfunction!(split, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(load, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(stream_split, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(iter_split, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(split_large_file, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(supported_languages, m)?)?;
 
     // Register custom exceptions

@@ -11,19 +11,19 @@ def test_basic_streaming():
 
     # Test 1: Stream from text
     text = "Hello world. This is a test. Another sentence?"
-    sentences = list(sakurs.stream_split(text))
+    sentences = list(sakurs.iter_split(text))
     print(f"Text streaming: {sentences}")
     assert sentences == ["Hello world.", "This is a test.", "Another sentence?"]
 
     # Test 2: Stream from BytesIO
     bytes_io = io.BytesIO(b"One. Two. Three.")
-    sentences = list(sakurs.stream_split(bytes_io))
+    sentences = list(sakurs.iter_split(bytes_io))
     print(f"BytesIO streaming: {sentences}")
     assert sentences == ["One.", "Two.", "Three."]
 
     # Test 3: Stream with Japanese
     text = "これは文です。もう一つの文。"
-    sentences = list(sakurs.stream_split(text, language="ja"))
+    sentences = list(sakurs.iter_split(text, language="ja"))
     print(f"Japanese streaming: {sentences}")
     assert len(sentences) == 2
 
