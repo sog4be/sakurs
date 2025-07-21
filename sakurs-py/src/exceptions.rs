@@ -52,6 +52,9 @@ pub enum InternalError {
 
     #[error("IO error: {0}")]
     IoError(String),
+
+    #[error("Encoding error: {0}")]
+    EncodingError(String),
 }
 
 impl From<InternalError> for PyErr {
@@ -63,6 +66,7 @@ impl From<InternalError> for PyErr {
             InternalError::InvalidInput(msg) => PyTypeError::new_err(msg),
             InternalError::FileNotFound(msg) => PyFileNotFoundError::new_err(msg),
             InternalError::IoError(msg) => PyIOError::new_err(msg),
+            InternalError::EncodingError(msg) => PyIOError::new_err(msg),
         }
     }
 }
