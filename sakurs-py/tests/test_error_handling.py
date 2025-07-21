@@ -8,21 +8,21 @@ import sakurs
 class TestParameterValidation:
     """Test parameter validation and error handling."""
 
-    def test_stream_split_float_chunk_size_mb(self):
-        """Test that float chunk_size_mb raises TypeError."""
+    def test_iter_split_float_chunk_size(self):
+        """Test that float chunk_size raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
-            list(sakurs.stream_split("Hello.", chunk_size_mb=0.5))  # type: ignore
+            list(sakurs.iter_split("Hello.", chunk_size=1024.5))  # type: ignore
 
-        assert "chunk_size_mb" in str(exc_info.value)
+        assert "chunk_size" in str(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
-    def test_stream_split_float_overlap_size(self):
-        """Test that float overlap_size raises TypeError."""
+    def test_split_large_file_float_max_memory_mb(self):
+        """Test that float max_memory_mb raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
-            list(sakurs.stream_split("Hello.", overlap_size=1024.5))  # type: ignore
+            list(sakurs.split_large_file("/tmp/test.txt", max_memory_mb=10.5))  # type: ignore
 
-        assert "overlap_size" in str(exc_info.value)
+        assert "max_memory_mb" in str(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 

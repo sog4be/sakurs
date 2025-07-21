@@ -398,7 +398,5 @@ class TestSplitLargeFile:
 
     def test_split_large_file_nonexistent(self):
         """Test error handling for nonexistent file."""
-        with pytest.raises(
-            OSError, match="file not found"
-        ):  # Should raise file not found error
+        with pytest.raises(FileNotFoundError, match="nonexistent_file.txt"):
             list(sakurs.split_large_file("nonexistent_file.txt"))

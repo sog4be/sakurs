@@ -347,8 +347,13 @@ impl LargeFileIterator {
 
         // Initialize reader on first call
         if self.reader.is_none() {
-            let file =
-                File::open(&self.file_path).map_err(|e| InternalError::IoError(e.to_string()))?;
+            let file = File::open(&self.file_path).map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    InternalError::FileNotFound(self.file_path.display().to_string())
+                } else {
+                    InternalError::IoError(e.to_string())
+                }
+            })?;
             self.reader = Some(BufReader::new(file));
         }
 
