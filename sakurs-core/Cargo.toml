@@ -14,7 +14,7 @@ smallvec = { version = "1.13", features = ["union", "serde"] }
 rayon = { version = "1.10", optional = true }
 num_cpus = { version = "1.16", optional = true }
 # Configuration support
-toml = "0.8"
+toml = "0.9"
 regex = "1.10"
 
 [dev-dependencies]
