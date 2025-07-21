@@ -198,6 +198,40 @@ impl PyProcessor {
         true // Always true for Rust implementation
     }
 
+    /// Iterate over sentences (memory-efficient)
+    #[pyo3(signature = (input, *, encoding="utf-8", preserve_whitespace=false))]
+    pub fn iter_split(
+        &self,
+        input: &Bound<'_, PyAny>,
+        encoding: &str,
+        preserve_whitespace: bool,
+        py: Python,
+    ) -> PyResult<crate::iterator::SentenceIterator> {
+        use crate::stream::create_stream_iterator;
+
+        // Extract language from processor
+        let language = if self.custom_config {
+            None // Custom config already embedded in processor
+        } else {
+            Some(self.language.as_str())
+        };
+
+        // Use the processor's configuration for streaming
+        let chunk_size_mb = self.config.chunk_size / (1024 * 1024);
+        let chunk_size_mb = if chunk_size_mb > 0 { chunk_size_mb } else { 10 };
+
+        create_stream_iterator(
+            py,
+            input,
+            language,
+            None, // language_config already in processor
+            chunk_size_mb,
+            self.config.overlap_size,
+            encoding,
+            preserve_whitespace,
+        )
+    }
+
     /// Context manager entry
     fn __enter__(slf: PyRef<Self>) -> PyRef<Self> {
         slf

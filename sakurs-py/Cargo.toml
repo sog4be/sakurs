@@ -17,6 +17,7 @@ pyo3 = { version = "0.25", features = ["abi3-py39"] }  # abi3 for forward compat
 sakurs-core = { path = "../sakurs-core" }
 thiserror = { workspace = true }
 toml = "0.8"
+encoding_rs = "0.8"
 
 [dev-dependencies]
 pyo3 = { version = "0.25", features = ["auto-initialize"] }

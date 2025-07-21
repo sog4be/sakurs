@@ -235,6 +235,12 @@ class SentenceStarterConfig:
     ) -> None: ...
     def __repr__(self) -> str: ...
 
+class SentenceIterator:
+    """Iterator for streaming sentence processing."""
+
+    def __iter__(self) -> SentenceIterator: ...
+    def __next__(self) -> str: ...
+
 class LanguageConfig:
     """Complete language configuration."""
 
@@ -291,6 +297,13 @@ class Processor:
         return_details: Literal[True],
         encoding: str = "utf-8",
     ) -> list[Sentence]: ...
+    def iter_split(
+        self,
+        input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
+        *,
+        encoding: str = "utf-8",
+        preserve_whitespace: bool = False,
+    ) -> SentenceIterator: ...
     @property
     def language(self) -> str: ...
     @property
@@ -341,6 +354,19 @@ def load(
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
 ) -> Processor:
     """Load a processor for a specific language."""
+    ...
+
+def stream_split(
+    input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
+    *,
+    language: str | None = None,
+    language_config: LanguageConfig | None = None,
+    chunk_size_mb: int = 10,
+    overlap_size: int = 1024,
+    preserve_whitespace: bool = False,
+    encoding: str = "utf-8",
+) -> SentenceIterator:
+    """Stream sentences from large files without loading entire content."""
     ...
 
 def supported_languages() -> list[str]:

@@ -130,7 +130,11 @@ class TestSplitFunction:
         """Test split handles quotes correctly."""
         text = 'He said "Hello there." Then he left.'
         result = sakurs.split(text)
-        # The algorithm correctly treats text inside quotes as part of the same sentence
+        # Current specification: The Enclosure handling in the core algorithm ensures
+        # that punctuation inside quotes is NOT treated as a sentence boundary.
+        # The period inside "Hello there." is correctly ignored.
+        # The entire text is treated as one sentence because there's no terminator
+        # outside of the quotes.
         assert len(result) == 1
         assert result[0] == 'He said "Hello there." Then he left.'
 

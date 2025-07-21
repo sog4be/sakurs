@@ -10,9 +10,11 @@ use pyo3::types::PyList;
 
 mod exceptions;
 mod input;
+mod iterator;
 mod language_config;
 mod output;
 mod processor;
+mod stream;
 mod types;
 
 use exceptions::{register_exceptions, InternalError};
@@ -269,6 +271,44 @@ fn load(
     )
 }
 
+/// Stream sentences from large files without loading entire content
+///
+/// Args:
+///     input: Text string, file path, bytes, or file-like object to stream
+///     language: Language code ("en", "ja") for built-in rules (default: "en")
+///     language_config: Custom language configuration
+///     chunk_size_mb: Size of chunks to process in MB (default: 10)
+///     overlap_size: Size of overlap between chunks in bytes (default: 1024)
+///     preserve_whitespace: Keep leading/trailing whitespace in sentences (default: False)
+///     encoding: Text encoding for file/binary inputs (default: "utf-8")
+///
+/// Returns:
+///     Iterator that yields sentences one at a time
+#[pyfunction]
+#[pyo3(signature = (input, *, language=None, language_config=None, chunk_size_mb=10, overlap_size=1024, preserve_whitespace=false, encoding="utf-8"))]
+#[allow(clippy::too_many_arguments)]
+fn stream_split(
+    input: &Bound<'_, PyAny>,
+    language: Option<&str>,
+    language_config: Option<LanguageConfig>,
+    chunk_size_mb: usize,
+    overlap_size: usize,
+    preserve_whitespace: bool,
+    encoding: &str,
+    py: Python,
+) -> PyResult<iterator::SentenceIterator> {
+    stream::create_stream_iterator(
+        py,
+        input,
+        language,
+        language_config,
+        chunk_size_mb,
+        overlap_size,
+        encoding,
+        preserve_whitespace,
+    )
+}
+
 /// Get list of supported languages
 #[pyfunction]
 fn supported_languages() -> Vec<&'static str> {
@@ -285,6 +325,7 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyProcessorConfig>()?;
     m.add_class::<Sentence>()?;
     m.add_class::<ProcessingMetadata>()?;
+    m.add_class::<iterator::SentenceIterator>()?;
 
     // Language configuration classes
     m.add_class::<LanguageConfig>()?;
@@ -305,6 +346,7 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Main API functions
     m.add_function(pyo3::wrap_pyfunction!(split, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(load, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(stream_split, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(supported_languages, m)?)?;
 
     // Register custom exceptions
