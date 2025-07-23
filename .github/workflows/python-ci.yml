@@ -144,7 +144,7 @@ jobs:
       - name: Run Python tests
         run: |
           cd sakurs-py
-          uv run pytest -v
+          uv run pytest -v --ignore=benchmarks/
       
       - name: Test wheel installation (Unix)
         if: runner.os != 'Windows'
