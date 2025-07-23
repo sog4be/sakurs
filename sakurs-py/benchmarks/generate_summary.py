@@ -170,16 +170,7 @@ def generate_markdown_summary(json_file: str) -> None:
     print("Performance on large text (400-char sample repeated ~183 times):\n")
     print(generate_performance_table(benchmark_data, "japanese", "large"))
 
-    # Summary
-    print("\n## Summary\n")
-    print(
-        "- **sakurs** demonstrates significant performance improvements over existing libraries"
-    )
-    print("- Performance advantage is especially pronounced on larger texts")
-    print(
-        "- The parallel processing capabilities of sakurs provide scalable performance"
-    )
-    print("\n### Test Environment")
+    print("\n## Test Environment")
     print(f"- Python: {data.get('python', 'Unknown')}")
     print(f"- Platform: {data.get('platform', 'Unknown')}")
     print(
