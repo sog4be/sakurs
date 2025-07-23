@@ -2,6 +2,40 @@
 
 This guide explains how to add support for new languages to Sakurs using the configurable language rules system.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+  - [Option 1: External Configuration](#option-1-external-configuration-recommended-for-testing)
+  - [Option 2: Built-in Configuration](#option-2-built-in-configuration-for-contributing)
+- [Configuration File Structure](#configuration-file-structure)
+- [Configuration Sections Explained](#configuration-sections-explained)
+  - [Metadata](#metadata-required)
+  - [Terminators](#terminators-required)
+  - [Ellipsis](#ellipsis-optional)
+  - [Enclosures](#enclosures-optional)
+  - [Suppression](#suppression-optional)
+  - [Abbreviations](#abbreviations-optional)
+- [Registering Your Language](#registering-your-language)
+- [Testing Your Configuration](#testing-your-configuration)
+  - [Testing External Configurations](#testing-external-configurations)
+  - [Unit Tests](#unit-tests)
+  - [Integration Tests](#integration-tests)
+- [Language-Specific Considerations](#language-specific-considerations)
+  - [Character Sets](#character-sets)
+  - [Right-to-Left Languages](#right-to-left-languages)
+  - [Complex Scripts](#complex-scripts)
+- [Performance Tips](#performance-tips)
+- [Examples](#examples)
+  - [Minimal Configuration](#minimal-configuration)
+  - [Full-Featured Configuration](#full-featured-configuration)
+- [Troubleshooting](#troubleshooting)
+  - [Configuration doesn't load](#configuration-doesnt-load)
+  - [Incorrect sentence detection](#incorrect-sentence-detection)
+  - [Performance issues](#performance-issues)
+- [Contributing Your Language](#contributing-your-language)
+- [Need Help?](#need-help)
+
 ## Overview
 
 Sakurs uses a TOML-based configuration system that makes adding new languages straightforward. Language rules are defined declaratively, without requiring any Rust code changes for most use cases.

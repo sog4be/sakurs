@@ -1,5 +1,28 @@
 # Performance Tuning Guide
 
+## Table of Contents
+
+- [Automatic Performance Tuning](#automatic-performance-tuning)
+- [Manual Thread Control](#manual-thread-control)
+- [Chunk Size Tuning](#chunk-size-tuning)
+  - [Chunk Size Guidelines](#chunk-size-guidelines)
+  - [Combining Thread Count and Chunk Size](#combining-thread-count-and-chunk-size)
+- [Performance Profiles](#performance-profiles)
+  - [Small Files (< 256KB)](#small-files--256kb)
+  - [Medium Files (256KB - 10MB)](#medium-files-256kb---10mb)
+  - [Large Files (> 10MB)](#large-files--10mb)
+- [Understanding Thread Count Selection](#understanding-thread-count-selection)
+- [Benchmarking](#benchmarking)
+- [When to Override Automatic Selection](#when-to-override-automatic-selection)
+- [Memory Considerations](#memory-considerations)
+- [Streaming Mode](#streaming-mode)
+- [Performance Tips](#performance-tips)
+- [Profiling](#profiling)
+- [Common Performance Patterns](#common-performance-patterns)
+  - [Fast Processing (News Articles, Logs)](#fast-processing-news-articles-logs)
+  - [Balanced Processing (Books, Documents)](#balanced-processing-books-documents)
+  - [Heavy Processing (Large Corpora)](#heavy-processing-large-corpora)
+
 ## Automatic Performance Tuning
 
 Sakurs automatically optimizes performance based on:
