@@ -44,9 +44,10 @@ test = [
     "hypothesis>=6.0",
 ]
 benchmark = [
-    "pytest-benchmark>=4.0",
-    "spacy>=3.4",
-    "nltk>=3.8",
+    "pytest-benchmark>=4.0.0",
+    "pysbd>=0.3.4",
+    "ja-sentence-segmenter>=0.0.2",
+    "pytest-md-report>=0.5.0",
 ]
 
 [tool.maturin]
@@ -83,6 +84,8 @@ extend-select = [
 "*.pyi" = ["D"]       # Type stubs don't need docstrings
 # Japanese language tests contain fullwidth punctuation which is intentional
 "tests/test_*.py" = ["RUF001", "PLR2004"]  # Allow fullwidth chars and magic numbers in tests
+# Benchmark files allow more relaxed linting
+"benchmarks/*.py" = ["RUF001", "PLR2004", "PLC0415", "F401"]  # Allow fullwidth chars, magic numbers, imports in functions, unused imports
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -111,6 +114,7 @@ exclude = [
     ".venv/",
     "venv/",
     "temp/",
+    "benchmarks/",
 ]
 
 # Per-module configuration

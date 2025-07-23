@@ -1,0 +1,131 @@
+name: Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - 'sakurs-py/**'
+      - '.github/workflows/benchmark.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'sakurs-py/**'
+      - '.github/workflows/benchmark.yml'
+
+jobs:
+  benchmark:
+    name: Run Python Benchmarks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            sakurs-core
+            sakurs-cli
+            sakurs-py
+            
+      - name: Install dependencies
+        run: |
+          cd sakurs-py
+          uv venv
+          uv pip install -e ".[benchmark]"
+          
+      - name: Run benchmarks
+        run: |
+          cd sakurs-py
+          source .venv/bin/activate
+          
+          # Run benchmarks with JSON output
+          pytest benchmarks/ \
+            --benchmark-only \
+            --benchmark-json=benchmark_results.json \
+            --benchmark-columns=min,max,mean,stddev,rounds,iterations \
+            --benchmark-group-by=fullname \
+            --benchmark-sort=name \
+            --benchmark-warmup=on \
+            --benchmark-warmup-iterations=3 \
+            --benchmark-disable-gc \
+            -v
+            
+      - name: Generate markdown summary
+        if: always()
+        run: |
+          cd sakurs-py
+          source .venv/bin/activate
+          
+          echo "# 📊 Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Comparing sakurs performance against other sentence segmentation libraries." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Generate and append the summary
+          python benchmarks/generate_summary.py benchmark_results.json >> $GITHUB_STEP_SUMMARY
+          
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: sakurs-py/benchmark_results.json
+          
+      - name: Comment PR with results (if PR)
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Read the summary file
+            const summaryPath = path.join(process.env.GITHUB_WORKSPACE, 'sakurs-py', 'benchmark_summary.md');
+            
+            // Generate summary
+            const { execSync } = require('child_process');
+            execSync('cd sakurs-py && source .venv/bin/activate && python benchmarks/generate_summary.py benchmark_results.json > benchmark_summary.md', { shell: '/bin/bash' });
+            
+            const summary = fs.readFileSync(summaryPath, 'utf8');
+            
+            // Find or create comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('📊 Benchmark Results')
+            );
+            
+            const body = `📊 **Benchmark Results**\n\n${summary}`;
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }

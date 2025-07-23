@@ -11,6 +11,7 @@ High-performance sentence boundary detection for Python using the Delta-Stack Mo
   - [Classes](#classes)
 - [Supported Languages](#supported-languages)
 - [Performance Tips](#performance-tips)
+- [Benchmarks](#benchmarks)
 - [Error Handling](#error-handling)
 - [Development](#development)
   - [Building from Source](#building-from-source)
@@ -211,6 +212,40 @@ Language configuration for custom rules.
    # For texts with long sentences
    sentences = sakurs.split(text, chunk_size=512*1024)
    ```
+
+## Benchmarks
+
+Sakurs demonstrates significant performance improvements over existing Python sentence segmentation libraries. Benchmarks are run automatically in CI and results are displayed in GitHub Actions job summaries.
+
+### Running Benchmarks Locally
+
+To run performance benchmarks comparing sakurs with other libraries:
+
+```bash
+# Install benchmark dependencies
+pip install -e ".[benchmark]"
+
+# Run all benchmarks
+pytest benchmarks/ --benchmark-only
+
+# Run specific language benchmarks
+pytest benchmarks/test_benchmark_english.py --benchmark-only
+pytest benchmarks/test_benchmark_japanese.py --benchmark-only
+```
+
+### Performance Comparison
+
+Typical performance improvements observed:
+
+- **English (vs PySBD)**: 1.05-1.5x faster on small texts, up to 65x faster on large texts
+- **Japanese (vs ja_sentence_segmenter)**: 2.5-3x faster on small texts, 3-5x faster on large texts
+
+The performance advantage is especially pronounced on larger texts due to sakurs' parallel processing capabilities.
+
+### Benchmark Libraries
+
+- **English**: Compared against [PySBD](https://github.com/nipunsadvilkar/pySBD)
+- **Japanese**: Compared against [ja_sentence_segmenter](https://github.com/wwwcojp/ja_sentence_segmenter)
 
 ## Error Handling
 
