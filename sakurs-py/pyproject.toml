@@ -7,7 +7,7 @@ name = "sakurs"
 description = "Fast, parallel sentence boundary detection using Delta-Stack Monoid algorithm"
 readme = "README.md"
 license = { text = "MIT" }
-authors = [{ name = "Ryo Sogabe", email = "sog4be.ryo@gmail.com" }]
+authors = [{ name = "Ryo Sogabe", email = "163720533+sog4be@users.noreply.github.com" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

@@ -1,5 +1,30 @@
 # Δ-Stack Monoid Algorithm
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Why Monoids?](#why-monoids)
+- [Core Data Structure](#core-data-structure)
+  - [1. Boundaries (B)](#1-boundaries-b)
+  - [2. Delta Stack (Δ) - The Key Innovation](#2-delta-stack-δ---the-key-innovation)
+  - [3. Abbreviation State (A)](#3-abbreviation-state-a)
+- [Monoid Operations](#monoid-operations)
+- [Example: Parallel Boundary Detection](#example-parallel-boundary-detection)
+- [Three-Phase Processing](#three-phase-processing)
+- [Implementation Highlights](#implementation-highlights)
+  - [Map Phase (Per Chunk)](#map-phase-per-chunk)
+  - [Tree Reduction (O(log P))](#tree-reduction-olog-p)
+- [Complex Case Handling](#complex-case-handling)
+  - [Nested Quotations](#nested-quotations)
+  - [Cross-Chunk Abbreviations](#cross-chunk-abbreviations)
+  - [Symmetric Enclosures (Same Open/Close Character)](#symmetric-enclosures-same-openclose-character)
+- [Performance](#performance)
+- [Key Implementation Details](#key-implementation-details)
+  - [UTF-8 Safety](#utf-8-safety)
+  - [Streaming Support](#streaming-support)
+- [Correctness](#correctness)
+- [Summary](#summary)
+
 ## Overview
 
 The Δ-Stack Monoid algorithm enables parallel sentence boundary detection (SBD) by formulating it as an associative monoid operation. This allows text to be processed in chunks across multiple cores while maintaining perfect accuracy—a critical feature for Sakurs' high-performance text segmentation.

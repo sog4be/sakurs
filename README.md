@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-    <em>Fast, safe, and structurally correct — sentence boundary detection that scales.</em>
+    <em>Fast rule-based sentence boundary detection that scales.</em>
 </p>
 
 <p align="center">
@@ -19,6 +19,9 @@
     <a href="https://github.com/sog4be/sakurs">
         <img src="https://img.shields.io/badge/rust-1.81+-orange.svg" alt="Rust Version">
     </a>
+    <a href="https://github.com/sog4be/sakurs/tree/main/sakurs-py">
+        <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python Version">
+    </a>
 </p>
 
 > [!WARNING]
@@ -26,13 +29,51 @@
 > APIs and features may change significantly before the first stable release.
 > We welcome early adopters and contributors to help shape the project!
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+  - [Python](#python)
+  - [Command Line Tool](#command-line-tool)
+- [Quick Start](#quick-start)
+  - [Python API](#python-api)
+  - [Command Line Interface](#command-line-interface)
+- [Python API Documentation](#python-api-documentation)
+- [CLI Documentation](#cli-documentation)
+  - [Output Formats](#output-formats)
+  - [Using External Language Configuration](#using-external-language-configuration)
+  - [Advanced Options](#advanced-options)
+  - [Command Reference](#command-reference)
+  - [Performance Tuning](#performance-tuning)
+  - [CLI Examples](#cli-examples)
+- [Architecture](#architecture)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Features
+
+- **High Performance**: Implemented in Rust with the Δ-Stack Monoid algorithm, enabling true parallel processing that scales efficiently even with large datasets
+- **Multiple Languages**: Built-in support for English and Japanese, easily extensible via TOML configs
+- **Memory Efficient**: Streaming support for processing gigabyte-sized files with constant memory
+
 ## Installation
 
 > **Note**: Sakurs has not yet reached its first stable release (v0.1.0). 
-> Installation from crates.io will be available after the initial release.
+> Installation from package managers will be available after the initial release.
 > For now, please build from source.
 
-### From Source (Recommended for pre-release)
+### Python
+
+```bash
+# Clone and install Python bindings
+git clone https://github.com/sog4be/sakurs.git
+cd sakurs/sakurs-py
+pip install -e .
+
+# Coming soon: pip install sakurs
+```
+
+### Command Line Tool
 
 ```bash
 # Clone the repository
@@ -42,20 +83,37 @@ cd sakurs
 # Build and install the CLI
 cargo install --path sakurs-cli
 
-# Or build without installing
-cargo build --release
-./target/release/sakurs --help
-```
-
-### From crates.io (Coming Soon)
-
-```bash
-cargo install sakurs-cli
+# Coming soon: cargo install sakurs-cli
 ```
 
 ## Quick Start
 
-### Basic Usage
+### Python API
+
+```python
+import sakurs
+
+# Simple sentence splitting
+sentences = sakurs.split("Hello world. This is a test.")
+print(sentences)  # ['Hello world.', 'This is a test.']
+
+# Process files directly
+sentences = sakurs.split("document.txt")
+
+# Japanese text
+sentences = sakurs.split("これは日本語です。テストです。", language="ja")
+
+# Memory-efficient processing for large files
+for sentence in sakurs.split_large_file("huge_corpus.txt", max_memory_mb=50):
+    process(sentence)
+
+# Get detailed output with offsets
+results = sakurs.split(text, return_details=True)
+for sentence in results:
+    print(f"{sentence.text} [{sentence.start}:{sentence.end}]")
+```
+
+### Command Line Interface
 
 ```bash
 # Process a single file
@@ -70,6 +128,12 @@ sakurs process -i input.txt -o sentences.txt
 # Process multiple files with glob pattern
 sakurs process -i "docs/*.txt" -o all_sentences.txt
 ```
+
+## Python API Documentation
+
+For comprehensive Python API documentation, including detailed examples and advanced usage, see the [Python bindings documentation](sakurs-py/README.md).
+
+## CLI Documentation
 
 ### Output Formats
 
@@ -123,9 +187,9 @@ sakurs process -i *.txt --quiet > sentences.txt
 sakurs process -i debug.txt -vv
 ```
 
-## Command Reference
+### Command Reference
 
-### `sakurs process`
+#### `sakurs process`
 
 Process text files to detect sentence boundaries.
 
@@ -143,7 +207,7 @@ Process text files to detect sentence boundaries.
 
 **Note:** `--language` and `--language-config` are mutually exclusive.
 
-### `sakurs validate`
+#### `sakurs validate`
 
 Validate a language configuration file.
 
@@ -155,7 +219,7 @@ sakurs validate --language-config my-language.toml
 **Options:**
 - `-c, --language-config <FILE>` - Path to language configuration file to validate
 
-### `sakurs generate-config`
+#### `sakurs generate-config`
 
 Generate a language configuration template.
 
@@ -168,7 +232,7 @@ sakurs generate-config --language-code fr --output french.toml
 - `-l, --language-code <CODE>` - Language code for the new configuration
 - `-o, --output <FILE>` - Output file path
 
-### `sakurs list`
+#### `sakurs list`
 
 List available components.
 
@@ -180,25 +244,27 @@ sakurs list languages
 sakurs list formats
 ```
 
-## Performance and Configuration
+### Performance Tuning
 
 Sakurs automatically optimizes performance based on text size and available CPU cores. For advanced usage:
-
-- See [PERFORMANCE.md](docs/PERFORMANCE.md) for performance tuning guide
-- See [SHELL_ALIASES.md](docs/SHELL_ALIASES.md) for useful shell aliases and functions
 
 ```bash
 # Manual thread control
 sakurs process -i large.txt --threads 8
+
+# Stream large files with custom chunk size
+sakurs process -i huge.txt --stream --stream-chunk-mb 50
 
 # Common aliases (add to ~/.bashrc or ~/.zshrc)
 alias sakurs-ja='sakurs process -l japanese'
 alias sakurs-json='sakurs process -f json'
 ```
 
-## Examples
+See [PERFORMANCE.md](docs/PERFORMANCE.md) for detailed performance tuning guide.
 
-### Processing Research Papers
+### CLI Examples
+
+#### Processing Research Papers
 
 ```bash
 # Process all PDF-extracted text files
@@ -208,7 +274,7 @@ sakurs process -i "papers/*.txt" -f json -o analysis.json
 sakurs process -i paper.txt | head -n 5
 ```
 
-### Multilingual Document Processing
+#### Multilingual Document Processing
 
 ```bash
 # Process English documents
@@ -218,7 +284,7 @@ sakurs process -i "en/*.txt" -l english -o english_sentences.txt
 sakurs process -i "ja/*.txt" -l japanese -o japanese_sentences.txt
 ```
 
-### Integration with Other Tools
+#### Integration with Other Tools
 
 ```bash
 # Count sentences
@@ -239,12 +305,7 @@ The library consists of three main components:
 - **`sakurs-cli`** - Command-line interface for batch processing
 - **`sakurs-py`** - Python bindings for easy integration
 
-### Key Features
-
-- **Configurable Language Rules**: Languages are defined via TOML configuration files, making it easy to add new languages or customize existing ones (see [Adding Languages](docs/ADDING_LANGUAGES.md))
-- **High Performance**: Parallel processing with near-linear speedup on multicore systems
-- **Memory Efficient**: Streaming support for processing large files with constant memory usage
-- **Extensible**: Clean architecture allows easy addition of new languages and adapters
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for more details.
 
 ## Contributing
 

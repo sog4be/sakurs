@@ -1,5 +1,13 @@
 # Useful Shell Aliases for Sakurs
 
+## Table of Contents
+
+- [Basic Aliases](#basic-aliases)
+- [Advanced Aliases](#advanced-aliases)
+- [Function Examples](#function-examples)
+- [Adding Aliases to Your Shell](#adding-aliases-to-your-shell)
+- [Tips](#tips)
+
 ## Basic Aliases
 
 ```bash

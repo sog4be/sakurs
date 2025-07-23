@@ -1,5 +1,45 @@
 # Architecture Design
 
+## Table of Contents
+
+- [Overview](#overview)
+  - [Why This Architecture?](#why-this-architecture)
+- [System Architecture](#system-architecture)
+  - [Future Architecture (Planned Extensions)](#future-architecture-planned-extensions)
+- [Core Algorithm](#core-algorithm)
+- [Key Design Decisions](#key-design-decisions)
+  - [1. Hexagonal Architecture](#1-hexagonal-architecture)
+  - [2. Rust for Core Implementation](#2-rust-for-core-implementation)
+  - [3. Rayon for Parallelism](#3-rayon-for-parallelism)
+  - [4. Language Rules as Traits with Configuration-Based Implementation](#4-language-rules-as-traits-with-configuration-based-implementation)
+  - [5. Unified Public API](#5-unified-public-api)
+  - [6. Simplified Execution Model](#6-simplified-execution-model)
+- [Component Structure](#component-structure)
+  - [API Layer](#api-layer-srcapi)
+  - [Domain Layer](#domain-layer-srcdomain)
+  - [Application Layer](#application-layer-srcapplication)
+  - [Adapter Layer](#adapter-layer)
+- [Language Configuration System](#language-configuration-system)
+  - [Overview](#overview-1)
+  - [Configuration Structure](#configuration-structure)
+  - [Adding a New Language](#adding-a-new-language)
+  - [Configuration Components](#configuration-components)
+  - [Performance Optimizations](#performance-optimizations)
+- [Performance Characteristics](#performance-characteristics)
+  - [Memory Usage](#memory-usage)
+  - [Time Complexity](#time-complexity)
+  - [Optimization Strategies](#optimization-strategies)
+  - [Planned Optimizations](#planned-optimizations)
+- [Usage Examples](#usage-examples)
+  - [Basic Usage (via API Layer)](#basic-usage-via-api-layer)
+  - [CLI Usage](#cli-usage)
+  - [Python Usage](#python-usage)
+- [FAQ](#faq)
+- [Implementation Status](#implementation-status)
+  - [Current Features (v0.1.0)](#current-features-v010)
+  - [Planned Features](#planned-features)
+- [Contributing](#contributing)
+
 ## Overview
 
 The Delta-Stack Monoid Sentence Boundary Detection (SBD) library is a high-performance, parallel text processing system designed to identify sentence boundaries in multiple languages. This document describes the architecture, design decisions, and extension points to help contributors understand and work with the codebase effectively.
