@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd sakurs-py
-          uv pip install -e ".[benchmark]"
+          uv sync --extra benchmark
           
       - name: Run benchmarks
         run: |
