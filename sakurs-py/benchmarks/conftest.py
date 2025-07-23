@@ -18,6 +18,6 @@ def japanese_text_400():
 @pytest.fixture(scope="session")
 def large_text_multiplier():
     """Multiplier to create large texts for performance testing."""
-    # Adjust this value to ensure tests complete within 10 seconds
-    # This will be calibrated during initial testing
-    return 2500  # Reduced from 25000 to avoid timeout
+    # Adjusted to ensure all benchmarks complete within 30 seconds
+    # The slowest case (PySBD on English text) takes ~28 seconds with this multiplier
+    return 550  # Optimized for <30 second benchmark on slowest case (PySBD)

@@ -154,7 +154,7 @@ def generate_markdown_summary(json_file: str) -> None:
     print(generate_performance_table(benchmark_data, "english", "400_chars"))
 
     print("\n### Large Text Performance\n")
-    print("Performance on large text (400-char sample repeated ~25,000 times):\n")
+    print("Performance on large text (400-char sample repeated 550 times):\n")
     print(generate_performance_table(benchmark_data, "english", "large"))
 
     # Japanese section
@@ -167,7 +167,7 @@ def generate_markdown_summary(json_file: str) -> None:
     print(generate_performance_table(benchmark_data, "japanese", "400_chars"))
 
     print("\n### Large Text Performance\n")
-    print("Performance on large text (400-char sample repeated ~8,333 times):\n")
+    print("Performance on large text (400-char sample repeated ~183 times):\n")
     print(generate_performance_table(benchmark_data, "japanese", "large"))
 
     # Summary
