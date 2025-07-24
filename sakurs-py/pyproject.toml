@@ -32,21 +32,21 @@ Issues = "https://github.com/sog4be/sakurs/issues"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
-    "pytest-benchmark>=4.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0",
+    "ruff~=0.1.0",
+    "mypy~=1.0",
     "types-setuptools",
 ]
 test = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "hypothesis>=6.0",
+    "pytest~=7.0",
+    "pytest-cov~=4.0",
+    "hypothesis~=6.0",
 ]
 benchmark = [
-    "pytest-benchmark>=4.0",
-    "spacy>=3.4",
-    "nltk>=3.8",
+    "pytest~=7.0",
+    "pytest-benchmark~=4.0",
+    "pysbd~=0.3.4",
+    "ja-sentence-segmenter~=0.0.2",
+    "pytest-md-report~=0.5.0",
 ]
 
 [tool.maturin]
@@ -54,14 +54,7 @@ features = ["extension-module"]
 
 [tool.uv]
 dev-dependencies = [
-    "maturin>=1.0",
-    "pytest>=7.0",
-    "pytest-benchmark>=4.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0",
-    "pytest-cov>=4.0",
-    "hypothesis>=6.0",
-    "types-setuptools",
+    "maturin~=1.0",
 ]
 
 [tool.ruff]
@@ -83,6 +76,9 @@ extend-select = [
 "*.pyi" = ["D"]       # Type stubs don't need docstrings
 # Japanese language tests contain fullwidth punctuation which is intentional
 "tests/test_*.py" = ["RUF001", "PLR2004"]  # Allow fullwidth chars and magic numbers in tests
+# Benchmark files allow more relaxed linting
+"benchmarks/*.py" = ["RUF001", "PLR2004", "PLC0415", "F401"]  # Allow fullwidth chars, magic numbers, imports in functions, unused imports
+"benchmarks/generate_summary.py" = ["T201"]  # Allow print statements for summary generation
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -123,13 +119,29 @@ module = "tests.*"
 # Allow untyped defs in tests
 disallow_untyped_defs = false
 disallow_untyped_decorators = false
+# Allow unreachable code for import fallback patterns
+warn_unreachable = false
+
+[[tool.mypy.overrides]]
+module = "benchmarks.*"
+# Benchmarks have more relaxed type checking
+disallow_untyped_defs = true
+disallow_untyped_decorators = false  # Allow pytest fixtures
+check_untyped_defs = true
+warn_return_any = true
 
 [[tool.mypy.overrides]]
 module = [
     "pytest",
+    "pytest.*",
     "pytest_benchmark",
+    "pytest_benchmark.*",
     "hypothesis",
     "setuptools",
     "maturin",
+    "pysbd",
+    "pysbd.*",
+    "ja_sentence_segmenter",
+    "ja_sentence_segmenter.*",
 ]
 ignore_missing_imports = true

@@ -1,0 +1,77 @@
+name: Python Easy Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - 'sakurs-py/**'
+      - '.github/workflows/python-easy-benchmark.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'sakurs-py/**'
+      - '.github/workflows/python-easy-benchmark.yml'
+
+jobs:
+  benchmark:
+    name: Run Python Benchmarks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            sakurs-core
+            sakurs-cli
+            sakurs-py
+            
+      - name: Install dependencies
+        run: |
+          cd sakurs-py
+          uv sync --extra benchmark
+          
+      - name: Run benchmarks
+        run: |
+          cd sakurs-py
+          
+          # Run benchmarks with JSON output
+          uv run pytest benchmarks/ \
+            --benchmark-only \
+            --benchmark-json=benchmark_results.json \
+            --benchmark-columns=min,max,mean,stddev,rounds,iterations \
+            --benchmark-group-by=fullname \
+            --benchmark-sort=name \
+            --benchmark-warmup=on \
+            --benchmark-warmup-iterations=3 \
+            --benchmark-disable-gc \
+            -v
+            
+      - name: Generate markdown summary
+        if: always()
+        run: |
+          cd sakurs-py
+          
+          # Generate and append the summary
+          uv run python benchmarks/generate_summary.py benchmark_results.json >> $GITHUB_STEP_SUMMARY
+          
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: sakurs-py/benchmark_results.json

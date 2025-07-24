@@ -251,6 +251,7 @@ $RECYCLE.BIN/
 /benchmarks/results/
 /benchmarks/cache/
 *.prof
+benchmark_results.json
 
 # Benchmark data cache directories (all cache folders under benchmarks/)
 benchmarks/**/cache/

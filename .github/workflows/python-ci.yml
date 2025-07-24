@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd sakurs-py
-          uv sync --dev
+          uv sync --extra dev --extra test
       
       - name: Check formatting with Ruff
         run: |
@@ -121,7 +121,7 @@ jobs:
       - name: Install dependencies and build wheel
         run: |
           cd sakurs-py
-          uv sync --dev
+          uv sync --extra test
           # Build wheel instead of editable install for consistent behavior
           uv run maturin build --release --features extension-module -o dist
           
@@ -144,7 +144,7 @@ jobs:
       - name: Run Python tests
         run: |
           cd sakurs-py
-          uv run pytest -v
+          uv run pytest -v --ignore=benchmarks/
       
       - name: Test wheel installation (Unix)
         if: runner.os != 'Windows'
