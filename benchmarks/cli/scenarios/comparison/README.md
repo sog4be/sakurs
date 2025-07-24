@@ -13,13 +13,13 @@ Comparison benchmarks provide fair, head-to-head evaluation against industry-sta
 
 ### English: NLTK Punkt
 - **What it is**: Statistical sentence boundary detection from NLTK
-- **Installation**: `pip install nltk` + data download
+- **Installation**: `uv pip install nltk` + data download
 - **Strengths**: Well-established, widely used, good English performance
 - **Use case**: Standard baseline for English sentence segmentation
 
 ### Japanese: ja_sentence_segmenter
 - **What it is**: Rule-based Japanese sentence segmenter
-- **Installation**: `pip install ja-sentence-segmenter`
+- **Installation**: `uv pip install ja-sentence-segmenter`
 - **Strengths**: Designed specifically for Japanese, handles multiple scripts
 - **Use case**: Specialized baseline for Japanese text processing
 
@@ -82,7 +82,7 @@ Execute all comparison scenarios:
 
 ```bash
 # Install baseline tools
-pip install nltk ja-sentence-segmenter
+uv pip install nltk ja-sentence-segmenter
 
 # Download NLTK data
 python -c "import nltk; nltk.download('punkt')"
@@ -203,10 +203,10 @@ All comparison scripts generate:
 python -c "import nltk; nltk.download('punkt', quiet=False)"
 
 # ja_sentence_segmenter not found
-pip install ja-sentence-segmenter
+uv pip install ja-sentence-segmenter
 
 # Version conflicts
-pip list | grep -E "(nltk|ja-sentence-segmenter)"
+uv pip list | grep -E "(nltk|ja-sentence-segmenter)"
 ```
 
 ### Memory Issues

@@ -75,7 +75,7 @@ check_prerequisites() {
     
     if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import nltk") 2>/dev/null; then
         print_error "NLTK not installed"
-        echo "Install with: pip install nltk"
+        echo "Install with: uv pip install nltk"
         missing=1
     fi
     

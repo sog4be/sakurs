@@ -47,7 +47,7 @@ check_prerequisites() {
     # Check if datasets is installed
     if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import datasets") 2>/dev/null; then
         print_error "Python 'datasets' package not installed"
-        echo "Install with: pip install datasets"
+        echo "Install with: uv pip install datasets"
         missing=1
     fi
     

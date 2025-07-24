@@ -60,14 +60,14 @@ check_prerequisites() {
     
     # Check for baseline tools
     if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import nltk") 2>/dev/null; then
-        print_error "NLTK not installed (pip install nltk)"
+        print_error "NLTK not installed (uv pip install nltk)"
         has_errors=1
     else
         print_status "✓ NLTK available"
     fi
     
     if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import ja_sentence_segmenter") 2>/dev/null; then
-        print_error "ja_sentence_segmenter not installed (pip install ja-sentence-segmenter)"
+        print_error "ja_sentence_segmenter not installed (uv pip install ja-sentence-segmenter)"
         has_errors=1
     else
         print_status "✓ ja_sentence_segmenter available"

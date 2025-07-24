@@ -10,7 +10,7 @@ The Brown Corpus is a well-established corpus of American English containing app
 
 1. Install Python dependencies:
 ```bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 2. Download and process the corpus:
