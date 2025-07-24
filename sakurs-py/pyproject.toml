@@ -32,22 +32,21 @@ Issues = "https://github.com/sog4be/sakurs/issues"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
-    "pytest-benchmark>=4.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0",
+    "ruff~=0.1.0",
+    "mypy~=1.0",
     "types-setuptools",
 ]
 test = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "hypothesis>=6.0",
+    "pytest~=7.0",
+    "pytest-cov~=4.0",
+    "hypothesis~=6.0",
 ]
 benchmark = [
-    "pytest-benchmark>=4.0.0",
-    "pysbd>=0.3.4",
-    "ja-sentence-segmenter>=0.0.2",
-    "pytest-md-report>=0.5.0",
+    "pytest~=7.0",
+    "pytest-benchmark~=4.0",
+    "pysbd~=0.3.4",
+    "ja-sentence-segmenter~=0.0.2",
+    "pytest-md-report~=0.5.0",
 ]
 
 [tool.maturin]
@@ -55,14 +54,7 @@ features = ["extension-module"]
 
 [tool.uv]
 dev-dependencies = [
-    "maturin>=1.0",
-    "pytest>=7.0",
-    "pytest-benchmark>=4.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0",
-    "pytest-cov>=4.0",
-    "hypothesis>=6.0",
-    "types-setuptools",
+    "maturin~=1.0",
 ]
 
 [tool.ruff]
@@ -127,6 +119,8 @@ module = "tests.*"
 # Allow untyped defs in tests
 disallow_untyped_defs = false
 disallow_untyped_decorators = false
+# Allow unreachable code for import fallback patterns
+warn_unreachable = false
 
 [[tool.mypy.overrides]]
 module = [
