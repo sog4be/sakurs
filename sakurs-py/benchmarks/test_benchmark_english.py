@@ -13,6 +13,13 @@ class TestEnglishBenchmarks:
         result = benchmark(sakurs.split, english_text_400, language="en")
         assert isinstance(result, list)
         assert len(result) > 0
+
+        # Store segmentation results in benchmark data
+        benchmark.extra_info["segmentation"] = {
+            "sentences": result,
+            "count": len(result),
+        }
+
         return result
 
     def test_pysbd_english_400(self, benchmark, english_text_400):
@@ -21,6 +28,13 @@ class TestEnglishBenchmarks:
         result = benchmark(seg.segment, english_text_400)
         assert isinstance(result, list)
         assert len(result) > 0
+
+        # Store segmentation results in benchmark data
+        benchmark.extra_info["segmentation"] = {
+            "sentences": result,
+            "count": len(result),
+        }
+
         return result
 
     def test_sakurs_english_large(
@@ -49,26 +63,3 @@ class TestEnglishBenchmarks:
 
         # Set a reasonable timeout to prevent hanging
         benchmark.pedantic(seg.segment, args=(large_text,), iterations=1, rounds=3)
-
-    def test_result_comparison_english_400(self, english_text_400):
-        """Compare actual segmentation results between sakurs and PySBD."""
-        # Get results from both libraries
-        sakurs_result = sakurs.split(english_text_400, language="en")
-
-        seg = pysbd.Segmenter(language="en", clean=False)
-        pysbd_result = seg.segment(english_text_400)
-
-        # Store results for comparison (will be used in summary generation)
-        # Note: Results might differ slightly due to different algorithms
-        comparison = {
-            "sakurs_count": len(sakurs_result),
-            "pysbd_count": len(pysbd_result),
-            "sakurs_sentences": sakurs_result,
-            "pysbd_sentences": pysbd_result,
-        }
-
-        # Basic validation
-        assert len(sakurs_result) > 0
-        assert len(pysbd_result) > 0
-
-        return comparison
