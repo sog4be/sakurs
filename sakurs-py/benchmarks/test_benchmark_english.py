@@ -8,6 +8,11 @@ import sakurs
 class TestEnglishBenchmarks:
     """Benchmark tests for English sentence segmentation."""
 
+    def _create_large_text(self, base_text: str, multiplier: int) -> str:
+        """Create large text by repeating with space separation for English."""
+        # Add space between repetitions to avoid word concatenation
+        return " ".join([base_text] * multiplier)
+
     def test_sakurs_english_400(self, benchmark, english_text_400):
         """Benchmark sakurs on 400-character English text."""
         result = benchmark(sakurs.split, english_text_400, language="en")
@@ -41,8 +46,8 @@ class TestEnglishBenchmarks:
         self, benchmark, english_text_400, large_text_multiplier
     ):
         """Benchmark sakurs on large English text."""
-        # Create large text by repeating the sample
-        large_text = english_text_400 * large_text_multiplier
+        # Create large text by repeating the sample with spaces
+        large_text = self._create_large_text(english_text_400, large_text_multiplier)
 
         # Set a reasonable timeout to prevent hanging
         benchmark.pedantic(
@@ -57,8 +62,8 @@ class TestEnglishBenchmarks:
         self, benchmark, english_text_400, large_text_multiplier
     ):
         """Benchmark PySBD on large English text."""
-        # Create large text by repeating the sample
-        large_text = english_text_400 * large_text_multiplier
+        # Create large text by repeating the sample with spaces
+        large_text = self._create_large_text(english_text_400, large_text_multiplier)
         seg = pysbd.Segmenter(language="en", clean=False)
 
         # Set a reasonable timeout to prevent hanging

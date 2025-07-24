@@ -13,6 +13,11 @@ import sakurs
 class TestJapaneseBenchmarks:
     """Benchmark tests for Japanese sentence segmentation."""
 
+    def _create_large_text(self, base_text: str, multiplier: int) -> str:
+        """Create large text by repeating without separator for Japanese."""
+        # Japanese doesn't need spaces between repetitions
+        return base_text * multiplier
+
     def _create_ja_segmenter(self):
         """Create ja_sentence_segmenter pipeline."""
         split_punc = functools.partial(split_punctuation, punctuations=r"。!?")
@@ -59,7 +64,7 @@ class TestJapaneseBenchmarks:
         # Create large text by repeating the sample
         # Use fixed multiplier for Japanese: 200 repetitions
         multiplier = 200
-        large_text = japanese_text_400 * multiplier
+        large_text = self._create_large_text(japanese_text_400, multiplier)
 
         # Set a reasonable timeout to prevent hanging
         benchmark.pedantic(
@@ -77,7 +82,7 @@ class TestJapaneseBenchmarks:
         # Create large text by repeating the sample
         # Use fixed multiplier for Japanese: 200 repetitions
         multiplier = 200
-        large_text = japanese_text_400 * multiplier
+        large_text = self._create_large_text(japanese_text_400, multiplier)
         segmenter = self._create_ja_segmenter()
 
         # Set a reasonable timeout to prevent hanging
