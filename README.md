@@ -68,7 +68,7 @@
 # Clone and install Python bindings
 git clone https://github.com/sog4be/sakurs.git
 cd sakurs/sakurs-py
-pip install -e .
+uv pip install -e .
 
 # Coming soon: pip install sakurs
 ```

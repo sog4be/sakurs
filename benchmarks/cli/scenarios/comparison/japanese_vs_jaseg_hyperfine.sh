@@ -75,7 +75,7 @@ check_prerequisites() {
     
     if ! (cd "$ROOT_DIR/benchmarks" && uv run python -c "import ja_sentence_segmenter") 2>/dev/null; then
         print_error "ja_sentence_segmenter not installed"
-        echo "Install with: pip install ja-sentence-segmenter"
+        echo "Install with: uv pip install ja-sentence-segmenter"
         missing=1
     fi
     

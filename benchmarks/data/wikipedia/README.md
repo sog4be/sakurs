@@ -162,7 +162,7 @@ This implementation replaces our previous custom Wikipedia downloader and parser
 ### Dataset Not Found
 - Check internet connection
 - Verify language code is correct (use ISO 639-1)
-- Ensure datasets library is installed: `pip install datasets>=2.14.0`
+- Ensure datasets library is installed: `uv pip install datasets>=2.14.0`
 
 ### Memory Issues
 - Use streaming mode (already default)

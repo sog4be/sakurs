@@ -27,7 +27,7 @@ For now, build from source:
 ```bash
 git clone https://github.com/sog4be/sakurs.git
 cd sakurs/sakurs-py
-pip install -e .
+uv pip install -e .
 ```
 
 **Requirements**: Python 3.9 or later
@@ -223,7 +223,7 @@ To run performance benchmarks comparing sakurs with other libraries:
 
 ```bash
 # Install benchmark dependencies
-pip install -e ".[benchmark]"
+uv pip install -e ".[benchmark]"
 
 # Run all benchmarks
 pytest benchmarks/ --benchmark-only
@@ -279,7 +279,7 @@ For development, we recommend building and installing wheels rather than using e
 maturin build --release --features extension-module
 
 # Install the wheel (force reinstall to ensure updates)
-pip install --force-reinstall target/wheels/*.whl
+uv pip install --force-reinstall target/wheels/*.whl
 ```
 
 **Important Note**: Avoid using `pip install -e .` or `maturin develop` as they can lead to stale binaries that don't reflect Rust code changes. The editable install mechanism doesn't properly track changes in the compiled Rust extension module.
@@ -288,7 +288,7 @@ pip install --force-reinstall target/wheels/*.whl
 
 1. Make changes to the Rust code
 2. Build the wheel: `maturin build --release --features extension-module`
-3. Install the wheel: `pip install --force-reinstall target/wheels/*.whl`
+3. Install the wheel: `uv pip install --force-reinstall target/wheels/*.whl`
 4. Run tests: `python -m pytest tests/`
 
 For convenience, you can use the Makefile from the project root:
@@ -300,8 +300,8 @@ make py-test # Builds, installs, and runs tests
 ### Troubleshooting
 
 If your changes aren't reflected after rebuilding:
-- Check if you have an editable install: `pip show sakurs` (look for "Editable project location")
-- Uninstall completely: `pip uninstall sakurs -y`
+- Check if you have an editable install: `uv pip show sakurs` (look for "Editable project location")
+- Uninstall completely: `uv pip uninstall sakurs -y`
 - Reinstall from wheel as shown above
 - Use `.venv/bin/python` directly instead of `uv run` to avoid automatic editable install restoration
 
