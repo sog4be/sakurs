@@ -58,7 +58,7 @@
 
 ## Installation
 
-> **Note**: Sakurs has not yet reached its first stable release (v0.1.0). 
+> **Note**: Sakurs has not yet reached its first stable release (v0.1.0-dev). 
 > Installation from package managers will be available after the initial release.
 > For now, please build from source.
 
