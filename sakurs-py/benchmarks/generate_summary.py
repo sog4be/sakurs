@@ -90,15 +90,6 @@ def generate_performance_table(
     sakurs_data = data[sakurs_key]
     other_data = data[other_key]
 
-    # Calculate text size for large tests
-    if test_type == "large":
-        if language == "english":
-            pass
-        else:
-            pass
-    else:
-        pass
-
     table = f"| Metric | sakurs | {other_name} | Ratio |\n"
     table += "|--------|---------|---------|-------|\n"
 
@@ -168,7 +159,7 @@ def generate_markdown_summary(json_file: str) -> None:
     print(generate_performance_table(benchmark_data, "japanese", "400_chars"))
 
     print("\n### Large Text Performance\n")
-    print("Performance on large text (400-char sample repeated ~183 times):\n")
+    print("Performance on large text (Japanese sample repeated ~183 times):\n")
     print(generate_performance_table(benchmark_data, "japanese", "large"))
 
     print("\n## Test Environment")
