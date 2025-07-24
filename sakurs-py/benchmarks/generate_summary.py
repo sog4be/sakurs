@@ -121,7 +121,8 @@ def generate_performance_table(
     table += f"| Min time | {sakurs_min} | {other_min} | - |\n"
     table += f"| Max time | {sakurs_max} | {other_max} | - |\n"
 
-    # Iterations
+    # Rounds and Iterations
+    table += f"| Rounds | {sakurs_data['rounds']} | {other_data['rounds']} | - |\n"
     table += f"| Iterations | {sakurs_data['iterations']} | {other_data['iterations']} | - |\n"
 
     return table
