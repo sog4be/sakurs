@@ -1,8 +1,0 @@
-# This directory contains dynamically generated CLI format files
-# Files are created by running: uv run python cli/scripts/prepare_data.py
-#
-# Generated files:
-# - gsd_plain.txt: Plain text for processing (all sentences concatenated)
-# - gsd_sentences.txt: One sentence per line for evaluation
-#
-# These files are ignored by git but the directory structure is preserved

@@ -62,7 +62,6 @@ jobs:
           echo "🧪 Running tests with coverage instrumentation..."
           # Coverage configuration notes:
           # - Branch coverage requires Rust nightly (not available with stable)
-          # - sakurs-benchmarks is excluded as it contains benchmark code
           # - benchmarks/ directory is excluded via ignore-filename-regex
           # - sakurs-py is excluded because it's a PyO3 extension module that requires
           #   Python runtime and cannot be tested with regular cargo test commands.
@@ -70,9 +69,9 @@ jobs:
           #   as standalone Rust binaries, making them incompatible with cargo test.
           
           if command -v cargo-nextest >/dev/null 2>&1; then
-            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
+            cargo llvm-cov nextest --all-features --workspace --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           else
-            cargo llvm-cov test --all-features --workspace --exclude sakurs-benchmarks --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
+            cargo llvm-cov test --all-features --workspace --exclude sakurs-py --ignore-filename-regex='benchmarks/' --lcov --output-path lcov.info
           fi
           
           echo ""
