@@ -49,8 +49,12 @@ fi
 if [ -d "sakurs-py" ]; then
     echo "🐍 Checking Python code..."
     
-    # Run ruff checks using uv
+    # Ensure dev dependencies are installed for linting/type checking
     if command -v uv >/dev/null 2>&1; then
+        # Temporarily install dev dependencies if needed
+        (cd sakurs-py && uv sync --extra dev >/dev/null 2>&1)
+        
+        # Run ruff checks using uv
         if ! (cd sakurs-py && uv run ruff check .); then
             echo "${RED}❌ Python linting failed!${NC}"
             echo "💡 Run: cd sakurs-py && uv run ruff check --fix ."
@@ -62,17 +66,17 @@ if [ -d "sakurs-py" ]; then
             echo "💡 Run: cd sakurs-py && uv run ruff format ."
             exit 1
         fi
-    else
-        echo "${YELLOW}⚠️  uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}"
-    fi
-    
-    # Run mypy type checks using uv
-    if command -v uv >/dev/null 2>&1; then
-        echo "🔍 Running mypy type checks..."
-        if ! (cd sakurs-py && uv run mypy .); then
-            echo "${RED}❌ Type checking failed!${NC}"
-            echo "💡 Fix type errors reported by mypy"
-            exit 1
+        
+        # Run mypy type checks if not skipped
+        if [ "${SKIP_MYPY:-0}" != "1" ]; then
+            echo "🔍 Running mypy type checks..."
+            if ! (cd sakurs-py && uv run mypy .); then
+                echo "${RED}❌ Type checking failed!${NC}"
+                echo "💡 Fix type errors reported by mypy"
+                exit 1
+            fi
+        else
+            echo "⏭️  Skipping mypy checks (SKIP_MYPY=1)"
         fi
     else
         echo "${YELLOW}⚠️  uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}"
