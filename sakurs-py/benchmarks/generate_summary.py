@@ -2,17 +2,35 @@
 """Generate markdown summary from pytest-benchmark JSON results."""
 
 import json
-import os
 import sys
-from typing import Any
+from typing import Any, Final
+
+# Constants for time formatting thresholds
+MICROSECOND_THRESHOLD: Final[float] = 0.001
+MILLISECOND_THRESHOLD: Final[float] = 1.0
+MICROSECOND_MULTIPLIER: Final[int] = 1_000_000
+MILLISECOND_MULTIPLIER: Final[int] = 1_000
+
+# Constants for benchmark data processing
+ENGLISH_LANGUAGE_KEY: Final[str] = "english"
+JAPANESE_LANGUAGE_KEY: Final[str] = "japanese"
+SAKURS_LIBRARY_KEY: Final[str] = "sakurs"
+PYSBD_LIBRARY_KEY: Final[str] = "pysbd"
+JA_SEGMENTER_LIBRARY_KEY: Final[str] = "ja_segmenter"
+TEST_400_CHARS_KEY: Final[str] = "400_chars"
+TEST_LARGE_KEY: Final[str] = "large"
+
+# Multipliers for large text tests
+ENGLISH_LARGE_MULTIPLIER: Final[int] = 550
+JAPANESE_LARGE_MULTIPLIER: Final[int] = 200
 
 
 def format_time(seconds: float) -> str:
     """Format time in appropriate units."""
-    if seconds < 0.001:
-        return f"{seconds * 1_000_000:.2f} μs"
-    elif seconds < 1:
-        return f"{seconds * 1_000:.2f} ms"
+    if seconds < MICROSECOND_THRESHOLD:
+        return f"{seconds * MICROSECOND_MULTIPLIER:.2f} μs"
+    elif seconds < MILLISECOND_THRESHOLD:
+        return f"{seconds * MILLISECOND_MULTIPLIER:.2f} ms"
     else:
         return f"{seconds:.2f} s"
 
@@ -32,30 +50,30 @@ def extract_benchmark_data(
     benchmarks: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
     """Extract and organize benchmark data by test name."""
-    data = {}
+    data: dict[str, dict[str, Any]] = {}
     for benchmark in benchmarks:
         name = benchmark["name"]
         # Extract library name and test type from test name
-        if "sakurs" in name:
-            library = "sakurs"
-        elif "pysbd" in name:
-            library = "pysbd"
-        elif "ja_segmenter" in name:
-            library = "ja_segmenter"
+        if SAKURS_LIBRARY_KEY in name:
+            library = SAKURS_LIBRARY_KEY
+        elif PYSBD_LIBRARY_KEY in name:
+            library = PYSBD_LIBRARY_KEY
+        elif JA_SEGMENTER_LIBRARY_KEY in name:
+            library = JA_SEGMENTER_LIBRARY_KEY
         else:
             continue
 
         if "400" in name:
-            test_type = "400_chars"
+            test_type = TEST_400_CHARS_KEY
         elif "large" in name:
-            test_type = "large"
+            test_type = TEST_LARGE_KEY
         else:
             continue
 
-        if "english" in name:
-            language = "english"
-        elif "japanese" in name:
-            language = "japanese"
+        if ENGLISH_LANGUAGE_KEY in name:
+            language = ENGLISH_LANGUAGE_KEY
+        elif JAPANESE_LANGUAGE_KEY in name:
+            language = JAPANESE_LANGUAGE_KEY
         else:
             continue
 
@@ -80,13 +98,13 @@ def generate_performance_table(
     data: dict[str, dict[str, Any]], language: str, test_type: str
 ) -> str:
     """Generate performance comparison table."""
-    sakurs_key = f"{language}_{test_type}_sakurs"
+    sakurs_key = f"{language}_{test_type}_{SAKURS_LIBRARY_KEY}"
 
-    if language == "english":
-        other_key = f"{language}_{test_type}_pysbd"
+    if language == ENGLISH_LANGUAGE_KEY:
+        other_key = f"{language}_{test_type}_{PYSBD_LIBRARY_KEY}"
         other_name = "PySBD"
     else:
-        other_key = f"{language}_{test_type}_ja_segmenter"
+        other_key = f"{language}_{test_type}_{JA_SEGMENTER_LIBRARY_KEY}"
         other_name = "ja_sentence_segmenter"
 
     if sakurs_key not in data or other_key not in data:
@@ -148,81 +166,109 @@ def format_sentences_comparison(segmentation_data: dict[str, dict[str, Any]]) ->
     return output
 
 
-def generate_markdown_summary(json_file: str) -> None:
+def generate_markdown_summary(json_file: str) -> str:
     """Generate markdown summary from benchmark results."""
     with open(json_file) as f:
         data = json.load(f)
 
     benchmarks = data.get("benchmarks", [])
     if not benchmarks:
-        print("No benchmark data found!")
-        return
+        return "No benchmark data found!"
 
     # Extract benchmark data
     benchmark_data = extract_benchmark_data(benchmarks)
 
-    # Generate markdown
-    print("# Benchmark Results\n")
-    print(
+    # Build markdown output as a single string
+    output_lines: list[str] = []
+
+    # Header
+    output_lines.append("# Benchmark Results\n")
+    output_lines.append(
         "Performance comparison of sakurs against other popular sentence segmentation libraries.\n"
     )
 
     # English section
-    print("## English Sentence Segmentation\n")
-    print("Comparing sakurs against PySBD for English text processing.\n")
+    output_lines.append("## English Sentence Segmentation\n")
+    output_lines.append("Comparing sakurs against PySBD for English text processing.\n")
 
-    print("### 400 Character Text Performance\n")
-    print(generate_performance_table(benchmark_data, "english", "400_chars"))
+    output_lines.append("### 400 Character Text Performance\n")
+    output_lines.append(
+        generate_performance_table(
+            benchmark_data, ENGLISH_LANGUAGE_KEY, TEST_400_CHARS_KEY
+        )
+    )
 
     # Extract segmentation results for English 400-char tests
-    english_400_data = {}
-    for lib in ["sakurs", "pysbd"]:
-        key = f"english_400_chars_{lib}"
+    english_400_data: dict[str, dict[str, Any]] = {}
+    for lib in [SAKURS_LIBRARY_KEY, PYSBD_LIBRARY_KEY]:
+        key = f"{ENGLISH_LANGUAGE_KEY}_{TEST_400_CHARS_KEY}_{lib}"
         if key in benchmark_data and "extra_info" in benchmark_data[key]:
             english_400_data[lib] = benchmark_data[key]["extra_info"]
 
     if english_400_data:
-        print(format_sentences_comparison(english_400_data))
+        output_lines.append(format_sentences_comparison(english_400_data))
 
-    print("\n### Large Text Performance\n")
-    print("Performance on large text (400-char sample repeated 550 times):\n")
-    print(generate_performance_table(benchmark_data, "english", "large"))
+    output_lines.append("\n### Large Text Performance\n")
+    output_lines.append(
+        f"Performance on large text (400-char sample repeated {ENGLISH_LARGE_MULTIPLIER} times):\n"
+    )
+    output_lines.append(
+        generate_performance_table(benchmark_data, ENGLISH_LANGUAGE_KEY, TEST_LARGE_KEY)
+    )
 
     # Japanese section
-    print("\n## Japanese Sentence Segmentation\n")
-    print(
+    output_lines.append("\n## Japanese Sentence Segmentation\n")
+    output_lines.append(
         "Comparing sakurs against ja_sentence_segmenter for Japanese text processing.\n"
     )
 
-    print("### 400 Character Text Performance\n")
-    print(generate_performance_table(benchmark_data, "japanese", "400_chars"))
+    output_lines.append("### 400 Character Text Performance\n")
+    output_lines.append(
+        generate_performance_table(
+            benchmark_data, JAPANESE_LANGUAGE_KEY, TEST_400_CHARS_KEY
+        )
+    )
 
     # Extract segmentation results for Japanese 400-char tests
-    japanese_400_data = {}
-    for lib in ["sakurs", "ja_segmenter"]:
-        key = f"japanese_400_chars_{lib}"
+    japanese_400_data: dict[str, dict[str, Any]] = {}
+    for lib in [SAKURS_LIBRARY_KEY, JA_SEGMENTER_LIBRARY_KEY]:
+        key = f"{JAPANESE_LANGUAGE_KEY}_{TEST_400_CHARS_KEY}_{lib}"
         if key in benchmark_data and "extra_info" in benchmark_data[key]:
             japanese_400_data[lib] = benchmark_data[key]["extra_info"]
 
     if japanese_400_data:
-        print(format_sentences_comparison(japanese_400_data))
+        output_lines.append(format_sentences_comparison(japanese_400_data))
 
-    print("\n### Large Text Performance\n")
-    print("Performance on large text (Japanese sample repeated 200 times):\n")
-    print(generate_performance_table(benchmark_data, "japanese", "large"))
+    output_lines.append("\n### Large Text Performance\n")
+    output_lines.append(
+        f"Performance on large text (Japanese sample repeated {JAPANESE_LARGE_MULTIPLIER} times):\n"
+    )
+    output_lines.append(
+        generate_performance_table(
+            benchmark_data, JAPANESE_LANGUAGE_KEY, TEST_LARGE_KEY
+        )
+    )
 
-    print("\n## Test Environment")
-    print(f"- Python: {data.get('python', 'Unknown')}")
-    print(f"- Platform: {data.get('platform', 'Unknown')}")
-    print(
+    output_lines.append("\n## Test Environment")
+    output_lines.append(f"- Python: {data.get('python', 'Unknown')}")
+    output_lines.append(f"- Platform: {data.get('platform', 'Unknown')}")
+    output_lines.append(
         f"- CPU: {data.get('machine_info', {}).get('cpu', {}).get('brand_raw', 'Unknown')}"
     )
-    print(f"- Date: {data.get('datetime', 'Unknown')}")
+    output_lines.append(f"- Date: {data.get('datetime', 'Unknown')}")
+
+    return "\n".join(output_lines)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Main entry point for the script."""
     if len(sys.argv) != 2:
         print("Usage: python generate_summary.py <benchmark_results.json>")
         sys.exit(1)
 
-    generate_markdown_summary(sys.argv[1])
+    summary = generate_markdown_summary(sys.argv[1])
+    print(summary)
+
+
+if __name__ == "__main__":
+    main()
