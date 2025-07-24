@@ -233,15 +233,6 @@ pytest benchmarks/test_benchmark_english.py --benchmark-only
 pytest benchmarks/test_benchmark_japanese.py --benchmark-only
 ```
 
-### Performance Comparison
-
-Typical performance improvements observed:
-
-- **English (vs PySBD)**: 1.05-1.5x faster on small texts, up to 65x faster on large texts
-- **Japanese (vs ja_sentence_segmenter)**: 2.5-3x faster on small texts, 3-5x faster on large texts
-
-The performance advantage is especially pronounced on larger texts due to sakurs' parallel processing capabilities.
-
 ### Benchmark Libraries
 
 - **English**: Compared against [PySBD](https://github.com/nipunsadvilkar/pySBD)
