@@ -5,7 +5,7 @@
 use crate::exceptions::InternalError;
 use crate::input::PyInput;
 use crate::language_config::LanguageConfig;
-use crate::types::{PyProcessingResult, PyProcessorConfig};
+use crate::types::PyProcessingResult;
 use pyo3::prelude::*;
 use sakurs_core::{Config, SentenceProcessor};
 
@@ -14,7 +14,8 @@ use sakurs_core::{Config, SentenceProcessor};
 pub struct PyProcessor {
     processor: SentenceProcessor,
     language: String,
-    config: PyProcessorConfig,
+    chunk_size: usize,
+    num_threads: Option<usize>,
     #[allow(dead_code)]
     custom_config: bool, // Track if using custom language config
 }
@@ -35,7 +36,6 @@ impl PyProcessor {
         stream_chunk_mb: usize,
         py: Python,
     ) -> PyResult<Self> {
-        // Create Python config for internal use
         // Convert KB/MB to bytes
         let chunk_size_bytes = if let Some(kb) = chunk_kb {
             kb * 1024
@@ -44,13 +44,6 @@ impl PyProcessor {
         } else {
             256 * 1024 // Default 256KB (256 * 1024 bytes)
         };
-
-        let py_config = PyProcessorConfig::new(
-            chunk_size_bytes,
-            256, // overlap_size
-            threads,
-            1024 * 1024, // parallel_threshold (1MB)
-        );
 
         // Build Rust configuration and optionally custom language rules
         let (mut config_builder, language_display, is_custom, custom_rules) =
@@ -118,8 +111,8 @@ impl PyProcessor {
         config_builder = config_builder.chunk_size(chunk_size_bytes);
 
         config_builder = config_builder
-            .parallel_threshold(py_config.parallel_threshold)
-            .overlap_size(py_config.overlap_size);
+            .parallel_threshold(1024 * 1024) // 1MB
+            .overlap_size(256);
 
         let rust_config = config_builder
             .build()
@@ -137,7 +130,8 @@ impl PyProcessor {
         Ok(Self {
             processor,
             language: language_display,
-            config: py_config,
+            chunk_size: chunk_size_bytes,
+            num_threads: threads,
             custom_config: is_custom,
         })
     }
@@ -223,8 +217,8 @@ impl PyProcessor {
             input,
             language,
             None, // language_config already in processor
-            self.config.num_threads,
-            Some(self.config.chunk_size),
+            self.num_threads,
+            Some(self.chunk_size),
             encoding,
         )
     }
@@ -246,10 +240,10 @@ impl PyProcessor {
     }
 
     fn __repr__(&self) -> String {
-        let chunk_kb = self.config.chunk_size / 1024;
+        let chunk_kb = self.chunk_size / 1024;
         format!(
             "SentenceSplitter(language='{}', threads={:?}, chunk_kb={})",
-            self.language, self.config.num_threads, chunk_kb
+            self.language, self.num_threads, chunk_kb
         )
     }
 }

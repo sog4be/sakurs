@@ -70,24 +70,6 @@ class ProcessingMetadata:
     ) -> None: ...
     def __repr__(self) -> str: ...
 
-# Configuration
-class ProcessorConfig:
-    """Configuration for text processing."""
-
-    chunk_size: int
-    overlap_size: int
-    num_threads: int | None
-    parallel_threshold: int
-
-    def __init__(
-        self,
-        chunk_size: int = 262144,  # 256KB
-        overlap_size: int = 256,
-        num_threads: int | None = None,
-        parallel_threshold: int = 1048576,  # 1MB
-    ) -> None: ...
-    def __repr__(self) -> str: ...
-
 # Language Configuration Classes
 class MetadataConfig:
     """Metadata configuration for a language."""

@@ -62,21 +62,6 @@ class TestParameterValidation:
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
-    def test_processor_config_float_parameters(self):
-        """Test that ProcessorConfig with float parameters raises TypeError."""
-        # ProcessorConfig uses different parameter names
-        config = sakurs.ProcessorConfig()
-
-        # Test setting float values to integer properties
-        with pytest.raises(TypeError) as exc_info:
-            config.num_threads = 2.5  # type: ignore
-
-        # The error might be different for property setters
-        assert (
-            "int" in str(exc_info.value).lower()
-            or "float" in str(exc_info.value).lower()
-        )
-
     def test_valid_integer_parameters(self):
         """Test that integer parameters work correctly."""
         # These should work without errors

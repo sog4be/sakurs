@@ -24,7 +24,6 @@ use output::{boundaries_to_sentences_with_char_offsets, ProcessingMetadata, Sent
 use processor::PyProcessor;
 use sakurs_core::{Config, SentenceProcessor};
 use std::time::Instant;
-use types::PyProcessorConfig;
 
 /// Split text into sentences
 ///
@@ -368,7 +367,6 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Core classes
     m.add_class::<PyProcessor>()?;
-    m.add_class::<PyProcessorConfig>()?;
     m.add_class::<Sentence>()?;
     m.add_class::<ProcessingMetadata>()?;
     m.add_class::<iterator::SentenceIterator>()?;
@@ -411,7 +409,6 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Aliases for compatibility
     m.add("Processor", py.get_type::<PyProcessor>())?;
-    m.add("ProcessorConfig", py.get_type::<PyProcessorConfig>())?;
 
     Ok(())
 }
