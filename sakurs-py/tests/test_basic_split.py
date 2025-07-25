@@ -199,9 +199,9 @@ class TestSplitFunction:
         # Since Japanese doesn't typically have spaces between sentences, trimming doesn't affect the text
         for i, sent in enumerate(result):
             # For Japanese without spaces, trimmed text equals original slice
-            assert text[sent.start : sent.end] == sent.text, (
-                f"Sentence {i}: slice matches text for Japanese"
-            )
+            assert (
+                text[sent.start : sent.end] == sent.text
+            ), f"Sentence {i}: slice matches text for Japanese"
 
     def test_preserve_whitespace_option(self):
         """Test preserve_whitespace=True option."""

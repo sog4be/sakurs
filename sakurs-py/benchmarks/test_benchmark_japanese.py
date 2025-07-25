@@ -13,13 +13,13 @@ from pytest_benchmark.fixture import BenchmarkFixture
 import sakurs
 
 
-@pytest.fixture
+@pytest.fixture()
 def sakurs_processor_ja() -> sakurs.SentenceSplitter:
     """Create and reuse sakurs Japanese processor."""
     return sakurs.load("ja")
 
 
-@pytest.fixture
+@pytest.fixture()
 def ja_segmenter() -> Callable[[str], list[str]]:
     """Create and reuse ja_sentence_segmenter pipeline."""
     split_punc = functools.partial(split_punctuation, punctuations=r"。!?")
@@ -34,9 +34,9 @@ def ja_segmenter() -> Callable[[str], list[str]]:
 # Benchmark configuration constants
 LARGE_TEXT_ITERATIONS: Final[int] = 1
 LARGE_TEXT_ROUNDS: Final[int] = 3
-JAPANESE_LARGE_MULTIPLIER: Final[int] = (
-    200  # Fixed multiplier for Japanese large text tests
-)
+JAPANESE_LARGE_MULTIPLIER: Final[
+    int
+] = 200  # Fixed multiplier for Japanese large text tests
 
 
 class TestJapaneseBenchmarks:
