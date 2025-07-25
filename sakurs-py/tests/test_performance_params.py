@@ -52,7 +52,7 @@ class TestPerformanceParameters:
 
     def test_processor_with_performance_params(self):
         """Test Processor initialization with performance parameters."""
-        processor = sakurs.Processor(
+        processor = sakurs.SentenceSplitter(
             language="en", threads=2, chunk_size=512, execution_mode="parallel"
         )
         assert processor.language == "en"
@@ -61,13 +61,13 @@ class TestPerformanceParameters:
 
     def test_processor_context_manager(self):
         """Test Processor as context manager."""
-        with sakurs.Processor(language="en") as processor:
+        with sakurs.SentenceSplitter(language="en") as processor:
             sentences = processor.split("Hello world. How are you?")
             assert len(sentences) == 2
 
     def test_processor_with_return_details(self):
         """Test Processor.split with return_details=True."""
-        processor = sakurs.Processor(language="en")
+        processor = sakurs.SentenceSplitter(language="en")
         sentences = processor.split("Hello world. How are you?", return_details=True)
         assert len(sentences) == 2
         assert hasattr(sentences[0], "text")
@@ -82,9 +82,9 @@ class TestPerformanceParameters:
 
     def test_processor_repr(self):
         """Test Processor string representation."""
-        processor = sakurs.Processor(language="en", threads=4, chunk_size=1024)
+        processor = sakurs.SentenceSplitter(language="en", threads=4, chunk_size=1024)
         repr_str = repr(processor)
-        assert "Processor" in repr_str
+        assert "SentenceSplitter" in repr_str
         assert "language='en'" in repr_str
         assert "threads" in repr_str
         assert "chunk_size" in repr_str
@@ -95,7 +95,7 @@ class TestProcessorStreamingConfig:
 
     def test_processor_streaming_mode(self):
         """Test Processor with streaming mode enabled."""
-        processor = sakurs.Processor(
+        processor = sakurs.SentenceSplitter(
             language="en",
             streaming=True,
             stream_chunk_size=1024 * 1024,  # 1MB
@@ -105,7 +105,7 @@ class TestProcessorStreamingConfig:
 
     def test_processor_default_streaming_disabled(self):
         """Test that streaming is disabled by default."""
-        processor = sakurs.Processor(language="en")
+        processor = sakurs.SentenceSplitter(language="en")
         # Should use default chunk size, not streaming chunk size
         sentences = processor.split("Hello world. How are you?")
         assert len(sentences) == 2

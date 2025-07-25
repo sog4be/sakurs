@@ -294,14 +294,14 @@ class TestLoadFunction:
     def test_load_processor(self):
         """Test loading a processor."""
         processor = sakurs.load("en")
-        assert isinstance(processor, sakurs.Processor)
+        assert isinstance(processor, sakurs.SentenceSplitter)
         assert processor.language == "en"
         assert processor.supports_parallel is True
 
     def test_load_with_parameters(self):
         """Test loading with performance parameters."""
         processor = sakurs.load("ja", threads=4, chunk_size=1024)
-        assert isinstance(processor, sakurs.Processor)
+        assert isinstance(processor, sakurs.SentenceSplitter)
         assert processor.language == "ja"
 
     def test_processor_split(self):

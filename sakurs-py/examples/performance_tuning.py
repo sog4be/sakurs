@@ -6,7 +6,9 @@ import time
 import sakurs
 
 
-def benchmark_split(text: str, processor: sakurs.Processor, name: str) -> list[str]:
+def benchmark_split(
+    text: str, processor: sakurs.SentenceSplitter, name: str
+) -> list[str]:
     """Benchmark sentence splitting and return results."""
     start = time.perf_counter()
     sentences = processor.split(text)
@@ -36,35 +38,35 @@ def main() -> None:
     print("-" * 70)
 
     # Default configuration
-    default_processor = sakurs.Processor(language="en")
+    default_processor = sakurs.SentenceSplitter(language="en")
     benchmark_split(base_text, default_processor, "Default")
 
     # Small chunks (more overhead, but may be better for memory)
-    small_processor = sakurs.Processor(
+    small_processor = sakurs.SentenceSplitter(
         language="en", chunk_size=4096, execution_mode="adaptive"
     )
     benchmark_split(base_text, small_processor, "Small chunks")
 
     # Large chunks (less overhead for long texts)
-    large_processor = sakurs.Processor(
+    large_processor = sakurs.SentenceSplitter(
         language="en", chunk_size=32768, execution_mode="adaptive"
     )
     benchmark_split(base_text, large_processor, "Large chunks")
 
     # Sequential mode (single-threaded)
-    sequential_processor = sakurs.Processor(
+    sequential_processor = sakurs.SentenceSplitter(
         language="en", chunk_size=8192, execution_mode="sequential"
     )
     benchmark_split(base_text, sequential_processor, "Sequential")
 
     # Parallel mode with 4 threads
-    parallel_processor = sakurs.Processor(
+    parallel_processor = sakurs.SentenceSplitter(
         language="en", chunk_size=8192, threads=4, execution_mode="parallel"
     )
     benchmark_split(base_text, parallel_processor, "Parallel (4 threads)")
 
     # Streaming mode (for large files)
-    streaming_processor = sakurs.Processor(
+    streaming_processor = sakurs.SentenceSplitter(
         language="en",
         streaming=True,
         stream_chunk_size=1024 * 1024,  # 1MB

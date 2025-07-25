@@ -10,7 +10,7 @@ import sakurs
 
 
 @pytest.fixture()
-def sakurs_processor_en() -> sakurs.Processor:
+def sakurs_processor_en() -> Any:
     """Create and reuse sakurs English processor."""
     return sakurs.load("en")
 
@@ -38,7 +38,7 @@ class TestEnglishBenchmarks:
         self,
         benchmark: BenchmarkFixture,
         english_text_400: str,
-        sakurs_processor_en: sakurs.Processor,
+        sakurs_processor_en: Any,
     ) -> list[str]:
         """Benchmark sakurs on 400-character English text."""
         result = benchmark(sakurs_processor_en.split, english_text_400)
@@ -77,7 +77,7 @@ class TestEnglishBenchmarks:
         benchmark: BenchmarkFixture,
         english_text_400: str,
         large_text_multiplier: int,
-        sakurs_processor_en: sakurs.Processor,
+        sakurs_processor_en: Any,
     ) -> None:
         """Benchmark sakurs on large English text."""
         # Create large text by repeating the sample with spaces

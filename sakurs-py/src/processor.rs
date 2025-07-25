@@ -9,8 +9,8 @@ use crate::types::{PyProcessingResult, PyProcessorConfig};
 use pyo3::prelude::*;
 use sakurs_core::{Config, SentenceProcessor};
 
-/// Main processor class for sentence boundary detection
-#[pyclass]
+/// Main sentence splitter class for sentence boundary detection
+#[pyclass(name = "SentenceSplitter")]
 pub struct PyProcessor {
     processor: SentenceProcessor,
     language: String,
@@ -246,7 +246,7 @@ impl PyProcessor {
 
     fn __repr__(&self) -> String {
         format!(
-            "Processor(language='{}', threads={:?}, chunk_size={})",
+            "SentenceSplitter(language='{}', threads={:?}, chunk_size={})",
             self.language, self.config.num_threads, self.config.chunk_size
         )
     }

@@ -1,4 +1,4 @@
-"""Test Processor class functionality."""
+"""Test SentenceSplitter class functionality."""
 
 import io
 import tempfile
@@ -10,22 +10,22 @@ import sakurs
 
 
 class TestProcessorBasics:
-    """Test basic Processor functionality."""
+    """Test basic SentenceSplitter functionality."""
 
     def test_processor_creation(self):
         """Test creating a processor with default settings."""
-        processor = sakurs.Processor()
+        processor = sakurs.SentenceSplitter()
         assert processor.language == "en"
         assert processor.supports_parallel is True
 
     def test_processor_with_language(self):
         """Test creating a processor with specific language."""
-        processor = sakurs.Processor(language="ja")
+        processor = sakurs.SentenceSplitter(language="ja")
         assert processor.language == "ja"
 
     def test_processor_split_text(self):
         """Test splitting text with processor."""
-        processor = sakurs.Processor(language="en")
+        processor = sakurs.SentenceSplitter(language="en")
         sentences = processor.split("Hello world. How are you?")
         assert len(sentences) == 2
         assert sentences[0] == "Hello world."
@@ -38,7 +38,7 @@ class TestProcessorBasics:
             temp_path = f.name
 
         try:
-            processor = sakurs.Processor()
+            processor = sakurs.SentenceSplitter()
             sentences = processor.split(temp_path)
             assert len(sentences) == 2
             assert sentences[0] == "First sentence."
@@ -52,7 +52,7 @@ class TestProcessorBasics:
             temp_path = Path(f.name)
 
         try:
-            processor = sakurs.Processor()
+            processor = sakurs.SentenceSplitter()
             sentences = processor.split(temp_path)
             assert len(sentences) == 2
         finally:
@@ -61,14 +61,14 @@ class TestProcessorBasics:
     def test_processor_split_file_like(self):
         """Test splitting file-like object with processor."""
         text_io = io.StringIO("Hello world. How are you?")
-        processor = sakurs.Processor()
+        processor = sakurs.SentenceSplitter()
         sentences = processor.split(text_io)
         assert len(sentences) == 2
 
     def test_processor_with_different_encodings(self):
         """Test processor with different text encodings."""
         # UTF-8 text
-        processor = sakurs.Processor()
+        processor = sakurs.SentenceSplitter()
         text = "Hello world. こんにちは。"
         sentences = processor.split(text)
         assert len(sentences) >= 2
@@ -76,7 +76,7 @@ class TestProcessorBasics:
     def test_load_function(self):
         """Test load() factory function."""
         processor = sakurs.load("en")
-        assert isinstance(processor, sakurs.Processor)
+        assert isinstance(processor, sakurs.SentenceSplitter)
         assert processor.language == "en"
 
     def test_load_with_params(self):
@@ -87,25 +87,25 @@ class TestProcessorBasics:
 
 
 class TestProcessorAdvanced:
-    """Test advanced Processor functionality."""
+    """Test advanced SentenceSplitter functionality."""
 
     def test_processor_context_manager_normal(self):
-        """Test Processor as context manager - normal case."""
-        with sakurs.Processor(language="en") as proc:
+        """Test SentenceSplitter as context manager - normal case."""
+        with sakurs.SentenceSplitter(language="en") as proc:
             sentences = proc.split("Hello. World.")
             assert len(sentences) == 2
 
     def test_processor_context_manager_with_exception(self):
-        """Test Processor as context manager - exception case."""
+        """Test SentenceSplitter as context manager - exception case."""
         with pytest.raises(ValueError, match="Test exception"):  # noqa: SIM117
-            with sakurs.Processor():
+            with sakurs.SentenceSplitter():
                 # Force an exception
                 raise ValueError("Test exception")
 
     def test_processor_multiple_languages(self):
         """Test creating processors for different languages."""
-        en_proc = sakurs.Processor(language="en")
-        ja_proc = sakurs.Processor(language="ja")
+        en_proc = sakurs.SentenceSplitter(language="en")
+        ja_proc = sakurs.SentenceSplitter(language="ja")
 
         assert en_proc.language == "en"
         assert ja_proc.language == "ja"
@@ -113,30 +113,30 @@ class TestProcessorAdvanced:
     def test_processor_invalid_language(self):
         """Test processor with invalid language."""
         with pytest.raises(sakurs.InvalidLanguageError):
-            sakurs.Processor(language="invalid")
+            sakurs.SentenceSplitter(language="invalid")
 
     def test_processor_execution_modes(self):
         """Test different execution modes."""
         text = "Sentence one. Sentence two. Sentence three."
 
         # Sequential mode
-        proc_seq = sakurs.Processor(execution_mode="sequential")
+        proc_seq = sakurs.SentenceSplitter(execution_mode="sequential")
         sentences = proc_seq.split(text)
         assert len(sentences) == 3
 
         # Parallel mode
-        proc_par = sakurs.Processor(execution_mode="parallel", threads=2)
+        proc_par = sakurs.SentenceSplitter(execution_mode="parallel", threads=2)
         sentences = proc_par.split(text)
         assert len(sentences) == 3
 
         # Adaptive mode (default)
-        proc_adapt = sakurs.Processor(execution_mode="adaptive")
+        proc_adapt = sakurs.SentenceSplitter(execution_mode="adaptive")
         sentences = proc_adapt.split(text)
         assert len(sentences) == 3
 
     def test_processor_performance_params(self):
         """Test processor with various performance parameters."""
-        processor = sakurs.Processor(
+        processor = sakurs.SentenceSplitter(
             language="en", threads=4, chunk_size=1024, execution_mode="parallel"
         )
 

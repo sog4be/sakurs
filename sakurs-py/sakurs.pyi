@@ -273,8 +273,8 @@ class LanguageConfig:
     def to_toml(self, path: Path | str) -> None: ...
     def __repr__(self) -> str: ...
 
-class Processor:
-    """Main processor for sentence boundary detection."""
+class SentenceSplitter:
+    """Main sentence splitter for sentence boundary detection."""
 
     def __init__(
         self,
@@ -314,7 +314,7 @@ class Processor:
     def language(self) -> str: ...
     @property
     def supports_parallel(self) -> bool: ...
-    def __enter__(self) -> Processor: ...
+    def __enter__(self) -> SentenceSplitter: ...
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
@@ -358,8 +358,8 @@ def load(
     threads: int | None = None,
     chunk_size: int | None = None,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
-) -> Processor:
-    """Load a processor for a specific language."""
+) -> SentenceSplitter:
+    """Load a sentence splitter for a specific language."""
     ...
 
 def iter_split(

@@ -112,7 +112,7 @@ Create a processor instance for repeated use.
 - `chunk_size` (int, optional): Chunk size in bytes
 - `execution_mode` (str): Processing mode
 
-**Returns:** Processor instance
+**Returns:** SentenceSplitter instance
 
 #### `sakurs.supported_languages()`
 Get list of supported languages.
@@ -121,8 +121,8 @@ Get list of supported languages.
 
 ### Classes
 
-#### `sakurs.Processor`
-Main processor class for sentence boundary detection.
+#### `sakurs.SentenceSplitter`
+Main sentence splitter class for sentence boundary detection.
 
 **Constructor Parameters:**
 - `language` (str, optional): Language code
@@ -185,7 +185,7 @@ Language configuration for custom rules.
        index_sentence(sentence)
    ```
 
-2. **Reuse Processor instances**: Create once, use many times
+2. **Reuse SentenceSplitter instances**: Create once, use many times
    ```python
    processor = sakurs.load("en", threads=4)
    for document in documents:
@@ -201,7 +201,7 @@ Language configuration for custom rules.
    processor = sakurs.load("en", threads=2, execution_mode="adaptive")
    
    # For memory-constrained environments
-   processor = sakurs.Processor(language="en", streaming=True, stream_chunk_size=5*1024*1024)
+   processor = sakurs.SentenceSplitter(language="en", streaming=True, stream_chunk_size=5*1024*1024)
    ```
 
 4. **Adjust chunk size for document characteristics**:

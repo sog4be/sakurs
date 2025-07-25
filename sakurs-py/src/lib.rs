@@ -248,7 +248,7 @@ fn split(
     }
 }
 
-/// Load a processor for the specified language (spaCy-style API)
+/// Load a sentence splitter for the specified language (spaCy-style API)
 #[pyfunction]
 #[pyo3(signature = (language, *, threads=None, chunk_size=None, execution_mode="adaptive"))]
 fn load(

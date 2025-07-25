@@ -154,7 +154,7 @@ class TestFileInput:
 
     def test_processor_with_file_input(self):
         """Test Processor class with file input."""
-        processor = sakurs.Processor()
+        processor = sakurs.SentenceSplitter()
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Testing processor. With file input!")

@@ -117,7 +117,7 @@ class TestFileLikeInput:
 
     def test_processor_with_filelike_input(self):
         """Test Processor class with file-like input."""
-        processor = sakurs.Processor()
+        processor = sakurs.SentenceSplitter()
 
         text_stream = io.StringIO("Testing processor. With StringIO!")
         sentences = processor.split(text_stream)
