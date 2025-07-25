@@ -1,7 +1,7 @@
 """Japanese sentence segmentation benchmarks comparing sakurs vs ja_sentence_segmenter."""
 
 import functools
-from typing import Any, Callable, Final
+from typing import Callable, Final
 
 import pytest
 from ja_sentence_segmenter.common.pipeline import make_pipeline
@@ -14,7 +14,7 @@ import sakurs
 
 
 @pytest.fixture()
-def sakurs_processor_ja() -> Any:
+def sakurs_processor_ja() -> sakurs.SentenceSplitter:
     """Create and reuse sakurs Japanese processor."""
     return sakurs.load("ja")
 
@@ -51,7 +51,7 @@ class TestJapaneseBenchmarks:
         self,
         benchmark: BenchmarkFixture,
         japanese_text_400: str,
-        sakurs_processor_ja: Any,
+        sakurs_processor_ja: sakurs.SentenceSplitter,
     ) -> list[str]:
         """Benchmark sakurs on 400-character Japanese text."""
         result = benchmark(sakurs_processor_ja.split, japanese_text_400)
@@ -90,7 +90,7 @@ class TestJapaneseBenchmarks:
         benchmark: BenchmarkFixture,
         japanese_text_400: str,
         large_text_multiplier: int,
-        sakurs_processor_ja: Any,
+        sakurs_processor_ja: sakurs.SentenceSplitter,
     ) -> None:
         """Benchmark sakurs on large Japanese text."""
         # Create large text by repeating the sample
