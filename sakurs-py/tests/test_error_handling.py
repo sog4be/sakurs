@@ -13,7 +13,7 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             list(sakurs.iter_split("Hello.", chunk_kb=1024.5))  # type: ignore
 
-        assert "chunk_size" in str(exc_info.value)
+        assert "chunk_kb" in str(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
@@ -40,7 +40,7 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             sakurs.split("Hello.", chunk_kb=1024.5)  # type: ignore
 
-        assert "chunk_size" in str(exc_info.value)
+        assert "chunk_kb" in str(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
@@ -58,7 +58,7 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             sakurs.load("en", chunk_kb=2048.0)  # type: ignore
 
-        assert "chunk_size" in str(exc_info.value)
+        assert "chunk_kb" in str(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
