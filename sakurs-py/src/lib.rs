@@ -33,7 +33,7 @@ use types::PyProcessorConfig;
 ///     language: Language code ("en", "ja") for built-in rules (default: "en")
 ///     language_config: Custom language configuration
 ///     threads: Number of threads for parallel processing (None for auto)
-///     chunk_size: Chunk size in bytes for parallel processing (default: 256KB)
+///     chunk_kb: Chunk size in KB for parallel processing (default: 256)
 ///     parallel: Force parallel processing even for small inputs
 ///     execution_mode: Processing strategy ("sequential", "parallel", "adaptive")
 ///     return_details: Return Sentence objects with metadata instead of strings
@@ -282,7 +282,7 @@ fn load(
 ///     language: Language code ("en", "ja") for built-in rules (default: "en")
 ///     language_config: Custom language configuration
 ///     threads: Number of threads for parallel processing (None for auto)
-///     chunk_size: Chunk size in bytes for parallel processing (default: 256KB)
+///     chunk_kb: Chunk size in KB for parallel processing (default: 256)
 ///     encoding: Text encoding for file/binary inputs (default: "utf-8")
 ///
 /// Returns:

@@ -75,7 +75,7 @@ Split text or file into sentences.
 - `language` (str, optional): Language code ("en", "ja")
 - `language_config` (LanguageConfig, optional): Custom language configuration
 - `threads` (int, optional): Number of threads (None for auto)
-- `chunk_kb` (int, optional): Chunk size in KB for parallel processing
+- `chunk_kb` (int, optional): Chunk size in KB (default: 256) for parallel processing (default: 256)
 - `parallel` (bool): Force parallel processing even for small inputs
 - `execution_mode` (str): "sequential", "parallel", or "adaptive" (default)
 - `return_details` (bool): Return Sentence objects with metadata instead of strings
@@ -109,7 +109,7 @@ Create a processor instance for repeated use.
 **Parameters:**
 - `language` (str): Language code ("en" or "ja")
 - `threads` (int, optional): Number of threads
-- `chunk_kb` (int, optional): Chunk size in KB
+- `chunk_kb` (int, optional): Chunk size in KB (default: 256)
 - `execution_mode` (str): Processing mode
 
 **Returns:** SentenceSplitter instance
@@ -128,7 +128,7 @@ Main sentence splitter class for sentence boundary detection.
 - `language` (str, optional): Language code
 - `language_config` (LanguageConfig, optional): Custom language configuration
 - `threads` (int, optional): Number of threads
-- `chunk_kb` (int, optional): Chunk size in KB
+- `chunk_kb` (int, optional): Chunk size in KB (default: 256)
 - `execution_mode` (str): "sequential", "parallel", or "adaptive"
 - `streaming` (bool): Enable streaming mode configuration
 - `stream_chunk_mb` (int): Chunk size in MB for streaming mode

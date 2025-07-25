@@ -37,11 +37,13 @@ impl PyProcessor {
     ) -> PyResult<Self> {
         // Create Python config for internal use
         // Convert KB/MB to bytes
-        let chunk_size_bytes = chunk_kb.map(|kb| kb * 1024).unwrap_or(if streaming {
+        let chunk_size_bytes = if let Some(kb) = chunk_kb {
+            kb * 1024
+        } else if streaming {
             stream_chunk_mb * 1024 * 1024
         } else {
-            256 * 1024 // Default 256KB
-        });
+            256 * 1024 // Default 256KB (256 * 1024 bytes)
+        };
 
         let py_config = PyProcessorConfig::new(
             chunk_size_bytes,
