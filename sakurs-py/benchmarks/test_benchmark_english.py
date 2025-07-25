@@ -9,13 +9,13 @@ from pytest_benchmark.fixture import BenchmarkFixture
 import sakurs
 
 
-@pytest.fixture()
+@pytest.fixture
 def sakurs_processor_en() -> sakurs.SentenceSplitter:
     """Create and reuse sakurs English processor."""
     return sakurs.load("en")
 
 
-@pytest.fixture()
+@pytest.fixture
 def pysbd_segmenter() -> pysbd.Segmenter:
     """Create and reuse PySBD segmenter."""
     return pysbd.Segmenter(language="en", clean=False)
