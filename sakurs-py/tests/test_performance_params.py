@@ -33,7 +33,7 @@ class TestPerformanceParameters:
         """Test split with custom chunk size."""
         text = "First sentence. Second sentence. Third sentence."
         # Small chunk size to potentially trigger parallel processing
-        sentences = sakurs.split(text, chunk_size=1024)
+        sentences = sakurs.split(text, chunk_kb=1)
         assert len(sentences) == 3
 
     def test_split_with_parallel_flag(self):
@@ -45,7 +45,7 @@ class TestPerformanceParameters:
 
     def test_load_with_performance_params(self):
         """Test load() function with performance parameters."""
-        processor = sakurs.load("en", threads=4, chunk_size=1024)
+        processor = sakurs.load("en", threads=4, chunk_kb=1)
         assert processor.language == "en"
         sentences = processor.split("Hello world. How are you?")
         assert len(sentences) == 2
@@ -53,7 +53,7 @@ class TestPerformanceParameters:
     def test_processor_with_performance_params(self):
         """Test Processor initialization with performance parameters."""
         processor = sakurs.SentenceSplitter(
-            language="en", threads=2, chunk_size=512, execution_mode="parallel"
+            language="en", threads=2, chunk_kb=1, execution_mode="parallel"
         )
         assert processor.language == "en"
         sentences = processor.split("Hello world. How are you?")
@@ -82,12 +82,12 @@ class TestPerformanceParameters:
 
     def test_processor_repr(self):
         """Test Processor string representation."""
-        processor = sakurs.SentenceSplitter(language="en", threads=4, chunk_size=1024)
+        processor = sakurs.SentenceSplitter(language="en", threads=4, chunk_kb=1)
         repr_str = repr(processor)
         assert "SentenceSplitter" in repr_str
         assert "language='en'" in repr_str
         assert "threads" in repr_str
-        assert "chunk_size" in repr_str
+        assert "chunk_kb" in repr_str
 
 
 class TestProcessorStreamingConfig:
@@ -98,7 +98,7 @@ class TestProcessorStreamingConfig:
         processor = sakurs.SentenceSplitter(
             language="en",
             streaming=True,
-            stream_chunk_size=1024 * 1024,  # 1MB
+            stream_chunk_mb=1,  # 1MB
         )
         sentences = processor.split("Hello world. How are you?")
         assert len(sentences) == 2

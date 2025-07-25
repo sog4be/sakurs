@@ -83,9 +83,9 @@ pub struct ProcessingMetadata {
     #[pyo3(get)]
     pub threads_used: usize,
 
-    /// Chunk size used for processing (in bytes)
+    /// Chunk size used for processing (in KB)
     #[pyo3(get)]
-    pub chunk_size_used: usize,
+    pub chunk_kb_used: usize,
 
     /// Execution mode used ("sequential", "parallel", or "adaptive")
     #[pyo3(get)]
@@ -100,25 +100,25 @@ impl ProcessingMetadata {
         total_sentences: usize,
         processing_time_ms: f64,
         threads_used: usize,
-        chunk_size_used: usize,
+        chunk_kb_used: usize,
         execution_mode_used: String,
     ) -> Self {
         Self {
             total_sentences,
             processing_time_ms,
             threads_used,
-            chunk_size_used,
+            chunk_kb_used,
             execution_mode_used,
         }
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "ProcessingMetadata(total_sentences={}, processing_time_ms={:.2}, threads_used={}, chunk_size_used={}, execution_mode_used='{}')",
+            "ProcessingMetadata(total_sentences={}, processing_time_ms={:.2}, threads_used={}, chunk_kb_used={}, execution_mode_used='{}')",
             self.total_sentences,
             self.processing_time_ms,
             self.threads_used,
-            self.chunk_size_used,
+            self.chunk_kb_used,
             self.execution_mode_used
         )
     }

@@ -67,7 +67,7 @@ for sentence in sakurs.iter_split("document.txt"):
 
 ### Functions
 
-#### `sakurs.split(input, *, language=None, language_config=None, threads=None, chunk_size=None, parallel=False, execution_mode="adaptive", return_details=False, encoding="utf-8")`
+#### `sakurs.split(input, *, language=None, language_config=None, threads=None, chunk_kb=None, parallel=False, execution_mode="adaptive", return_details=False, encoding="utf-8")`
 Split text or file into sentences.
 
 **Parameters:**
@@ -75,7 +75,7 @@ Split text or file into sentences.
 - `language` (str, optional): Language code ("en", "ja")
 - `language_config` (LanguageConfig, optional): Custom language configuration
 - `threads` (int, optional): Number of threads (None for auto)
-- `chunk_size` (int, optional): Chunk size in bytes for parallel processing
+- `chunk_kb` (int, optional): Chunk size in KB for parallel processing
 - `parallel` (bool): Force parallel processing even for small inputs
 - `execution_mode` (str): "sequential", "parallel", or "adaptive" (default)
 - `return_details` (bool): Return Sentence objects with metadata instead of strings
@@ -83,7 +83,7 @@ Split text or file into sentences.
 
 **Returns:** List[str] or List[Sentence] if return_details=True
 
-#### `sakurs.iter_split(input, *, language=None, language_config=None, threads=None, chunk_size=None, encoding="utf-8")`
+#### `sakurs.iter_split(input, *, language=None, language_config=None, threads=None, chunk_kb=None, encoding="utf-8")`
 Process input and return sentences as an iterator. Loads entire input but yields incrementally.
 
 **Parameters:** Same as `split()` except no `return_details` parameter
@@ -103,13 +103,13 @@ Process large files with limited memory usage.
 
 **Returns:** Iterator[str] - Iterator yielding sentences
 
-#### `sakurs.load(language, *, threads=None, chunk_size=None, execution_mode="adaptive")`
+#### `sakurs.load(language, *, threads=None, chunk_kb=None, execution_mode="adaptive")`
 Create a processor instance for repeated use.
 
 **Parameters:**
 - `language` (str): Language code ("en" or "ja")
 - `threads` (int, optional): Number of threads
-- `chunk_size` (int, optional): Chunk size in bytes
+- `chunk_kb` (int, optional): Chunk size in KB
 - `execution_mode` (str): Processing mode
 
 **Returns:** SentenceSplitter instance
@@ -128,10 +128,10 @@ Main sentence splitter class for sentence boundary detection.
 - `language` (str, optional): Language code
 - `language_config` (LanguageConfig, optional): Custom language configuration
 - `threads` (int, optional): Number of threads
-- `chunk_size` (int, optional): Chunk size in bytes
+- `chunk_kb` (int, optional): Chunk size in KB
 - `execution_mode` (str): "sequential", "parallel", or "adaptive"
 - `streaming` (bool): Enable streaming mode configuration
-- `stream_chunk_size` (int): Chunk size for streaming mode
+- `stream_chunk_mb` (int): Chunk size in MB for streaming mode
 
 **Methods:**
 - `split(input, *, return_details=False, encoding="utf-8")`: Split text or file into sentences
@@ -201,16 +201,16 @@ Language configuration for custom rules.
    processor = sakurs.load("en", threads=2, execution_mode="adaptive")
    
    # For memory-constrained environments
-   processor = sakurs.SentenceSplitter(language="en", streaming=True, stream_chunk_size=5*1024*1024)
+   processor = sakurs.SentenceSplitter(language="en", streaming=True, stream_chunk_mb=5)
    ```
 
 4. **Adjust chunk size for document characteristics**:
    ```python
    # For texts with many short sentences
-   sentences = sakurs.split(text, chunk_size=64*1024)
+   sentences = sakurs.split(text, chunk_kb=64)
    
    # For texts with long sentences
-   sentences = sakurs.split(text, chunk_size=512*1024)
+   sentences = sakurs.split(text, chunk_kb=512)
    ```
 
 ## Benchmarks

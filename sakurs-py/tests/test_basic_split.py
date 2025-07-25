@@ -79,7 +79,7 @@ class TestSplitFunction:
         assert len(result) == 100
 
         # Test with chunk_size parameter
-        result = sakurs.split(text, chunk_size=1024)
+        result = sakurs.split(text, chunk_kb=1024)
         assert isinstance(result, list)
         assert len(result) == 100
 
@@ -300,7 +300,7 @@ class TestLoadFunction:
 
     def test_load_with_parameters(self):
         """Test loading with performance parameters."""
-        processor = sakurs.load("ja", threads=4, chunk_size=1024)
+        processor = sakurs.load("ja", threads=4, chunk_kb=1024)
         assert isinstance(processor, sakurs.SentenceSplitter)
         assert processor.language == "ja"
 

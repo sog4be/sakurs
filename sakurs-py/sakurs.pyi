@@ -57,7 +57,7 @@ class ProcessingMetadata:
     total_sentences: int
     processing_time_ms: float
     threads_used: int
-    chunk_size_used: int
+    chunk_kb_used: int
     execution_mode_used: str
 
     def __init__(
@@ -65,7 +65,7 @@ class ProcessingMetadata:
         total_sentences: int,
         processing_time_ms: float,
         threads_used: int,
-        chunk_size_used: int,
+        chunk_kb_used: int,
         execution_mode_used: str,
     ) -> None: ...
     def __repr__(self) -> str: ...
@@ -282,10 +282,10 @@ class SentenceSplitter:
         language: str | None = None,
         language_config: LanguageConfig | None = None,
         threads: int | None = None,
-        chunk_size: int | None = None,
+        chunk_kb: int | None = None,
         execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
         streaming: bool = False,
-        stream_chunk_size: int = 10485760,  # 10MB
+        stream_chunk_mb: int = 10,
     ) -> None: ...
     @overload
     def split(
@@ -331,7 +331,7 @@ def split(
     language: str | None = None,
     language_config: LanguageConfig | None = None,
     threads: int | None = None,
-    chunk_size: int | None = None,
+    chunk_kb: int | None = None,
     parallel: bool = False,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
     return_details: Literal[False] = False,
@@ -345,7 +345,7 @@ def split(
     language: str | None = None,
     language_config: LanguageConfig | None = None,
     threads: int | None = None,
-    chunk_size: int | None = None,
+    chunk_kb: int | None = None,
     parallel: bool = False,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
     return_details: Literal[True],
@@ -356,7 +356,7 @@ def load(
     language: str,
     *,
     threads: int | None = None,
-    chunk_size: int | None = None,
+    chunk_kb: int | None = None,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
 ) -> SentenceSplitter:
     """Load a sentence splitter for a specific language."""
@@ -368,7 +368,7 @@ def iter_split(
     language: str | None = None,
     language_config: LanguageConfig | None = None,
     threads: int | None = None,
-    chunk_size: int | None = None,
+    chunk_kb: int | None = None,
     encoding: str = "utf-8",
 ) -> SentenceIterator:
     """

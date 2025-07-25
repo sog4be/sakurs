@@ -43,7 +43,7 @@ use types::PyProcessorConfig;
 /// Returns:
 ///     List of sentence strings or Sentence objects if return_details=True
 #[pyfunction]
-#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_size=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
+#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_kb=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 #[allow(unused_variables)]
 fn split(
@@ -51,7 +51,7 @@ fn split(
     language: Option<&str>,
     language_config: Option<LanguageConfig>,
     threads: Option<usize>,
-    chunk_size: Option<usize>,
+    chunk_kb: Option<usize>,
     parallel: bool,
     execution_mode: &str,
     return_details: bool,
@@ -136,8 +136,8 @@ fn split(
         }
     }
 
-    if let Some(cs) = chunk_size {
-        config_builder = config_builder.chunk_size(cs);
+    if let Some(kb) = chunk_kb {
+        config_builder = config_builder.chunk_size(kb * 1024);
     }
 
     let config = config_builder
@@ -195,7 +195,7 @@ fn split(
             sentences.len(),
             processing_time_ms,
             threads_used,
-            256 * 1024, // Default chunk size - we don't have access to actual value
+            256, // Default chunk size in KB - we don't have access to actual value
             execution_mode_str.to_string(),
         );
 
@@ -250,11 +250,11 @@ fn split(
 
 /// Load a sentence splitter for the specified language (spaCy-style API)
 #[pyfunction]
-#[pyo3(signature = (language, *, threads=None, chunk_size=None, execution_mode="adaptive"))]
+#[pyo3(signature = (language, *, threads=None, chunk_kb=None, execution_mode="adaptive"))]
 fn load(
     language: &str,
     threads: Option<usize>,
-    chunk_size: Option<usize>,
+    chunk_kb: Option<usize>,
     execution_mode: &str,
     py: Python,
 ) -> PyResult<PyProcessor> {
@@ -263,10 +263,10 @@ fn load(
         Some(language),
         None, // language_config
         threads,
-        chunk_size,
+        chunk_kb,
         execution_mode,
-        false,            // streaming
-        10 * 1024 * 1024, // stream_chunk_size (not used when streaming=false)
+        false, // streaming
+        10,    // stream_chunk_mb (not used when streaming=false)
         py,
     )
 }
@@ -288,14 +288,14 @@ fn load(
 /// Returns:
 ///     Iterator that yields sentences one at a time
 #[pyfunction]
-#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_size=None, encoding="utf-8"))]
+#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_kb=None, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 fn iter_split(
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
     language_config: Option<LanguageConfig>,
     threads: Option<usize>,
-    chunk_size: Option<usize>,
+    chunk_kb: Option<usize>,
     encoding: &str,
     py: Python,
 ) -> PyResult<iterator::SentenceIterator> {
@@ -305,7 +305,7 @@ fn iter_split(
         language,
         language_config,
         threads,
-        chunk_size,
+        chunk_kb.map(|kb| kb * 1024),
         encoding,
     )
 }

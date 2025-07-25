@@ -81,7 +81,7 @@ class TestProcessorBasics:
 
     def test_load_with_params(self):
         """Test load() with additional parameters."""
-        processor = sakurs.load("en", threads=2, chunk_size=1024)
+        processor = sakurs.load("en", threads=2, chunk_kb=1024)
         sentences = processor.split("Hello. World.")
         assert len(sentences) == 2
 
@@ -137,7 +137,7 @@ class TestProcessorAdvanced:
     def test_processor_performance_params(self):
         """Test processor with various performance parameters."""
         processor = sakurs.SentenceSplitter(
-            language="en", threads=4, chunk_size=1024, execution_mode="parallel"
+            language="en", threads=4, chunk_kb=1024, execution_mode="parallel"
         )
 
         text = " ".join([f"This is sentence number {i}." for i in range(10)])

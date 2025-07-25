@@ -43,25 +43,25 @@ def main() -> None:
 
     # Small chunks (more overhead, but may be better for memory)
     small_processor = sakurs.SentenceSplitter(
-        language="en", chunk_size=4096, execution_mode="adaptive"
+        language="en", chunk_kb=4, execution_mode="adaptive"
     )
     benchmark_split(base_text, small_processor, "Small chunks")
 
     # Large chunks (less overhead for long texts)
     large_processor = sakurs.SentenceSplitter(
-        language="en", chunk_size=32768, execution_mode="adaptive"
+        language="en", chunk_kb=32, execution_mode="adaptive"
     )
     benchmark_split(base_text, large_processor, "Large chunks")
 
     # Sequential mode (single-threaded)
     sequential_processor = sakurs.SentenceSplitter(
-        language="en", chunk_size=8192, execution_mode="sequential"
+        language="en", chunk_kb=8, execution_mode="sequential"
     )
     benchmark_split(base_text, sequential_processor, "Sequential")
 
     # Parallel mode with 4 threads
     parallel_processor = sakurs.SentenceSplitter(
-        language="en", chunk_size=8192, threads=4, execution_mode="parallel"
+        language="en", chunk_kb=8, threads=4, execution_mode="parallel"
     )
     benchmark_split(base_text, parallel_processor, "Parallel (4 threads)")
 
@@ -69,7 +69,7 @@ def main() -> None:
     streaming_processor = sakurs.SentenceSplitter(
         language="en",
         streaming=True,
-        stream_chunk_size=1024 * 1024,  # 1MB
+        stream_chunk_mb=1,  # 1MB
     )
     benchmark_split(base_text, streaming_processor, "Streaming mode")
 
@@ -94,7 +94,7 @@ def main() -> None:
 
     print("\nTips:")
     print("- For short texts (<10KB), default settings are usually best")
-    print("- For long texts, increase chunk_size to reduce overhead")
+    print("- For long texts, increase chunk_kb to reduce overhead")
     print("- For batch processing, use parallel mode with appropriate thread count")
     print("- For interactive use, use adaptive mode for automatic optimization")
     print("- For memory-constrained environments, use streaming mode")

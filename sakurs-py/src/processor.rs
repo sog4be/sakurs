@@ -23,28 +23,31 @@ pub struct PyProcessor {
 impl PyProcessor {
     /// Create a new processor for the specified language
     #[new]
-    #[pyo3(signature = (*, language=None, language_config=None, threads=None, chunk_size=None, execution_mode="adaptive", streaming=false, stream_chunk_size=10*1024*1024))]
+    #[pyo3(signature = (*, language=None, language_config=None, threads=None, chunk_kb=None, execution_mode="adaptive", streaming=false, stream_chunk_mb=10))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         language: Option<&str>,
         language_config: Option<LanguageConfig>,
         threads: Option<usize>,
-        chunk_size: Option<usize>,
+        chunk_kb: Option<usize>,
         execution_mode: &str,
         streaming: bool,
-        stream_chunk_size: usize,
+        stream_chunk_mb: usize,
         py: Python,
     ) -> PyResult<Self> {
         // Create Python config for internal use
+        // Convert KB/MB to bytes
+        let chunk_size_bytes = chunk_kb.map(|kb| kb * 1024).unwrap_or(if streaming {
+            stream_chunk_mb * 1024 * 1024
+        } else {
+            256 * 1024 // Default 256KB
+        });
+
         let py_config = PyProcessorConfig::new(
-            chunk_size.unwrap_or(if streaming {
-                stream_chunk_size
-            } else {
-                256 * 1024
-            }),
+            chunk_size_bytes,
             256, // overlap_size
             threads,
-            1024 * 1024, // parallel_threshold
+            1024 * 1024, // parallel_threshold (1MB)
         );
 
         // Build Rust configuration and optionally custom language rules
@@ -110,11 +113,7 @@ impl PyProcessor {
             }
         }
 
-        if let Some(cs) = chunk_size {
-            config_builder = config_builder.chunk_size(cs);
-        } else if streaming {
-            config_builder = config_builder.chunk_size(stream_chunk_size);
-        }
+        config_builder = config_builder.chunk_size(chunk_size_bytes);
 
         config_builder = config_builder
             .parallel_threshold(py_config.parallel_threshold)
@@ -245,9 +244,10 @@ impl PyProcessor {
     }
 
     fn __repr__(&self) -> String {
+        let chunk_kb = self.config.chunk_size / 1024;
         format!(
-            "SentenceSplitter(language='{}', threads={:?}, chunk_size={})",
-            self.language, self.config.num_threads, self.config.chunk_size
+            "SentenceSplitter(language='{}', threads={:?}, chunk_kb={})",
+            self.language, self.config.num_threads, chunk_kb
         )
     }
 }
