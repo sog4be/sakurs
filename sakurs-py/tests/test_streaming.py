@@ -89,7 +89,7 @@ class TestIterSplit:
         text_parts = [f"This is sentence number {i}." for i in range(sentences_count)]
         large_text = " ".join(text_parts)
 
-        sentences = list(sakurs.iter_split(large_text, chunk_size=1024 * 1024))
+        sentences = list(sakurs.iter_split(large_text, chunk_kb=1024))
         assert len(sentences) == sentences_count
         assert sentences[0] == "This is sentence number 0."
         assert sentences[-1] == f"This is sentence number {sentences_count - 1}."
@@ -98,7 +98,7 @@ class TestIterSplit:
         """Test that sentences spanning chunk boundaries are handled correctly."""
         # Create text where sentences might span chunk boundaries
         text = "A" * 1000 + ". " + "B" * 1000 + ". " + "C" * 1000 + "."
-        sentences = list(sakurs.iter_split(text, chunk_size=1024 * 1024))  # 1MB chunks
+        sentences = list(sakurs.iter_split(text, chunk_kb=1024))  # 1MB chunks
         assert len(sentences) == 3
         assert sentences[0].strip() == "A" * 1000 + "."
         assert sentences[1].strip() == "B" * 1000 + "."
@@ -152,7 +152,7 @@ class TestIterSplit:
 
         # Stream through the file
         count = 0
-        for sentence in sakurs.iter_split(file_path, chunk_size=1024 * 1024):
+        for sentence in sakurs.iter_split(file_path, chunk_kb=1024):
             count += 1
             # Process one sentence at a time without storing all
             assert sentence.startswith("This is sentence")
@@ -277,7 +277,7 @@ class TestStreamingEdgeCases:
         """Test streaming with Unicode at chunk boundaries."""
         # Create text with multi-byte characters
         text = "Hello 世界. Another 文章. Final 段落."
-        sentences = list(sakurs.iter_split(text, chunk_size=1024 * 1024))
+        sentences = list(sakurs.iter_split(text, chunk_kb=1024))
         assert len(sentences) == 3
 
     def test_stream_very_long_sentence(self):
@@ -286,7 +286,7 @@ class TestStreamingEdgeCases:
         long_sentence = "This is a very " + "long " * 10000 + "sentence."
         text = f"Short. {long_sentence} Another short."
 
-        sentences = list(sakurs.iter_split(text, chunk_size=1024 * 1024))
+        sentences = list(sakurs.iter_split(text, chunk_kb=1024))
         assert len(sentences) == 3
         assert sentences[0] == "Short."
         assert sentences[1].startswith("This is a very")

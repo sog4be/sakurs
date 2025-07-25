@@ -11,9 +11,9 @@ class TestParameterValidation:
     def test_iter_split_float_chunk_size(self):
         """Test that float chunk_size raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
-            list(sakurs.iter_split("Hello.", chunk_size=1024.5))  # type: ignore
+            list(sakurs.iter_split("Hello.", chunk_kb=1024.5))  # type: ignore
 
-        assert "chunk_size" in str(exc_info.value)
+        assert "chunk_kb" in str(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
@@ -38,9 +38,9 @@ class TestParameterValidation:
     def test_split_float_chunk_size(self):
         """Test that float chunk_size raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
-            sakurs.split("Hello.", chunk_size=1024.5)  # type: ignore
+            sakurs.split("Hello.", chunk_kb=1024.5)  # type: ignore
 
-        assert "chunk_size" in str(exc_info.value)
+        assert "chunk_kb" in str(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
@@ -56,37 +56,22 @@ class TestParameterValidation:
     def test_load_float_chunk_size(self):
         """Test that float chunk_size in load raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
-            sakurs.load("en", chunk_size=2048.0)  # type: ignore
+            sakurs.load("en", chunk_kb=2048.0)  # type: ignore
 
-        assert "chunk_size" in str(exc_info.value)
+        assert "chunk_kb" in str(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
-
-    def test_processor_config_float_parameters(self):
-        """Test that ProcessorConfig with float parameters raises TypeError."""
-        # ProcessorConfig uses different parameter names
-        config = sakurs.ProcessorConfig()
-
-        # Test setting float values to integer properties
-        with pytest.raises(TypeError) as exc_info:
-            config.num_threads = 2.5  # type: ignore
-
-        # The error might be different for property setters
-        assert (
-            "int" in str(exc_info.value).lower()
-            or "float" in str(exc_info.value).lower()
-        )
 
     def test_valid_integer_parameters(self):
         """Test that integer parameters work correctly."""
         # These should work without errors
-        sentences = list(sakurs.iter_split("Hello. World.", chunk_size=1024 * 1024))
+        sentences = list(sakurs.iter_split("Hello. World.", chunk_kb=1024))
         assert len(sentences) == 2
 
-        sentences = sakurs.split("Hello. World.", threads=2, chunk_size=1024)
+        sentences = sakurs.split("Hello. World.", threads=2, chunk_kb=1024)
         assert len(sentences) == 2
 
-        processor = sakurs.load("en", threads=1, chunk_size=512)
+        processor = sakurs.load("en", threads=1, chunk_kb=512)
         assert processor is not None
 
     def test_zero_and_negative_integers(self):

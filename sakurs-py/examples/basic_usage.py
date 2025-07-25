@@ -27,9 +27,9 @@ def main() -> None:  # noqa: PLR0915
         print(f"{i}. {sentence}")
     print()
 
-    # Example 3: Using Processor for multiple texts
-    print("=== Example 3: Reusing Processor ===")
-    processor = sakurs.Processor(language="en")
+    # Example 3: Using SentenceSplitter for multiple texts
+    print("=== Example 3: Reusing SentenceSplitter ===")
+    processor = sakurs.SentenceSplitter(language="en")
 
     texts = [
         "First document. It has two sentences.",

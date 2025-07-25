@@ -119,7 +119,7 @@ class TestFileInput:
             temp_path = f.name
 
         try:
-            sentences = sakurs.split(temp_path, parallel=True, chunk_size=1024)
+            sentences = sakurs.split(temp_path, parallel=True, chunk_kb=1024)
             assert len(sentences) == 1000
             assert sentences[0] == "This is sentence number 0."
             assert sentences[999] == "This is sentence number 999."
@@ -154,7 +154,7 @@ class TestFileInput:
 
     def test_processor_with_file_input(self):
         """Test Processor class with file input."""
-        processor = sakurs.Processor()
+        processor = sakurs.SentenceSplitter()
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Testing processor. With file input!")

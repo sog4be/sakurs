@@ -247,7 +247,7 @@ def test_processor_with_custom_language_config():
     )
 
     # Create processor with custom config
-    processor = sakurs.Processor(language_config=config)
+    processor = sakurs.SentenceSplitter(language_config=config)
 
     # Test with abbreviations
     text = "Dr. Smith asked a question? Prof. Jones answered."

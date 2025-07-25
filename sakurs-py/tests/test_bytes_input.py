@@ -99,7 +99,7 @@ class TestBytesInput:
 
     def test_processor_with_bytes_input(self):
         """Test Processor class with bytes input."""
-        processor = sakurs.Processor()
+        processor = sakurs.SentenceSplitter()
 
         text = "Testing processor. With bytes input!"
         bytes_input = text.encode("utf-8")

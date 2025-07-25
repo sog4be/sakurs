@@ -57,7 +57,7 @@ class ProcessingMetadata:
     total_sentences: int
     processing_time_ms: float
     threads_used: int
-    chunk_size_used: int
+    chunk_kb_used: int
     execution_mode_used: str
 
     def __init__(
@@ -65,26 +65,8 @@ class ProcessingMetadata:
         total_sentences: int,
         processing_time_ms: float,
         threads_used: int,
-        chunk_size_used: int,
+        chunk_kb_used: int,
         execution_mode_used: str,
-    ) -> None: ...
-    def __repr__(self) -> str: ...
-
-# Configuration
-class ProcessorConfig:
-    """Configuration for text processing."""
-
-    chunk_size: int
-    overlap_size: int
-    num_threads: int | None
-    parallel_threshold: int
-
-    def __init__(
-        self,
-        chunk_size: int = 262144,  # 256KB
-        overlap_size: int = 256,
-        num_threads: int | None = None,
-        parallel_threshold: int = 1048576,  # 1MB
     ) -> None: ...
     def __repr__(self) -> str: ...
 
@@ -273,8 +255,8 @@ class LanguageConfig:
     def to_toml(self, path: Path | str) -> None: ...
     def __repr__(self) -> str: ...
 
-class Processor:
-    """Main processor for sentence boundary detection."""
+class SentenceSplitter:
+    """Main sentence splitter for sentence boundary detection."""
 
     def __init__(
         self,
@@ -282,10 +264,10 @@ class Processor:
         language: str | None = None,
         language_config: LanguageConfig | None = None,
         threads: int | None = None,
-        chunk_size: int | None = None,
+        chunk_kb: int | None = None,
         execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
         streaming: bool = False,
-        stream_chunk_size: int = 10485760,  # 10MB
+        stream_chunk_mb: int = 10,
     ) -> None: ...
     @overload
     def split(
@@ -314,7 +296,7 @@ class Processor:
     def language(self) -> str: ...
     @property
     def supports_parallel(self) -> bool: ...
-    def __enter__(self) -> Processor: ...
+    def __enter__(self) -> SentenceSplitter: ...
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
@@ -331,7 +313,7 @@ def split(
     language: str | None = None,
     language_config: LanguageConfig | None = None,
     threads: int | None = None,
-    chunk_size: int | None = None,
+    chunk_kb: int | None = None,
     parallel: bool = False,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
     return_details: Literal[False] = False,
@@ -345,7 +327,7 @@ def split(
     language: str | None = None,
     language_config: LanguageConfig | None = None,
     threads: int | None = None,
-    chunk_size: int | None = None,
+    chunk_kb: int | None = None,
     parallel: bool = False,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
     return_details: Literal[True],
@@ -356,10 +338,10 @@ def load(
     language: str,
     *,
     threads: int | None = None,
-    chunk_size: int | None = None,
+    chunk_kb: int | None = None,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
-) -> Processor:
-    """Load a processor for a specific language."""
+) -> SentenceSplitter:
+    """Load a sentence splitter for a specific language."""
     ...
 
 def iter_split(
@@ -368,7 +350,7 @@ def iter_split(
     language: str | None = None,
     language_config: LanguageConfig | None = None,
     threads: int | None = None,
-    chunk_size: int | None = None,
+    chunk_kb: int | None = None,
     encoding: str = "utf-8",
 ) -> SentenceIterator:
     """
