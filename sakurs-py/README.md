@@ -65,10 +65,38 @@ for sentence in sakurs.iter_split("document.txt"):
 
 ## API Reference
 
+### Table of Contents
+- [Functions](#functions)
+  - [`sakurs.split`](#sakurssplit)
+  - [`sakurs.iter_split`](#sakursiter_split)
+  - [`sakurs.split_large_file`](#sakurssplit_large_file)
+  - [`sakurs.load`](#sakursload)
+  - [`sakurs.supported_languages`](#sakurssupported_languages)
+- [Classes](#classes)
+  - [`SentenceSplitter`](#sakurssentencesplitter)
+  - [`Sentence`](#sakurssentence)
+  - [`LanguageConfig`](#sakurslanguageconfig)
+
 ### Functions
 
-#### `sakurs.split(input, *, language=None, language_config=None, threads=None, chunk_kb=None, parallel=False, execution_mode="adaptive", return_details=False, encoding="utf-8")`
+#### `sakurs.split`
 Split text or file into sentences.
+
+**Signature:**
+```python
+sakurs.split(
+    input,
+    *,
+    language=None,
+    language_config=None,
+    threads=None,
+    chunk_kb=None,
+    parallel=False,
+    execution_mode="adaptive",
+    return_details=False,
+    encoding="utf-8"
+)
+```
 
 **Parameters:**
 - `input` (str | Path | TextIO | BinaryIO): Text string, file path, or file-like object
@@ -83,15 +111,41 @@ Split text or file into sentences.
 
 **Returns:** List[str] or List[Sentence] if return_details=True
 
-#### `sakurs.iter_split(input, *, language=None, language_config=None, threads=None, chunk_kb=None, encoding="utf-8")`
+#### `sakurs.iter_split`
 Process input and return sentences as an iterator. Loads entire input but yields incrementally.
+
+**Signature:**
+```python
+sakurs.iter_split(
+    input,
+    *,
+    language=None,
+    language_config=None,
+    threads=None,
+    chunk_kb=None,
+    encoding="utf-8"
+)
+```
 
 **Parameters:** Same as `split()` except no `return_details` parameter
 
 **Returns:** Iterator[str] - Iterator yielding sentences
 
-#### `sakurs.split_large_file(file_path, *, language=None, language_config=None, max_memory_mb=100, overlap_size=1024, encoding="utf-8")`
+#### `sakurs.split_large_file`
 Process large files with limited memory usage.
+
+**Signature:**
+```python
+sakurs.split_large_file(
+    file_path,
+    *,
+    language=None,
+    language_config=None,
+    max_memory_mb=100,
+    overlap_size=1024,
+    encoding="utf-8"
+)
+```
 
 **Parameters:**
 - `file_path` (str | Path): Path to the file
@@ -103,8 +157,19 @@ Process large files with limited memory usage.
 
 **Returns:** Iterator[str] - Iterator yielding sentences
 
-#### `sakurs.load(language, *, threads=None, chunk_kb=None, execution_mode="adaptive")`
+#### `sakurs.load`
 Create a processor instance for repeated use.
+
+**Signature:**
+```python
+sakurs.load(
+    language,
+    *,
+    threads=None,
+    chunk_kb=None,
+    execution_mode="adaptive"
+)
+```
 
 **Parameters:**
 - `language` (str): Language code ("en" or "ja")
@@ -114,8 +179,13 @@ Create a processor instance for repeated use.
 
 **Returns:** SentenceSplitter instance
 
-#### `sakurs.supported_languages()`
+#### `sakurs.supported_languages`
 Get list of supported languages.
+
+**Signature:**
+```python
+sakurs.supported_languages()
+```
 
 **Returns:** List[str] - Supported language codes
 
