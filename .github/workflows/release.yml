@@ -1,0 +1,206 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+permissions:
+  # For PyPI OIDC publishing
+  id-token: write
+  # For GitHub Release creation
+  contents: write
+
+jobs:
+  # Validate the release before publishing
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate tag format
+        run: |
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
+            echo "Error: Tag must follow semver format (v1.2.3 or v1.2.3-beta.1)"
+            exit 1
+          fi
+      
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      
+      - name: Verify Cargo.toml versions match tag
+        run: |
+          # Check sakurs-cli version
+          CLI_VERSION=$(grep -E '^version = ' sakurs-cli/Cargo.toml | head -1 | cut -d'"' -f2)
+          if [[ "$CLI_VERSION" != "${{ steps.version.outputs.version }}" ]]; then
+            echo "Error: sakurs-cli version ($CLI_VERSION) doesn't match tag (${{ steps.version.outputs.version }})"
+            exit 1
+          fi
+          
+          # Check sakurs-py version
+          PY_VERSION=$(grep -E '^version = ' sakurs-py/Cargo.toml | head -1 | cut -d'"' -f2)
+          if [[ "$PY_VERSION" != "${{ steps.version.outputs.version }}" ]]; then
+            echo "Error: sakurs-py version ($PY_VERSION) doesn't match tag (${{ steps.version.outputs.version }})"
+            exit 1
+          fi
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+  # Publish sakurs-cli to crates.io
+  publish-cli:
+    name: Publish CLI to crates.io
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: dtolnay/rust-toolchain@stable
+      
+      - uses: Swatinem/rust-cache@v2
+      
+      - name: Verify crate can be packaged
+        run: |
+          cd sakurs-cli
+          cargo package --no-verify
+      
+      - name: Publish to crates.io
+        run: |
+          cd sakurs-cli
+          # Retry logic for transient failures
+          for i in {1..3}; do
+            if cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}; then
+              echo "Successfully published to crates.io"
+              break
+            else
+              if [ $i -eq 3 ]; then
+                echo "Failed to publish after 3 attempts"
+                exit 1
+              fi
+              echo "Attempt $i failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
+
+  # Build and publish Python wheels
+  publish-python:
+    name: Build Python ${{ matrix.platform.name }}
+    needs: validate
+    strategy:
+      matrix:
+        platform:
+          - name: Linux x86_64
+            runner: ubuntu-latest
+            target: x86_64
+          - name: macOS x86_64
+            runner: macos-13
+            target: x86_64
+          - name: macOS ARM64
+            runner: macos-14
+            target: aarch64
+          - name: Windows x86_64
+            runner: windows-latest
+            target: x64
+    
+    runs-on: ${{ matrix.platform.runner }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --features extension-module
+          working-directory: sakurs-py
+          manylinux: auto
+      
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.platform.name }}
+          path: sakurs-py/dist
+
+  # Upload all wheels to PyPI
+  upload-pypi:
+    name: Upload to PyPI
+    needs: publish-python
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/sakurs
+    
+    steps:
+      - name: Download all wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+      
+      - name: Display structure of downloaded files
+        run: ls -la dist/
+      
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true
+
+  # Create GitHub Release
+  create-release:
+    name: Create GitHub Release
+    needs: [validate, publish-cli, upload-pypi]
+    runs-on: ubuntu-latest
+    # Continue even if publishing fails (partial release is better than no release)
+    if: always() && needs.validate.result == 'success'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          # Extract the section for this version from CHANGELOG.md
+          VERSION="${{ needs.validate.outputs.version }}"
+          
+          # Create a temporary file for the changelog content
+          CHANGELOG_FILE=$(mktemp)
+          
+          # Extract changelog section between version headers
+          awk -v ver="## \\[$VERSION\\]" '
+            $0 ~ ver { flag=1; next }
+            flag && /^## \[/ { exit }
+            flag { print }
+          ' CHANGELOG.md > "$CHANGELOG_FILE"
+          
+          # If no content found, use a default message
+          if [[ ! -s "$CHANGELOG_FILE" ]]; then
+            echo "No changelog found for version $VERSION" > "$CHANGELOG_FILE"
+          fi
+          
+          echo "changelog_file=$CHANGELOG_FILE" >> "$GITHUB_OUTPUT"
+      
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          bodyFile: ${{ steps.changelog.outputs.changelog_file }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generateReleaseNotes: true
