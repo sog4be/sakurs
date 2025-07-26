@@ -5,8 +5,21 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 rust-version.workspace = true
 description = "Python bindings for Sakurs sentence boundary detection"
+readme = "README.md"
+publish = false  # Python package - published to PyPI, not crates.io
+# Note: keywords, categories, and docs.rs link removed since not publishing to crates.io
+exclude = [
+    ".*",
+    "tests/*",
+    "target/*",
+    "Cargo.lock",
+    "__pycache__/*",
+    "*.pyc",
+    ".venv/*"
+]
 
 [lib]
 name = "sakurs"

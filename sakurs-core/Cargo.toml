@@ -4,6 +4,22 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "High-performance sentence boundary detection using Delta-Stack Monoid algorithm"
+readme = "../README.md"
+publish = false  # Internal library - not published to crates.io
+# Note: keywords, categories, and docs.rs link removed since not publishing
+exclude = [
+    ".*",
+    "benches/*",
+    "examples/*",
+    "tests/*",
+    "target/*",
+    "Cargo.lock",
+    "configs/test/*"
+]
 
 [dependencies]
 thiserror.workspace = true
