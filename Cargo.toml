@@ -13,7 +13,7 @@ edition = "2021"
 license = "MIT"
 repository = "https://github.com/sog4be/sakurs"
 homepage = "https://github.com/sog4be/sakurs"
-documentation = "https://docs.rs/sakurs"
+documentation = "https://docs.rs/sakurs-cli"  # Points to the published CLI crate
 rust-version = "1.81"
 
 [workspace.dependencies]

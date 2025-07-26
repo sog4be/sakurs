@@ -6,13 +6,11 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/sakurs-py"
 rust-version.workspace = true
 description = "Python bindings for Sakurs sentence boundary detection"
-keywords = ["python", "sentence-boundary", "text-processing", "nlp", "pyo3"]
-categories = ["text-processing", "api-bindings"]
 readme = "../README.md"
-publish = false  # Python package will be published to PyPI, not crates.io
+publish = false  # Python package - published to PyPI, not crates.io
+# Note: keywords, categories, and docs.rs link removed since not publishing to crates.io
 exclude = [
     ".*",
     "tests/*",
