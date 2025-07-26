@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
 description = "Python bindings for Sakurs sentence boundary detection"
-readme = "../README.md"
+readme = "README.md"
 publish = false  # Python package - published to PyPI, not crates.io
 # Note: keywords, categories, and docs.rs link removed since not publishing to crates.io
 exclude = [
