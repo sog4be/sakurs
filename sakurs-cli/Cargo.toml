@@ -5,8 +5,19 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/sakurs-cli"
 rust-version.workspace = true
 description = "Command-line interface for Sakurs sentence boundary detection"
+keywords = ["cli", "sentence-boundary", "text-processing", "nlp", "tool"]
+categories = ["command-line-utilities", "text-processing"]
+readme = "../README.md"
+exclude = [
+    ".*",
+    "tests/*",
+    "target/*",
+    "Cargo.lock"
+]
 
 [[bin]]
 name = "sakurs"

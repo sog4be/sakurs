@@ -5,8 +5,22 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/sakurs-py"
 rust-version.workspace = true
 description = "Python bindings for Sakurs sentence boundary detection"
+keywords = ["python", "sentence-boundary", "text-processing", "nlp", "pyo3"]
+categories = ["text-processing", "api-bindings"]
+readme = "../README.md"
+exclude = [
+    ".*",
+    "tests/*",
+    "target/*",
+    "Cargo.lock",
+    "__pycache__/*",
+    "*.pyc",
+    ".venv/*"
+]
 
 [lib]
 name = "sakurs"

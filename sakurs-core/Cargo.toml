@@ -4,6 +4,23 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/sakurs-core"
+rust-version.workspace = true
+description = "High-performance sentence boundary detection using Delta-Stack Monoid algorithm"
+keywords = ["sentence-boundary", "text-processing", "nlp", "parallel", "monoid"]
+categories = ["text-processing", "parsing", "algorithms"]
+readme = "../README.md"
+exclude = [
+    ".*",
+    "benches/*",
+    "examples/*",
+    "tests/*",
+    "target/*",
+    "Cargo.lock",
+    "configs/test/*"
+]
 
 [dependencies]
 thiserror.workspace = true
