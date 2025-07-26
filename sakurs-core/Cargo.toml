@@ -8,9 +8,10 @@ repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
 description = "High-performance sentence boundary detection using Delta-Stack Monoid algorithm"
-readme = "../README.md"
-publish = false  # Internal library - not published to crates.io
-# Note: keywords, categories, and docs.rs link removed since not publishing
+keywords = ["sentence-boundary", "nlp", "text-processing", "monoid", "parallel"]
+categories = ["text-processing", "algorithms", "parser-implementations"]
+documentation = "https://docs.rs/sakurs-core"
+readme = "README.md"
 exclude = [
     ".*",
     "benches/*",
