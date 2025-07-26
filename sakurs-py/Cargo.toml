@@ -12,6 +12,7 @@ description = "Python bindings for Sakurs sentence boundary detection"
 keywords = ["python", "sentence-boundary", "text-processing", "nlp", "pyo3"]
 categories = ["text-processing", "api-bindings"]
 readme = "../README.md"
+publish = false  # Python package will be published to PyPI, not crates.io
 exclude = [
     ".*",
     "tests/*",

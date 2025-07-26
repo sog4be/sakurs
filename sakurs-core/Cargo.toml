@@ -12,6 +12,7 @@ description = "High-performance sentence boundary detection using Delta-Stack Mo
 keywords = ["sentence-boundary", "text-processing", "nlp", "parallel", "monoid"]
 categories = ["text-processing", "parsing", "algorithms"]
 readme = "../README.md"
+publish = false  # Will not be published to crates.io for now
 exclude = [
     ".*",
     "benches/*",
