@@ -5,6 +5,16 @@
 //! representing parsing state as a monoid, enabling associative operations
 //! that can be computed in parallel while maintaining perfect accuracy.
 //!
+//! # Stability Notice
+//!
+//! This crate is in pre-release (v0.1.0-dev). The API is not yet stable and may
+//! change significantly in future releases. Use with caution in production code.
+//!
+//! We recommend pinning to exact versions in your Cargo.toml:
+//! ```toml
+//! sakurs-core = "=0.1.0"
+//! ```
+//!
 //! # Architecture
 //!
 //! The crate follows a hexagonal architecture pattern:
