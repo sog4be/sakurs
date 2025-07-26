@@ -50,12 +50,17 @@ git checkout -b chore/release-vX.Y.Z
 
 # Update version in all Cargo.toml files
 # In workspace root
+# macOS:
 sed -i '' 's/version = ".*-dev"/version = "X.Y.Z"/' Cargo.toml
+# Linux:
+# sed -i 's/version = ".*-dev"/version = "X.Y.Z"/' Cargo.toml
 
 # In each crate
+# macOS:
 sed -i '' 's/version = ".*-dev"/version = "X.Y.Z"/' sakurs-core/Cargo.toml
 sed -i '' 's/version = ".*-dev"/version = "X.Y.Z"/' sakurs-cli/Cargo.toml
 sed -i '' 's/version = ".*-dev"/version = "X.Y.Z"/' sakurs-py/Cargo.toml
+# Linux: use sed -i without ''
 ```
 
 ### 2. Final Checks
@@ -115,10 +120,11 @@ git push origin vX.Y.Z
 
 The GitHub Actions workflow will automatically:
 1. Validate the tag format and version consistency
-2. Publish `sakurs-cli` to crates.io
-3. Build Python wheels for multiple platforms
-4. Upload wheels to PyPI as `sakurs`
-5. Create a GitHub release with changelog
+2. Run tests (formatting, clippy, and unit tests)
+3. Publish `sakurs-cli` to crates.io
+4. Build Python wheels for multiple platforms
+5. Upload wheels to PyPI as `sakurs`
+6. Create a GitHub release with changelog
 
 Monitor the progress at: https://github.com/sog4be/sakurs/actions
 
@@ -132,7 +138,10 @@ After successful release:
    git checkout -b chore/prepare-next-dev
    
    # Update all versions to next dev version
+   # macOS:
    sed -i '' 's/version = "X.Y.Z"/version = "X.Y.(Z+1)-dev"/' */Cargo.toml Cargo.toml
+   # Linux:
+   # sed -i 's/version = "X.Y.Z"/version = "X.Y.(Z+1)-dev"/' */Cargo.toml Cargo.toml
    
    # Commit and push
    git add -A

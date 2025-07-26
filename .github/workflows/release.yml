@@ -37,6 +37,13 @@ jobs:
           VERSION="${VERSION#v}"  # Remove 'v' prefix
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       
+      - name: Validate semver format
+        run: |
+          if [[ ! "${{ steps.version.outputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
+            echo "Error: Extracted version '${{ steps.version.outputs.version }}' is not valid semver"
+            exit 1
+          fi
+      
       - name: Verify Cargo.toml versions match tag
         run: |
           # Check sakurs-cli version
@@ -56,10 +63,33 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
 
+  # Run tests before publishing
+  test:
+    name: Run Tests
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      
+      - uses: Swatinem/rust-cache@v2
+      
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      
+      - name: Run clippy
+        run: cargo clippy --workspace -- -D warnings
+      
+      - name: Run tests
+        run: cargo test --workspace
+
   # Publish sakurs-cli to crates.io
   publish-cli:
     name: Publish CLI to crates.io
-    needs: validate
+    needs: [validate, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,17 +101,25 @@ jobs:
       - name: Verify crate can be packaged
         run: |
           cd sakurs-cli
-          cargo package --no-verify
+          cargo package --no-verify --locked
       
       - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           cd sakurs-cli
           # Retry logic for transient failures
           for i in {1..3}; do
-            if cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}; then
+            if cargo publish; then
               echo "Successfully published to crates.io"
               break
             else
+              # Check if it's a transient error (network, server issues)
+              if cargo search sakurs-cli | grep -q "^sakurs-cli = \"${{ needs.validate.outputs.version }}\""; then
+                echo "Package already published, skipping"
+                break
+              fi
+              
               if [ $i -eq 3 ]; then
                 echo "Failed to publish after 3 attempts"
                 exit 1
@@ -94,7 +132,7 @@ jobs:
   # Build and publish Python wheels
   publish-python:
     name: Build Python ${{ matrix.platform.name }}
-    needs: validate
+    needs: [validate, test]
     strategy:
       matrix:
         platform:
@@ -132,7 +170,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.platform.name }}
+          name: wheels-${{ matrix.platform.target }}
           path: sakurs-py/dist
 
   # Upload all wheels to PyPI
@@ -182,15 +220,31 @@ jobs:
           CHANGELOG_FILE=$(mktemp)
           
           # Extract changelog section between version headers
-          awk -v ver="## \\[$VERSION\\]" '
-            $0 ~ ver { flag=1; next }
-            flag && /^## \[/ { exit }
-            flag { print }
-          ' CHANGELOG.md > "$CHANGELOG_FILE"
-          
-          # If no content found, use a default message
-          if [[ ! -s "$CHANGELOG_FILE" ]]; then
-            echo "No changelog found for version $VERSION" > "$CHANGELOG_FILE"
+          if [[ ! -f CHANGELOG.md ]]; then
+            echo "Warning: CHANGELOG.md not found"
+            echo "Release $VERSION" > "$CHANGELOG_FILE"
+          else
+            # Try to extract the version section
+            awk -v ver="## \\[$VERSION\\]" '
+              $0 ~ ver { flag=1; next }
+              flag && /^## \[/ { exit }
+              flag { print }
+            ' CHANGELOG.md > "$CHANGELOG_FILE" || true
+            
+            # Check if extraction was successful
+            if [[ ! -s "$CHANGELOG_FILE" ]]; then
+              # Try alternative format without brackets
+              awk -v ver="## $VERSION" '
+                $0 ~ ver { flag=1; next }
+                flag && /^## / { exit }
+                flag { print }
+              ' CHANGELOG.md > "$CHANGELOG_FILE" || true
+            fi
+            
+            # If still no content found, use a default message
+            if [[ ! -s "$CHANGELOG_FILE" ]]; then
+              echo "Release $VERSION - See commits for details" > "$CHANGELOG_FILE"
+            fi
           fi
           
           echo "changelog_file=$CHANGELOG_FILE" >> "$GITHUB_OUTPUT"
