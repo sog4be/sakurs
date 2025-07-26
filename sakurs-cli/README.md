@@ -2,6 +2,24 @@
 
 Fast, parallel sentence boundary detection for the command line.
 
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Usage Examples](#usage-examples)
+  - [Basic File Processing](#basic-file-processing)
+  - [Batch Processing](#batch-processing)
+  - [Output Formats](#output-formats)
+  - [Performance Tuning](#performance-tuning)
+- [Command Reference](#command-reference)
+- [Examples](#examples)
+  - [Processing Japanese Text](#processing-japanese-text)
+  - [Analyzing Code Documentation](#analyzing-code-documentation)
+  - [Pipeline Integration](#pipeline-integration)
+- [License](#license)
+- [Links](#links)
+
 ## Installation
 
 ```bash
@@ -28,11 +46,9 @@ sakurs process -i document.txt -f json
 
 ## Features
 
-- 📁 **File globbing**: Process multiple files with patterns like `*.txt`
-- 🚀 **Parallel processing**: Automatically uses multiple CPU cores
-- 📊 **Multiple output formats**: Plain text, JSON, or quiet mode
-- 🌍 **Language support**: English and Japanese
-- ⚡ **High performance**: Process gigabytes of text in seconds
+- **Parallel Processing**: Automatically utilizes multiple CPU cores for optimal performance
+- **Multiple Output Formats**: Plain text, JSON, or quiet mode for different use cases
+- **Language Support**: Built-in configurations for English and Japanese
 
 ## Usage Examples
 
@@ -125,14 +141,6 @@ git log --format=%B | sakurs process -i - -f quiet
 # Extract sentences from specific files
 find . -name "*.txt" -exec sakurs process -i {} \;
 ```
-
-## Performance
-
-Sakurs uses the Delta-Stack Monoid algorithm for true parallel processing:
-
-- Automatically detects optimal thread count
-- Scales linearly with CPU cores
-- Processes ~100MB/sec on modern hardware
 
 ## License
 

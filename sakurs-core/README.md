@@ -9,13 +9,25 @@ APIs may change significantly before v1.0.0. We recommend pinning to exact versi
 sakurs-core = "=0.1.0"
 ```
 
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Advanced Usage](#advanced-usage)
+  - [Custom Configuration](#custom-configuration)
+  - [Processing Files](#processing-files)
+  - [Streaming Large Files](#streaming-large-files)
+- [Language Support](#language-support)
+- [Algorithm](#algorithm)
+- [License](#license)
+- [Links](#links)
+
 ## Features
 
-- 🚀 **Parallel Processing**: Near-linear speedup with multiple cores
-- 🌍 **Language Support**: Configurable rules for English and Japanese
-- 📏 **Zero-Copy**: Efficient string handling without unnecessary allocations
-- 🔄 **Monoid-Based**: Mathematically sound parallel algorithm
-- 🎯 **High Accuracy**: Handles complex cases like nested quotes and abbreviations
+- **Parallel Processing**: Efficient speedup with multiple cores using the Delta-Stack Monoid algorithm
+- **Language Support**: Configurable rules for English and Japanese via TOML-based configuration
+- **Mathematically Sound**: Based on monoid algebra, ensuring correct results in parallel execution
+- **Complex Text Support**: Handles nested quotes, abbreviations, and cross-chunk boundaries correctly
 
 ## Quick Start
 
@@ -76,14 +88,6 @@ let config = Config::streaming()
 let processor = SentenceProcessor::with_config(config)?;
 let output = processor.process(Input::from_file("large_document.txt"))?;
 ```
-
-## Performance
-
-The Delta-Stack Monoid algorithm enables true parallel processing:
-
-- **Sequential**: O(N) time, O(1) space
-- **Parallel**: O(N/P + log P) time, O(P) space
-- Benchmarks show 3.5x speedup on 4 cores, 6.8x on 8 cores
 
 ## Language Support
 
