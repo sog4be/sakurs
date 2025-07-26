@@ -4,9 +4,10 @@ This document describes the release process for the sakurs project.
 
 ## Overview
 
-The release process is semi-automated:
-- **Manual**: Version updates and tag creation
-- **Automated**: Package publishing and GitHub release creation
+The release process follows a PR-based workflow:
+- **Release PR**: Version updates and changelog modifications
+- **Tag Creation**: After PR merge, create tag on main branch
+- **Automated Publishing**: GitHub Actions handles package publishing and release creation
 
 ## Prerequisites
 
@@ -40,10 +41,14 @@ Before starting a release:
 
 ## Release Steps
 
-### 1. Update Version Numbers
+### 1. Create Release PR
 
-Update version in all Cargo.toml files:
+Create a new branch and update version numbers:
 ```bash
+# Create release branch
+git checkout -b chore/release-vX.Y.Z
+
+# Update version in all Cargo.toml files
 # In workspace root
 sed -i '' 's/version = ".*-dev"/version = "X.Y.Z"/' Cargo.toml
 
@@ -62,24 +67,51 @@ grep -h "^version = " */Cargo.toml Cargo.toml
 # Run final tests
 cargo test --workspace
 cargo publish --dry-run -p sakurs-cli
+
+# Update CHANGELOG.md if not already done
+# Ensure the new version section is at the top
 ```
 
-### 3. Commit and Tag
+### 3. Create and Merge PR
 
 ```bash
 # Commit version changes
 git add -A
-git commit -m "chore: release v$VERSION"
+git commit -m "chore: release vX.Y.Z
 
-# Create annotated tag
-git tag -a v$VERSION -m "Release v$VERSION"
+- Update version from X.Y.Z-dev to X.Y.Z
+- Update CHANGELOG.md for release"
 
-# Push to trigger release
-git push origin main
-git push origin v$VERSION
+# Push branch
+git push origin chore/release-vX.Y.Z
+
+# Create PR via GitHub
+gh pr create --title "chore: release vX.Y.Z" \
+  --body "Release vX.Y.Z with the following changes:
+  
+  - [List major changes from CHANGELOG]
+  
+  See CHANGELOG.md for full details."
 ```
 
-### 4. Monitor Release
+Wait for PR approval and CI checks to pass, then merge.
+
+### 4. Create Tag and Trigger Release
+
+After the PR is merged:
+```bash
+# Switch to main and pull latest
+git checkout main
+git pull origin main
+
+# Create annotated tag
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+
+# Push tag to trigger automated release
+git push origin vX.Y.Z
+```
+
+### 5. Monitor Release
 
 The GitHub Actions workflow will automatically:
 1. Validate the tag format and version consistency
@@ -90,17 +122,29 @@ The GitHub Actions workflow will automatically:
 
 Monitor the progress at: https://github.com/sog4be/sakurs/actions
 
-### 5. Post-Release
+### 6. Post-Release
 
 After successful release:
 
-1. **Update to next development version**:
+1. **Create post-release PR for next development version**:
    ```bash
+   # Create new branch
+   git checkout -b chore/prepare-next-dev
+   
    # Update all versions to next dev version
-   sed -i '' 's/version = "X.Y.Z"/version = "X.Y.Z-dev"/' */Cargo.toml Cargo.toml
+   sed -i '' 's/version = "X.Y.Z"/version = "X.Y.(Z+1)-dev"/' */Cargo.toml Cargo.toml
+   
+   # Commit and push
    git add -A
-   git commit -m "chore: prepare for next development iteration"
-   git push origin main
+   git commit -m "chore: prepare for next development iteration
+   
+   - Bump version to X.Y.(Z+1)-dev"
+   
+   git push origin chore/prepare-next-dev
+   
+   # Create PR
+   gh pr create --title "chore: prepare for next development iteration" \
+     --body "Bump version to X.Y.(Z+1)-dev for continued development."
    ```
 
 2. **Verify packages**:
@@ -139,12 +183,24 @@ If some packages fail to publish:
 
 ## Release Checklist
 
-- [ ] All CI checks passing
-- [ ] CHANGELOG.md updated
-- [ ] Version numbers updated in all Cargo.toml files
-- [ ] Dry-run publish successful
-- [ ] Tag created and pushed
+### Pre-Release PR
+- [ ] All CI checks passing on main branch
+- [ ] CHANGELOG.md updated with new version section
+- [ ] Create release branch `chore/release-vX.Y.Z`
+- [ ] Update version numbers in all Cargo.toml files
+- [ ] Run `cargo test --workspace`
+- [ ] Run `cargo publish --dry-run -p sakurs-cli`
+- [ ] Create and merge release PR
+
+### Release
+- [ ] Pull latest main branch after PR merge
+- [ ] Create annotated tag `vX.Y.Z`
+- [ ] Push tag to trigger automated release
 - [ ] Monitor GitHub Actions workflow
 - [ ] Verify packages on crates.io and PyPI
-- [ ] Update to next dev version
+- [ ] Verify GitHub Release was created
+
+### Post-Release
+- [ ] Create post-release PR to bump to next dev version
+- [ ] Merge post-release PR
 - [ ] Announce release (if applicable)
