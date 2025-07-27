@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-07-27
+
+### Fixed
+- Fixed artifact name collision in release workflow that prevented PyPI uploads
+- Release workflow now properly handles all platform builds (Linux, macOS Intel/ARM, Windows)
+
+### Changed
+- Release workflow artifacts now include OS name to prevent naming conflicts
+
 ## [0.1.0] - 2025-07-27
 
 ### Added
