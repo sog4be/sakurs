@@ -46,26 +46,24 @@ jobs:
       
       - name: Verify Cargo.toml versions match tag
         run: |
-          # Check sakurs-core version
-          CORE_VERSION=$(grep -E '^version = ' sakurs-core/Cargo.toml | head -1 | cut -d'"' -f2)
-          if [[ "$CORE_VERSION" != "${{ steps.version.outputs.version }}" ]]; then
-            echo "Error: sakurs-core version ($CORE_VERSION) doesn't match tag (${{ steps.version.outputs.version }})"
+          # Get workspace version
+          WORKSPACE_VERSION=$(grep -E '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
+          
+          # Check workspace version matches tag
+          if [[ "$WORKSPACE_VERSION" != "${{ steps.version.outputs.version }}" ]]; then
+            echo "Error: Workspace version ($WORKSPACE_VERSION) doesn't match tag (${{ steps.version.outputs.version }})"
             exit 1
           fi
           
-          # Check sakurs-cli version
-          CLI_VERSION=$(grep -E '^version = ' sakurs-cli/Cargo.toml | head -1 | cut -d'"' -f2)
-          if [[ "$CLI_VERSION" != "${{ steps.version.outputs.version }}" ]]; then
-            echo "Error: sakurs-cli version ($CLI_VERSION) doesn't match tag (${{ steps.version.outputs.version }})"
-            exit 1
-          fi
+          # Verify all crates use workspace version
+          for crate in sakurs-core sakurs-cli sakurs-py; do
+            if ! grep -q "^version\.workspace = true" "$crate/Cargo.toml"; then
+              echo "Error: $crate doesn't use workspace version"
+              exit 1
+            fi
+          done
           
-          # Check sakurs-py version
-          PY_VERSION=$(grep -E '^version = ' sakurs-py/Cargo.toml | head -1 | cut -d'"' -f2)
-          if [[ "$PY_VERSION" != "${{ steps.version.outputs.version }}" ]]; then
-            echo "Error: sakurs-py version ($PY_VERSION) doesn't match tag (${{ steps.version.outputs.version }})"
-            exit 1
-          fi
+          echo "✓ All versions correctly set to $WORKSPACE_VERSION"
     
     outputs:
       version: ${{ steps.version.outputs.version }}
