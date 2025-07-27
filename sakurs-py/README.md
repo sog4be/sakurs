@@ -21,9 +21,11 @@ High-performance sentence boundary detection for Python using the Delta-Stack Mo
 
 ## Installation
 
-**Coming Soon** - Will be available on PyPI.
+```bash
+pip install sakurs
+```
 
-For now, build from source:
+To build from source:
 ```bash
 git clone https://github.com/sog4be/sakurs.git
 cd sakurs/sakurs-py

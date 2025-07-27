@@ -2,11 +2,11 @@
 
 High-performance sentence boundary detection library using the Delta-Stack Monoid algorithm.
 
-⚠️ **API Stability Warning**: This crate is in pre-release (v0.1.0). 
+⚠️ **API Stability Warning**: This crate is in early release (v0.1.1). 
 APIs may change significantly before v1.0.0. We recommend pinning to exact versions:
 
 ```toml
-sakurs-core = "=0.1.0"
+sakurs-core = "=0.1.1"
 ```
 
 ## Table of Contents

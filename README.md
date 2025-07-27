@@ -24,10 +24,10 @@
     </a>
 </p>
 
-> [!WARNING]
-> **This project is in pre-release development (v0.1.0-dev)**. 
-> APIs and features may change significantly before the first stable release.
-> We welcome early adopters and contributors to help shape the project!
+> [!NOTE]
+> **This project is in early release (v0.1.1)**. 
+> APIs may change in future releases, especially the internal `sakurs-core` crate.
+> We welcome feedback and contributions!
 
 ## Table of Contents
 
@@ -59,25 +59,25 @@
 ### Python
 
 ```bash
-# Clone and install Python bindings
+# Install from PyPI
+pip install sakurs
+
+# Or build from source
 git clone https://github.com/sog4be/sakurs.git
 cd sakurs/sakurs-py
 uv pip install -e .
-
-# Coming soon: pip install sakurs
 ```
 
 ### Command Line Tool
 
 ```bash
-# Clone the repository
+# Install from crates.io
+cargo install sakurs-cli
+
+# Or build from source
 git clone https://github.com/sog4be/sakurs.git
 cd sakurs
-
-# Build and install the CLI
 cargo install --path sakurs-cli
-
-# Coming soon: cargo install sakurs-cli
 ```
 
 ## Quick Start
