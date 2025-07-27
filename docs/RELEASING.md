@@ -26,8 +26,11 @@ Before starting a release:
    - Include all notable changes
 
 3. **Verify package names**:
-   - crates.io: `sakurs-cli`
+   - crates.io: `sakurs-core` (internal library), `sakurs-cli` (user-facing tool)
    - PyPI: `sakurs`
+   
+   Note: sakurs-core is published as a dependency for sakurs-cli but is not 
+   intended for direct use due to unstable APIs.
 
 4. **Check GitHub Secrets**:
    - `CARGO_REGISTRY_TOKEN` must be set
@@ -71,6 +74,7 @@ grep -h "^version = " */Cargo.toml Cargo.toml
 
 # Run final tests
 cargo test --workspace
+cargo publish --dry-run -p sakurs-core
 cargo publish --dry-run -p sakurs-cli
 
 # Update CHANGELOG.md if not already done
@@ -121,10 +125,11 @@ git push origin vX.Y.Z
 The GitHub Actions workflow will automatically:
 1. Validate the tag format and version consistency
 2. Run tests (formatting, clippy, and unit tests)
-3. Publish `sakurs-cli` to crates.io
-4. Build Python wheels for multiple platforms
-5. Upload wheels to PyPI as `sakurs`
-6. Create a GitHub release with changelog
+3. Publish `sakurs-core` to crates.io (as dependency)
+4. Publish `sakurs-cli` to crates.io (user-facing tool)
+5. Build Python wheels for multiple platforms
+6. Upload wheels to PyPI as `sakurs`
+7. Create a GitHub release with changelog
 
 Monitor the progress at: https://github.com/sog4be/sakurs/actions
 
@@ -157,7 +162,8 @@ After successful release:
    ```
 
 2. **Verify packages**:
-   - Check https://crates.io/crates/sakurs-cli
+   - Check https://crates.io/crates/sakurs-core (verify it's published but not promoted)
+   - Check https://crates.io/crates/sakurs-cli (main CLI tool)
    - Check https://pypi.org/project/sakurs/
    - Test installation: `pip install sakurs` and `cargo install sakurs-cli`
 
@@ -168,6 +174,7 @@ After successful release:
 - **Authentication error**: Verify `CARGO_REGISTRY_TOKEN` is set correctly
 - **Version exists**: Version was already published, bump version number
 - **Dependencies**: Ensure all path dependencies are removed
+- **sakurs-core not found**: If sakurs-cli fails, ensure sakurs-core was published first
 
 ### PyPI Publishing Fails
 
@@ -181,8 +188,10 @@ If some packages fail to publish:
 - The GitHub Release will still be created
 - Manually publish failed packages:
   ```bash
-  # For crates.io
-  cd sakurs-cli && cargo publish
+  # For crates.io (publish in order)
+  cd sakurs-core && cargo publish
+  # Wait a few seconds for crates.io to index
+  cd ../sakurs-cli && cargo publish
   
   # For PyPI (build wheels first)
   cd sakurs-py
@@ -198,6 +207,7 @@ If some packages fail to publish:
 - [ ] Create release branch `chore/release-vX.Y.Z`
 - [ ] Update version numbers in all Cargo.toml files
 - [ ] Run `cargo test --workspace`
+- [ ] Run `cargo publish --dry-run -p sakurs-core`
 - [ ] Run `cargo publish --dry-run -p sakurs-cli`
 - [ ] Create and merge release PR
 
