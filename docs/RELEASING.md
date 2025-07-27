@@ -220,6 +220,6 @@ If some packages fail to publish:
 - [ ] Verify GitHub Release was created
 
 ### Post-Release
-- [ ] Create post-release PR to bump to next dev version
+- [ ] Create post-release PR to update documentation and add [Unreleased] section to CHANGELOG.md
 - [ ] Merge post-release PR
 - [ ] Announce release (if applicable)
