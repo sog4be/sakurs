@@ -44,12 +44,13 @@ pub fn process_with_processor(processor: &SentenceProcessor, text: &str) -> Resu
 
     Ok(Output {
         boundaries: boundary_dtos,
-        metadata: ProcessingMetadata {
-            total_bytes: text_len,
-            processing_time_ms: elapsed.as_millis() as u64,
-            mode: "auto".to_string(),
-            thread_count: 1, // TODO: Get from execution
-        },
+        metadata: ProcessingMetadata::new(
+            text_len,
+            text.chars().count(),
+            elapsed.as_millis() as u64,
+            "auto".to_string(),
+            1, // TODO: Get from execution
+        ),
     })
 }
 
@@ -98,11 +99,12 @@ fn process_input(processor: SentenceProcessor, input: crate::dto::Input) -> Resu
 
     Ok(Output {
         boundaries: boundary_dtos,
-        metadata: ProcessingMetadata {
-            total_bytes: text_len,
-            processing_time_ms: elapsed.as_millis() as u64,
-            mode: "auto".to_string(),
-            thread_count: 1, // TODO: Get from execution
-        },
+        metadata: ProcessingMetadata::new(
+            text_len,
+            text.chars().count(),
+            elapsed.as_millis() as u64,
+            "auto".to_string(),
+            1, // TODO: Get from execution
+        ),
     })
 }

@@ -81,12 +81,13 @@ fn test_output_serialization() {
             char_offset: 12,
             kind: "strong".to_string(),
         }],
-        metadata: sakurs_api::dto::ProcessingMetadata {
-            total_bytes: 100,
-            processing_time_ms: 5,
-            mode: "sequential".to_string(),
-            thread_count: 1,
-        },
+        metadata: sakurs_api::dto::ProcessingMetadata::new(
+            100,
+            100, // total_chars
+            5,
+            "sequential".to_string(),
+            1,
+        ),
     };
 
     let json = serde_json::to_string(&output).unwrap();

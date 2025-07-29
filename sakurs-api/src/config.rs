@@ -75,9 +75,31 @@ impl ConfigBuilder {
         self
     }
 
+    /// Set chunk policy directly
+    pub fn chunk_policy(mut self, policy: ChunkPolicy) -> Self {
+        self.config.inner.chunk_policy = policy;
+        self
+    }
+
+    /// Set parallel processing threshold
+    pub fn parallel_threshold(mut self, threshold: usize) -> Self {
+        self.config.inner.parallel_threshold = threshold;
+        self
+    }
+
     /// Use streaming configuration
     pub fn streaming(mut self) -> Self {
         self.config.inner = EngineConfig::streaming();
+        self
+    }
+
+    /// Configure streaming with custom window size and overlap
+    pub fn streaming_with(mut self, window_size: usize, overlap: usize) -> Self {
+        self.config.inner.chunk_policy = ChunkPolicy::Streaming {
+            window_size,
+            overlap,
+        };
+        self.config.inner.threads = Some(1); // Streaming is single-threaded
         self
     }
 
@@ -85,6 +107,11 @@ impl ConfigBuilder {
     pub fn fast(mut self) -> Self {
         self.config.inner = EngineConfig::fast();
         self
+    }
+
+    /// Use accurate configuration (alias for balanced)
+    pub fn accurate(self) -> Self {
+        self // Balanced is the default
     }
 
     /// Set custom language rules

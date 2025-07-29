@@ -34,20 +34,34 @@ pub trait Executor: Send + Sync {
     fn mode(&self) -> ExecutionMode;
 }
 
-/// Automatically select execution mode based on text size
-pub fn auto_select(text_len: usize, threshold: usize) -> ExecutionMode {
-    if text_len < 1024 {
-        // Very small texts: always sequential
-        ExecutionMode::Sequential
-    } else if text_len < threshold {
-        // Medium texts: sequential is often faster
-        ExecutionMode::Sequential
-    } else {
-        // Large texts: use parallel
-        #[cfg(feature = "parallel")]
-        return ExecutionMode::Parallel;
+/// Automatically select execution mode based on text size and config
+pub fn auto_select(text_len: usize, config: &crate::config::EngineConfig) -> ExecutionMode {
+    use crate::config::ChunkPolicy;
 
-        #[cfg(not(feature = "parallel"))]
-        ExecutionMode::Sequential
+    // Check if streaming is explicitly configured
+    if matches!(config.chunk_policy, ChunkPolicy::Streaming { .. }) {
+        return ExecutionMode::Streaming;
     }
+
+    // Check for very small texts
+    if text_len < 1024 {
+        return ExecutionMode::Sequential;
+    }
+
+    // Check against parallel threshold
+    if text_len < config.parallel_threshold {
+        return ExecutionMode::Sequential;
+    }
+
+    // Check if parallel is disabled via thread count
+    if config.threads == Some(1) {
+        return ExecutionMode::Sequential;
+    }
+
+    // Use parallel if available
+    #[cfg(feature = "parallel")]
+    return ExecutionMode::Parallel;
+
+    #[cfg(not(feature = "parallel"))]
+    ExecutionMode::Sequential
 }

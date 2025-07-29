@@ -4,7 +4,7 @@
 //! from parallel processing into final sentence boundaries.
 
 use crate::error::Result;
-use sakurs_core::{Boundary, PartialState};
+use sakurs_core::{Boundary, DeltaVec, PartialState};
 
 /// Assembler for combining partial results
 #[derive(Debug)]
@@ -82,4 +82,51 @@ mod tests {
         assert_eq!(result[0].byte_offset, 10);
         assert_eq!(result[1].byte_offset, 35); // 15 + 20
     }
+}
+
+/// Merge boundaries with cross-chunk abbreviation fix
+///
+/// This function handles offset shifting and detects abbreviations that
+/// were incorrectly split across chunk boundaries.
+///
+/// # Arguments
+/// * `boundaries` - Vector of boundaries from each chunk
+/// * `deltas` - Delta vectors from each chunk for state tracking
+/// * `dangling_dots` - Whether each chunk ended with a dot
+/// * `head_alphas` - Whether each chunk started with alphabetic
+/// * `offsets` - Byte offset where each chunk starts
+pub fn merge_boundaries(
+    boundaries: Vec<Vec<Boundary>>,
+    _deltas: &[DeltaVec],
+    dangling_dots: &[bool],
+    head_alphas: &[bool],
+    offsets: &[usize],
+) -> Vec<Boundary> {
+    let mut result = Vec::new();
+
+    for (chunk_idx, chunk_boundaries) in boundaries.iter().enumerate() {
+        let base_offset = offsets[chunk_idx];
+
+        for boundary in chunk_boundaries {
+            let adjusted_boundary = Boundary::new(
+                boundary.byte_offset + base_offset,
+                boundary.char_offset, // Will need recalculation based on full text
+                boundary.kind,
+            );
+
+            // Check if this is a false boundary from abbreviation split
+            if chunk_idx > 0 && boundary.byte_offset == 0 {
+                // This boundary is at the start of the chunk
+                if dangling_dots[chunk_idx - 1] && head_alphas[chunk_idx] {
+                    // Previous chunk ended with dot, this starts with alpha
+                    // This is likely an abbreviation split - skip this boundary
+                    continue;
+                }
+            }
+
+            result.push(adjusted_boundary);
+        }
+    }
+
+    result
 }

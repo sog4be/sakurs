@@ -41,7 +41,7 @@ impl SentenceProcessor {
 
     /// Process text with automatic mode selection
     pub fn process(&self, text: &str) -> Result<Vec<Boundary>> {
-        let mode = auto_select(text.len(), self.config.parallel_threshold);
+        let mode = auto_select(text.len(), &self.config);
         self.process_with_mode(text, mode)
     }
 

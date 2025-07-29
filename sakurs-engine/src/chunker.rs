@@ -133,7 +133,7 @@ fn is_char_boundary(bytes: &[u8], pos: usize) -> bool {
     (bytes[pos] & 0b1100_0000) != 0b1000_0000
 }
 
-/// Compute prefix sum using Blelloch scan
+/// Compute prefix sum using Blelloch scan (sequential version)
 pub fn prefix_sum<T, F>(values: &[T], identity: T, combine: F) -> Vec<T>
 where
     T: Clone + Send + Sync,
@@ -149,6 +149,56 @@ where
     for value in values {
         acc = combine(&acc, value);
         result.push(acc.clone());
+    }
+
+    result
+}
+
+/// Compute prefix sum using parallel processing
+#[cfg(feature = "parallel")]
+pub fn prefix_sum_parallel<T, F>(values: &[T], identity: T, combine: F) -> Vec<T>
+where
+    T: Clone + Send + Sync,
+    F: Fn(&T, &T) -> T + Send + Sync,
+{
+    use rayon::prelude::*;
+
+    if values.is_empty() {
+        return vec![identity];
+    }
+
+    // For small arrays, sequential is faster
+    if values.len() < 1000 {
+        return prefix_sum(values, identity, combine);
+    }
+
+    // Simple parallel approach: split into chunks and process
+    let chunk_size = (values.len() / rayon::current_num_threads()).max(1);
+
+    // Compute partial sums for each chunk
+    let partial_sums: Vec<T> = values
+        .par_chunks(chunk_size)
+        .map(|chunk| {
+            chunk
+                .iter()
+                .fold(identity.clone(), |acc, val| combine(&acc, val))
+        })
+        .collect();
+
+    // Compute prefix sums of the partial sums
+    let chunk_prefix = prefix_sum(&partial_sums, identity.clone(), &combine);
+
+    // Final result: combine chunk prefixes with local prefix sums
+    let mut result = vec![identity.clone()];
+
+    for (chunk_idx, chunk) in values.chunks(chunk_size).enumerate() {
+        let chunk_start = chunk_prefix[chunk_idx].clone();
+        let mut acc = chunk_start;
+
+        for value in chunk {
+            acc = combine(&acc, value);
+            result.push(acc.clone());
+        }
     }
 
     result

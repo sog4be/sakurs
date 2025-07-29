@@ -15,11 +15,12 @@ pub mod error;
 pub mod traits;
 pub mod types;
 
-// Re-export core types
-pub use delta_stack::{
-    emit_commit_if_depth0, emit_push, reduce_deltas, run, scan_chunk, DeltaScanner, DeltaVec,
-    PartialState, ENCLOSURE_MAX,
-};
+// Re-export core types that work in no_std
+pub use delta_stack::{DeltaScanner, DeltaVec, PartialState, ENCLOSURE_MAX};
 pub use error::CoreError;
 pub use traits::LanguageRules;
 pub use types::{Boundary, BoundaryKind, Class};
+
+// Re-export alloc-dependent functions
+#[cfg(feature = "alloc")]
+pub use delta_stack::{emit_commit_if_depth0, emit_push, reduce_deltas, run, scan_chunk};

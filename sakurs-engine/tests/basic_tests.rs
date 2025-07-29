@@ -21,11 +21,12 @@ fn test_engine_config_creation() {
 fn test_execution_mode_selection() {
     use sakurs_engine::executor::auto_select;
 
-    assert_eq!(auto_select(500, 100_000), ExecutionMode::Sequential);
-    assert_eq!(auto_select(10_000, 100_000), ExecutionMode::Sequential);
+    let config = EngineConfig::default();
+    assert_eq!(auto_select(500, &config), ExecutionMode::Sequential);
+    assert_eq!(auto_select(10_000, &config), ExecutionMode::Sequential);
 
     #[cfg(feature = "parallel")]
-    assert_eq!(auto_select(200_000, 100_000), ExecutionMode::Parallel);
+    assert_eq!(auto_select(200_000, &config), ExecutionMode::Parallel);
 }
 
 #[test]

@@ -146,6 +146,11 @@ pub struct DeltaScanner<'r, R: LanguageRules> {
     byte_offset: usize,
     char_offset: usize,
     last_was_dot: bool,
+    /// Buffer for tracking recent text (for abbreviation detection)
+    #[cfg(feature = "alloc")]
+    text_buffer: Vec<char>,
+    /// Maximum characters to keep in buffer
+    buffer_limit: usize,
 }
 
 impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
@@ -159,12 +164,24 @@ impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
             byte_offset: 0,
             char_offset: 0,
             last_was_dot: false,
+            #[cfg(feature = "alloc")]
+            text_buffer: Vec::with_capacity(128),
+            buffer_limit: 128, // Keep last 128 chars for abbreviation context
         })
     }
 
     /// Process a single character and emit boundaries
     pub fn step(&mut self, ch: char, emit: &mut impl FnMut(Boundary)) -> Result<()> {
         let char_len = ch.len_utf8();
+
+        // Update text buffer for abbreviation detection
+        #[cfg(feature = "alloc")]
+        {
+            self.text_buffer.push(ch);
+            if self.text_buffer.len() > self.buffer_limit {
+                self.text_buffer.remove(0);
+            }
+        }
 
         // Update state for head_alpha detection
         if self.byte_offset == 0 && matches!(self.rules.classify_char(ch), Class::Alpha) {
@@ -201,8 +218,37 @@ impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
 
         // Check for terminators
         if self.rules.is_terminator(ch) && self.total_depth == 0 {
-            // Check if it's an abbreviation
-            let is_abbrev = ch == '.' && self.last_was_dot;
+            let mut is_abbrev = false;
+
+            // Check if it's an abbreviation by looking at the buffer
+            #[cfg(feature = "alloc")]
+            if ch == '.' && !self.text_buffer.is_empty() {
+                // Find the start of the current word
+                let mut word_start = self.text_buffer.len().saturating_sub(1);
+                while word_start > 0 {
+                    let prev_char = self.text_buffer[word_start - 1];
+                    if !matches!(self.rules.classify_char(prev_char), Class::Alpha) {
+                        break;
+                    }
+                    word_start -= 1;
+                }
+
+                // Extract the word before the dot
+                if word_start < self.text_buffer.len() - 1 {
+                    let word: String = self.text_buffer[word_start..self.text_buffer.len() - 1]
+                        .iter()
+                        .collect();
+
+                    // Check if it's an abbreviation
+                    is_abbrev = self.rules.abbrev_match(&word);
+                }
+            }
+
+            // For no_std, fall back to simple heuristic
+            #[cfg(not(feature = "alloc"))]
+            {
+                is_abbrev = ch == '.' && self.last_was_dot;
+            }
 
             let boundary = Boundary::new(
                 self.byte_offset + char_len,
