@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Currently, sakurs is in alpha development. Security updates will be provided for:
+Security updates will be provided for:
 
 | Version | Supported          |
 | ------- | ------------------ |

@@ -36,7 +36,7 @@
   - [Python Usage](#python-usage)
 - [FAQ](#faq)
 - [Implementation Status](#implementation-status)
-  - [Current Features (v0.1.0-dev)](#current-features-v010-dev)
+  - [Current Features (v0.1.1)](#current-features-v011)
   - [Planned Features](#planned-features)
 - [Contributing](#contributing)
 
@@ -534,7 +534,7 @@ Yes! The library is designed for production use with:
 
 ## Implementation Status
 
-### Current Features (v0.1.0-dev)
+### Current Features (v0.1.1)
 - ✅ Core Delta-Stack Monoid algorithm
 - ✅ Parallel processing with rayon
 - ✅ English and Japanese language support via configurable rules
