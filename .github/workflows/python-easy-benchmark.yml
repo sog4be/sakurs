@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - 'sakurs-py/**'
+      - 'sakurs-core/**'
       - '.github/workflows/python-easy-benchmark.yml'
   push:
     branches: [main]
     paths:
       - 'sakurs-py/**'
+      - 'sakurs-core/**'
       - '.github/workflows/python-easy-benchmark.yml'
 
 jobs:
