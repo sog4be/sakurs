@@ -103,6 +103,21 @@ This project follows a **simplified GitHub Flow** strategy optimized for open-so
 - Merged back to `main` via pull requests
 - Deleted after successful merge
 
+#### Work Branches (for large features)
+- Created from a parent `feature/*` branch for complex features requiring multiple iterations
+- Used when a feature is too large to complete in a single branch
+- Allows for incremental development and experimentation
+- Merged back to parent feature branch (not directly to `main`)
+- Naming convention: `work/{feature-name}/{specific-task}`
+- Example workflow:
+  ```
+  main
+  └── feature/new-streaming-api
+      ├── work/new-streaming-api/core-implementation
+      ├── work/new-streaming-api/error-handling
+      └── work/new-streaming-api/performance-optimization
+  ```
+
 ### Branch Naming Convention
 
 Use descriptive names following these patterns:
@@ -127,6 +142,12 @@ docs/fix-typos
 chore/update-dependencies
 chore/cleanup-tests
 chore/improve-ci
+
+# Work branches (for sub-tasks of large features)
+work/streaming-api/implement-buffer-management
+work/streaming-api/add-backpressure
+work/japanese-support/add-tokenizer
+work/japanese-support/implement-rules
 ```
 
 ### Workflow Steps
@@ -182,6 +203,36 @@ chore/improve-ci
 - Don't merge without code review
 
 ### Special Cases
+
+#### Working with Work Branches
+For large features that need to be broken down:
+```bash
+# Create parent feature branch
+git checkout -b feature/new-streaming-api main
+
+# Create work branch from feature branch
+git checkout -b work/new-streaming-api/core-implementation
+
+# Make changes and commit
+git add .
+git commit -m "feat: implement core streaming buffer"
+
+# Push work branch
+git push origin work/new-streaming-api/core-implementation
+
+# Create PR from work branch to feature branch (not main!)
+# After review and merge, continue with next work branch
+git checkout feature/new-streaming-api
+git pull origin feature/new-streaming-api
+git checkout -b work/new-streaming-api/error-handling
+```
+
+**Important notes for work branches:**
+- Always create PRs from work branch to parent feature branch
+- Keep work branches focused on specific sub-tasks
+- Delete work branches after merging to feature branch
+- Only create final PR from feature branch to main when all work is complete
+- Work branches allow for easier code review of large changes
 
 #### Hotfixes
 For urgent production fixes:

@@ -193,8 +193,15 @@ EOF
 ## Git Workflow
 - Branch from `main` for new features
 - Use descriptive branch names: `feature/`, `fix/`, `docs/`, `chore/`
+- For large features, use `work/*` branches from parent `feature/*` branch
 - Keep commits atomic and focused
 - Refer to @CONTRIBUTING.md for detailed Git workflow and examples
+
+### Work Branch Strategy
+- Use `work/*` branches when a feature is too large for a single branch
+- Create work branches from parent feature branch: `work/{feature-name}/{task}`
+- PRs from work branches go to feature branch, not main
+- See @CONTRIBUTING.md for complete work branch workflow
 
 ## Committing Changes with Git
 
