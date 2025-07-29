@@ -31,6 +31,16 @@ impl std::fmt::Debug for Input {
 }
 
 impl Input {
+    /// Create input from text
+    pub fn from_text(text: impl Into<String>) -> Self {
+        Input::Text(text.into())
+    }
+
+    /// Create input from file path
+    pub fn from_file(path: impl Into<PathBuf>) -> Self {
+        Input::File(path.into())
+    }
+
     /// Read the text content from the input
     pub fn read_text(self) -> Result<String> {
         match self {

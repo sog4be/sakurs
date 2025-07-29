@@ -7,64 +7,15 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
-description = "High-performance sentence boundary detection using Delta-Stack Monoid algorithm"
-keywords = ["sentence-boundary", "nlp", "text-processing", "monoid", "parallel"]
-categories = ["text-processing", "algorithms", "parser-implementations"]
-documentation = "https://docs.rs/sakurs-core"
-readme = "README.md"
-exclude = [
-    ".*",
-    "benches/*",
-    "examples/*",
-    "tests/*",
-    "target/*",
-    "Cargo.lock",
-    "configs/test/*"
-]
-
-[dependencies]
-# Re-export from new crates for backward compatibility
-sakurs-api = { path = "../sakurs-api" }
-sakurs-engine = { path = "../sakurs-engine" }
-sakurs-delta-core = { path = "../sakurs-delta-core" }
-
-# Keep existing dependencies for compatibility shim
-thiserror.workspace = true
-serde.workspace = true
-# Memory optimization
-smallvec = { version = "1.13", features = ["union", "serde"] }
-# Parallel processing support
-rayon = { version = "1.10", optional = true }
-num_cpus = { version = "1.16", optional = true }
-# Configuration support
-toml = "0.9"
-regex = "1.10"
-
-[dev-dependencies]
-criterion = { version = "0.7", features = ["html_reports"] }
-proptest = "1.0"
-tempfile = "3.10"
-
-[[bench]]
-name = "sentence_processor_benchmarks"
-harness = false
-
-[[bench]]
-name = "adaptive_profiling"
-harness = false
-
-[[bench]]
-name = "streaming_benchmark"
-harness = false
-
-[[example]]
-name = "unified_api"
+description = "Core Delta-Stack Monoid algorithm for sentence boundary detection"
 
 [features]
-default = ["std", "parallel"]
-std = []
-parallel = ["rayon", "num_cpus"]
-# no_std support preparation
-no_std = []
-# WASM support
-wasm = []
+default = ["std"]
+std = ["alloc"]
+alloc = []
+
+[dependencies]
+# Zero external dependencies - only core/alloc
+
+[dev-dependencies]
+# For testing only

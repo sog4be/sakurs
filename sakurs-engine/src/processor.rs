@@ -6,7 +6,7 @@ use crate::{
     executor::{auto_select, ExecutionMode, Executor, SequentialExecutor, StreamingExecutor},
     language::{get_language_rules, LanguageRulesImpl},
 };
-use sakurs_delta_core::Boundary;
+use sakurs_core::Boundary;
 
 #[cfg(feature = "parallel")]
 use crate::executor::ParallelExecutor;

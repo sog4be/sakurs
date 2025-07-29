@@ -1,6 +1,6 @@
 //! Language rules implementation for the engine
 
-use sakurs_delta_core::{Class, LanguageRules};
+use sakurs_core::{Class, LanguageRules};
 use std::sync::Arc;
 
 /// English language rules implementation

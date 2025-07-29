@@ -11,7 +11,6 @@ use pyo3::types::PyList;
 mod exceptions;
 mod input;
 mod iterator;
-mod language_config;
 mod output;
 mod processor;
 mod stream;
@@ -19,7 +18,6 @@ mod types;
 
 use exceptions::{register_exceptions, InternalError};
 use input::PyInput;
-use language_config::LanguageConfig;
 use output::{boundaries_to_sentences_with_char_offsets, ProcessingMetadata, Sentence};
 use processor::PyProcessor;
 use sakurs_api::Config;
@@ -42,13 +40,12 @@ use std::time::Instant;
 /// Returns:
 ///     List of sentence strings or Sentence objects if return_details=True
 #[pyfunction]
-#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_kb=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
+#[pyo3(signature = (input, *, language=None, threads=None, chunk_kb=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 #[allow(unused_variables)]
 fn split(
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     threads: Option<usize>,
     chunk_kb: Option<usize>,
     parallel: bool,
@@ -67,13 +64,7 @@ fn split(
     let (core_input, text) = py_input.into_core_input_and_text(py, encoding)?;
 
     // Build configuration
-    let mut config_builder = if let Some(_lang_config) = language_config {
-        // TODO: Custom language configuration not yet supported in new architecture
-        return Err(InternalError::ConfigurationError(
-            "Custom language configuration is not yet supported in this version".to_string(),
-        )
-        .into());
-    } else {
+    let mut config_builder = {
         // Use built-in language
         let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
             "en" | "english" => "en",
@@ -226,7 +217,6 @@ fn load(
     // Create processor with the specified parameters
     PyProcessor::new(
         Some(language),
-        None, // language_config
         threads,
         chunk_kb,
         execution_mode,
@@ -253,12 +243,11 @@ fn load(
 /// Returns:
 ///     Iterator that yields sentences one at a time
 #[pyfunction]
-#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_kb=None, encoding="utf-8"))]
+#[pyo3(signature = (input, *, language=None, threads=None, chunk_kb=None, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 fn iter_split(
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     threads: Option<usize>,
     chunk_kb: Option<usize>,
     encoding: &str,
@@ -268,7 +257,6 @@ fn iter_split(
         py,
         input,
         language,
-        language_config,
         threads,
         chunk_kb.map(|kb| kb * 1024),
         encoding,
@@ -298,12 +286,11 @@ fn iter_split(
 ///     boundaries may be yielded slightly out of order compared to
 ///     their position in the file.
 #[pyfunction]
-#[pyo3(signature = (file_path, *, language=None, language_config=None, max_memory_mb=100, overlap_size=1024, encoding="utf-8"))]
+#[pyo3(signature = (file_path, *, language=None, max_memory_mb=100, overlap_size=1024, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 fn split_large_file(
     file_path: &str,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     max_memory_mb: usize,
     overlap_size: usize,
     encoding: &str,
@@ -313,7 +300,6 @@ fn split_large_file(
         py,
         file_path,
         language,
-        language_config,
         max_memory_mb,
         overlap_size,
         encoding,
@@ -339,20 +325,6 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<stream::LargeFileIterator>()?;
 
     // Language configuration classes
-    m.add_class::<LanguageConfig>()?;
-    m.add_class::<language_config::MetadataConfig>()?;
-    m.add_class::<language_config::TerminatorConfig>()?;
-    m.add_class::<language_config::TerminatorPattern>()?;
-    m.add_class::<language_config::EllipsisConfig>()?;
-    m.add_class::<language_config::ContextRule>()?;
-    m.add_class::<language_config::ExceptionPattern>()?;
-    m.add_class::<language_config::EnclosureConfig>()?;
-    m.add_class::<language_config::EnclosurePair>()?;
-    m.add_class::<language_config::SuppressionConfig>()?;
-    m.add_class::<language_config::FastPattern>()?;
-    m.add_class::<language_config::RegexPattern>()?;
-    m.add_class::<language_config::AbbreviationConfig>()?;
-    m.add_class::<language_config::SentenceStarterConfig>()?;
 
     // Main API functions
     m.add_function(pyo3::wrap_pyfunction!(split, m)?)?;
@@ -405,7 +377,6 @@ mod tests {
             let result = split(
                 input_str.as_ref(),
                 None,  // language
-                None,  // language_config
                 None,  // threads
                 None,  // chunk_size
                 false, // parallel
@@ -435,7 +406,6 @@ mod tests {
             let result = split(
                 input_str.as_ref(),
                 None,  // language
-                None,  // language_config
                 None,  // threads
                 None,  // chunk_size
                 false, // parallel

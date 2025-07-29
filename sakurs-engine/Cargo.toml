@@ -10,7 +10,7 @@ rust-version.workspace = true
 description = "Application orchestration layer for Sakurs sentence boundary detection"
 
 [dependencies]
-sakurs-delta-core = { path = "../sakurs-delta-core", features = ["alloc"] }
+sakurs-core = { path = "../sakurs-core", features = ["alloc"] }
 thiserror.workspace = true
 rayon = { version = "1.10", optional = true }
 

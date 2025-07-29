@@ -3,7 +3,6 @@
 use crate::exceptions::InternalError;
 use crate::input::PyInput;
 use crate::iterator::SentenceIterator;
-use crate::language_config::LanguageConfig;
 use pyo3::prelude::*;
 use pyo3::types::PyIterator;
 use sakurs_api::{Config, SentenceProcessor};
@@ -24,19 +23,12 @@ pub fn create_iter_split_iterator(
     py: Python,
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     threads: Option<usize>,
     chunk_size: Option<usize>,
     encoding: &str,
 ) -> PyResult<SentenceIterator> {
     // Build processor configuration
-    let mut config_builder = if let Some(_lang_config) = language_config {
-        // TODO: Custom language configuration not yet supported in new architecture
-        return Err(InternalError::ConfigurationError(
-            "Custom language configuration is not yet supported in this version".to_string(),
-        )
-        .into());
-    } else {
+    let mut config_builder = {
         // Use built-in language
         let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
             "en" | "english" => "en",
@@ -187,7 +179,6 @@ pub fn create_large_file_iterator(
     _py: Python,
     file_path: &str,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     max_memory_mb: usize,
     overlap_size: usize,
     encoding: &str,
@@ -201,13 +192,7 @@ pub fn create_large_file_iterator(
     }
 
     // Build processor configuration for memory-efficient processing
-    let mut config_builder = if let Some(_lang_config) = language_config {
-        // TODO: Custom language configuration not yet supported in new architecture
-        return Err(InternalError::ConfigurationError(
-            "Custom language configuration is not yet supported in this version".to_string(),
-        )
-        .into());
-    } else {
+    let mut config_builder = {
         // Use built-in language
         let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
             "en" | "english" => "en",

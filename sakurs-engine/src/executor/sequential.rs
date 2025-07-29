@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     executor::{ExecutionMode, Executor},
 };
-use sakurs_delta_core::{emit_push, Boundary, DeltaScanner, LanguageRules};
+use sakurs_core::{emit_push, Boundary, DeltaScanner, LanguageRules};
 
 /// Sequential single-threaded executor
 #[derive(Debug, Clone)]

@@ -139,16 +139,15 @@ impl ProcessArgs {
                     let content = crate::input::FileReader::read_text(file)?;
 
                     // Process text
-                    let result = processor
-                        .process(sakurs_core::Input::from_text(content.clone()))
+                    let result = sakurs_api::process_with_processor(&processor, &content)
                         .map_err(|e| anyhow::anyhow!("Processing failed: {}", e))?;
 
                     // Extract and output sentences
                     let mut last_offset = 0;
                     for boundary in &result.boundaries {
-                        let sentence = &content[last_offset..boundary.offset];
+                        let sentence = &content[last_offset..boundary.byte_offset];
                         formatter.format_sentence(sentence.trim(), last_offset)?;
-                        last_offset = boundary.offset;
+                        last_offset = boundary.byte_offset;
                     }
 
                     // Don't forget the last sentence after the final boundary
@@ -230,9 +229,9 @@ impl ProcessArgs {
     }
 
     /// Create text processor with appropriate language rules
-    fn create_processor(&self) -> Result<sakurs_core::SentenceProcessor> {
+    fn create_processor(&self) -> Result<sakurs_api::SentenceProcessor> {
         use crate::language_source::LanguageSource;
-        use sakurs_core::{Config, SentenceProcessor};
+        use sakurs_api::Config;
 
         // Determine language source
         let language_source = match (&self.language, &self.language_config) {
@@ -259,37 +258,16 @@ impl ProcessArgs {
 
                 let builder = self.configure_builder(builder)?;
 
-                let config = builder
-                    .build()
-                    .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?;
-
-                SentenceProcessor::with_config(config)
+                builder
+                    .build_processor()
                     .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))
             }
             LanguageSource::External {
-                path,
-                language_code,
+                path: _,
+                language_code: _,
             } => {
-                // Load external configuration
-                use sakurs_core::domain::language::ConfigurableLanguageRules;
-                use std::sync::Arc;
-
-                let rules = ConfigurableLanguageRules::from_file(&path, language_code.as_deref())
-                    .map_err(|e| {
-                    anyhow::anyhow!("Failed to load external language config: {}", e)
-                })?;
-
-                // Build configuration
-                let builder = Config::builder();
-                let builder = self.configure_builder(builder)?;
-
-                let config = builder
-                    .build()
-                    .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?;
-
-                // Create processor with custom rules
-                SentenceProcessor::with_custom_rules(config, Arc::new(rules))
-                    .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))
+                // TODO: Custom language configuration is not yet supported in the new architecture
+                Err(anyhow::anyhow!("Custom language configuration is not yet supported in this version. Only built-in languages (en, ja) are available."))
             }
         }
     }
@@ -297,8 +275,8 @@ impl ProcessArgs {
     /// Configure the builder with common options
     fn configure_builder(
         &self,
-        builder: sakurs_core::ConfigBuilder,
-    ) -> Result<sakurs_core::ConfigBuilder> {
+        builder: sakurs_api::ConfigBuilder,
+    ) -> Result<sakurs_api::ConfigBuilder> {
         let mut builder = builder;
 
         // Handle thread count:
@@ -332,7 +310,7 @@ impl ProcessArgs {
     fn process_file_streaming(
         &self,
         file: &std::path::Path,
-        processor: &sakurs_core::SentenceProcessor,
+        processor: &sakurs_api::SentenceProcessor,
         formatter: &mut Box<dyn crate::output::OutputFormatter>,
     ) -> Result<()> {
         // For now, streaming mode uses the same processing as regular mode
@@ -340,15 +318,14 @@ impl ProcessArgs {
         log::info!("Using streaming mode for large file: {}", file.display());
 
         let content = crate::input::FileReader::read_text(file)?;
-        let result = processor
-            .process(sakurs_core::Input::from_text(content.clone()))
+        let result = sakurs_api::process_with_processor(processor, &content)
             .map_err(|e| anyhow::anyhow!("Processing failed: {}", e))?;
 
         let mut last_offset = 0;
         for boundary in &result.boundaries {
-            let sentence = &content[last_offset..boundary.offset];
+            let sentence = &content[last_offset..boundary.byte_offset];
             formatter.format_sentence(sentence.trim(), last_offset)?;
-            last_offset = boundary.offset;
+            last_offset = boundary.byte_offset;
         }
 
         // Don't forget the last sentence after the final boundary
@@ -365,7 +342,7 @@ impl ProcessArgs {
     /// Process stdin
     fn process_stdin(
         &self,
-        processor: &sakurs_core::SentenceProcessor,
+        processor: &sakurs_api::SentenceProcessor,
         formatter: &mut Box<dyn crate::output::OutputFormatter>,
     ) -> Result<()> {
         use std::io::Read;
@@ -375,15 +352,14 @@ impl ProcessArgs {
             .read_to_string(&mut buffer)
             .context("Failed to read from stdin")?;
 
-        let result = processor
-            .process(sakurs_core::Input::from_text(buffer.clone()))
+        let result = sakurs_api::process_with_processor(processor, &buffer)
             .map_err(|e| anyhow::anyhow!("Processing failed: {}", e))?;
 
         let mut last_offset = 0;
         for boundary in &result.boundaries {
-            let sentence = &buffer[last_offset..boundary.offset];
+            let sentence = &buffer[last_offset..boundary.byte_offset];
             formatter.format_sentence(sentence.trim(), last_offset)?;
-            last_offset = boundary.offset;
+            last_offset = boundary.byte_offset;
         }
 
         // Don't forget the last sentence after the final boundary
@@ -441,15 +417,15 @@ fn find_safe_split_point(text: &str, target: usize) -> usize {
 #[allow(dead_code)]
 fn output_sentences(
     text: &str,
-    result: &sakurs_core::Output,
+    result: &sakurs_api::Output,
     formatter: &mut Box<dyn crate::output::OutputFormatter>,
     base_offset: usize,
 ) -> Result<()> {
     let mut last_offset = 0;
     for boundary in &result.boundaries {
-        let sentence = &text[last_offset..boundary.offset];
+        let sentence = &text[last_offset..boundary.byte_offset];
         formatter.format_sentence(sentence.trim(), base_offset + last_offset)?;
-        last_offset = boundary.offset;
+        last_offset = boundary.byte_offset;
     }
 
     Ok(())

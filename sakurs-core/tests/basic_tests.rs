@@ -1,6 +1,6 @@
-//! Basic tests for sakurs-delta-core
+//! Basic tests for sakurs-core
 
-use sakurs_delta_core::*;
+use sakurs_core::*;
 
 #[test]
 fn test_boundary_creation() {

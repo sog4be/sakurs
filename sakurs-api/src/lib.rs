@@ -21,6 +21,38 @@ pub use error::ApiError;
 // Re-export from engine
 pub use sakurs_engine::{Language, SentenceProcessor};
 
+/// Process text with a processor and return Output
+pub fn process_with_processor(processor: &SentenceProcessor, text: &str) -> Result<Output> {
+    let start = std::time::Instant::now();
+    let text_len = text.len();
+
+    let boundaries = processor
+        .process(text)
+        .map_err(|e| crate::error::ApiError::Engine(e.to_string()))?;
+
+    let elapsed = start.elapsed();
+
+    // Convert to DTOs
+    let boundary_dtos = boundaries
+        .into_iter()
+        .map(|b| Boundary {
+            byte_offset: b.byte_offset,
+            char_offset: b.char_offset,
+            kind: format!("{:?}", b.kind),
+        })
+        .collect();
+
+    Ok(Output {
+        boundaries: boundary_dtos,
+        metadata: ProcessingMetadata {
+            total_bytes: text_len,
+            processing_time_ms: elapsed.as_millis() as u64,
+            mode: "auto".to_string(),
+            thread_count: 1, // TODO: Get from execution
+        },
+    })
+}
+
 // Convenience functions
 
 /// Process text with default configuration

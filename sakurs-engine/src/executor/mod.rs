@@ -1,7 +1,7 @@
 //! Execution strategies for text processing
 
 use crate::error::Result;
-use sakurs_delta_core::{Boundary, LanguageRules};
+use sakurs_core::{Boundary, LanguageRules};
 
 #[cfg(feature = "parallel")]
 pub mod parallel;

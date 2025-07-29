@@ -4,7 +4,7 @@ use crate::{
     error::Result,
     executor::{ExecutionMode, Executor, SequentialExecutor},
 };
-use sakurs_delta_core::{Boundary, LanguageRules};
+use sakurs_core::{Boundary, LanguageRules};
 use std::io::Read;
 
 /// Streaming executor for memory-efficient processing

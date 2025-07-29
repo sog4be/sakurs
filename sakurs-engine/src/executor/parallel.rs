@@ -7,7 +7,7 @@ use crate::{
     executor::{ExecutionMode, Executor},
 };
 use rayon::prelude::*;
-use sakurs_delta_core::{emit_push, Boundary, DeltaScanner, DeltaVec, LanguageRules, PartialState};
+use sakurs_core::{emit_push, Boundary, DeltaScanner, DeltaVec, LanguageRules, PartialState};
 
 /// Parallel multi-threaded executor
 #[derive(Debug)]

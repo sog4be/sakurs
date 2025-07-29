@@ -4,7 +4,6 @@
 
 use crate::exceptions::InternalError;
 use crate::input::PyInput;
-use crate::language_config::LanguageConfig;
 use crate::types::PyProcessingResult;
 use pyo3::prelude::*;
 use sakurs_api::{Config, SentenceProcessor};
@@ -24,11 +23,10 @@ pub struct PyProcessor {
 impl PyProcessor {
     /// Create a new processor for the specified language
     #[new]
-    #[pyo3(signature = (*, language=None, language_config=None, threads=None, chunk_kb=None, execution_mode="adaptive", streaming=false, stream_chunk_mb=10))]
+    #[pyo3(signature = (*, language=None, threads=None, chunk_kb=None, execution_mode="adaptive", streaming=false, stream_chunk_mb=10))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         language: Option<&str>,
-        language_config: Option<LanguageConfig>,
         threads: Option<usize>,
         chunk_kb: Option<usize>,
         execution_mode: &str,
@@ -46,15 +44,7 @@ impl PyProcessor {
         };
 
         // Build Rust configuration
-        let (mut config_builder, language_display, is_custom) = if let Some(_lang_config) =
-            language_config
-        {
-            // TODO: Custom language configuration not yet supported in new architecture
-            return Err(InternalError::ConfigurationError(
-                "Custom language configuration is not yet supported in this version".to_string(),
-            )
-            .into());
-        } else {
+        let (mut config_builder, language_display, is_custom) = {
             // Use built-in language
             let lang = language.unwrap_or("en");
             let lang_code = match lang.to_lowercase().as_str() {
@@ -189,9 +179,8 @@ impl PyProcessor {
             py,
             input,
             language,
-            None, // language_config already in processor
             self.num_threads,
-            Some(self.chunk_size),
+            Some(self.chunk_size / 1024), // Convert bytes back to KB
             encoding,
         )
     }

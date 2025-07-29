@@ -11,7 +11,7 @@ description = "Public API for Sakurs sentence boundary detection"
 
 [dependencies]
 sakurs-engine = { path = "../sakurs-engine" }
-sakurs-delta-core = { path = "../sakurs-delta-core" }
+sakurs-core = { path = "../sakurs-core" }
 thiserror.workspace = true
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }

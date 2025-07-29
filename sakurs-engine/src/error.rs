@@ -1,6 +1,6 @@
 //! Engine error types
 
-use sakurs_delta_core::CoreError;
+use sakurs_core::CoreError;
 use thiserror::Error;
 
 /// Engine-level errors
