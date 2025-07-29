@@ -246,23 +246,45 @@ fn build_boundary_context(
     _last_char: Option<char>,
     _consecutive_dots: usize,
 ) -> BoundaryContext {
-    // Extract text before the boundary (up to DEFAULT_CONTEXT_WINDOW chars)
-    // Need to find valid UTF-8 boundary
-    let mut start = position.saturating_sub(DEFAULT_CONTEXT_WINDOW);
-    while start > 0 && !text.is_char_boundary(start) {
-        start -= 1;
-    }
-    let preceding_context = text[start..position].to_string();
+    // Define context window size for extracting surrounding text
+    const EXTENDED_CONTEXT_WINDOW: usize = 100; // Larger window for full context
 
-    // Peek at upcoming characters (up to DEFAULT_CONTEXT_WINDOW chars)
+    // Calculate safe boundaries for context extraction
+    let context_start = position.saturating_sub(EXTENDED_CONTEXT_WINDOW);
+    let context_end = (position + EXTENDED_CONTEXT_WINDOW).min(text.len());
+
+    // Find UTF-8 boundaries
+    let mut safe_start = context_start;
+    while safe_start > 0 && !text.is_char_boundary(safe_start) {
+        safe_start -= 1;
+    }
+
+    let mut safe_end = context_end;
+    while safe_end < text.len() && !text.is_char_boundary(safe_end) {
+        safe_end += 1;
+    }
+
+    // Extract only the necessary context window instead of full text
+    let context_text = text[safe_start..safe_end].to_string();
+    let adjusted_position = position - safe_start;
+
+    // Extract preceding context (up to DEFAULT_CONTEXT_WINDOW chars)
+    // Need to ensure we're at a valid UTF-8 boundary within context_text
+    let mut preceding_start = adjusted_position.saturating_sub(DEFAULT_CONTEXT_WINDOW);
+    while preceding_start > 0 && !context_text.is_char_boundary(preceding_start) {
+        preceding_start -= 1;
+    }
+    let preceding_context = context_text[preceding_start..adjusted_position].to_string();
+
+    // Following context remains the same (using chars_iter)
     let following_context = chars_iter
         .clone()
         .take(DEFAULT_CONTEXT_WINDOW)
         .collect::<String>();
 
     BoundaryContext {
-        text: text.to_string(),
-        position,
+        text: context_text,          // Now only ~200 chars instead of full text
+        position: adjusted_position, // Adjusted to local context
         boundary_char: terminator,
         preceding_context,
         following_context,

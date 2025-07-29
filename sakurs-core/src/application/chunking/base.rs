@@ -361,28 +361,68 @@ impl ChunkManager {
         // This prevents panics when chunk boundaries fall within multi-byte characters (Issue #48)
         let safe_pos = self.find_utf8_boundary(text_bytes, pos, forward)?;
 
-        // Now convert the safe byte position to char position
-        let char_pos = text[..safe_pos].chars().count();
-        let chars: Vec<char> = text.chars().collect();
+        // Define search window to avoid processing entire text
+        const SEARCH_WINDOW: usize = 100;
 
         if forward {
-            // Search forward for word boundary
-            for i in char_pos..chars.len().min(char_pos + 100) {
-                if is_word_boundary(&chars, i) {
-                    return Ok(char_byte_offset(text, i));
+            // Search forward for word boundary within a limited window
+            let search_start = safe_pos;
+            let search_end = text.len().min(safe_pos + SEARCH_WINDOW);
+
+            // Extract only the search window instead of entire text
+            let window_text = &text[search_start..search_end];
+
+            // Search within the window
+            for (byte_offset, ch) in window_text.char_indices() {
+                let abs_byte_pos = search_start + byte_offset;
+
+                // Check if this is a word boundary by looking at current and previous char
+                if byte_offset > 0 {
+                    // Get the previous character safely
+                    if let Some(prev_ch) = window_text[..byte_offset].chars().last() {
+                        if is_char_word_boundary(prev_ch, ch) {
+                            return Ok(abs_byte_pos);
+                        }
+                    }
                 }
             }
-            // If no boundary found, return the requested position (UTF-8 safe)
-            Ok(self.find_utf8_boundary(text_bytes, pos, true)?)
+
+            // If no boundary found, return the safe position
+            Ok(safe_pos)
         } else {
-            // Search backward for word boundary
-            for i in (char_pos.saturating_sub(100)..=char_pos).rev() {
-                if is_word_boundary(&chars, i) {
-                    return Ok(char_byte_offset(text, i));
+            // Search backward for word boundary within a limited window
+            let search_start = safe_pos.saturating_sub(SEARCH_WINDOW);
+            let search_end = safe_pos;
+
+            // Ensure search_start is on a UTF-8 boundary
+            let safe_search_start = if search_start == 0 || text.is_char_boundary(search_start) {
+                search_start
+            } else {
+                // Find the nearest UTF-8 boundary
+                text.char_indices()
+                    .rev()
+                    .find(|(i, _)| *i <= search_start)
+                    .map(|(i, _)| i)
+                    .unwrap_or(0)
+            };
+
+            // Extract only the search window
+            let window_text = &text[safe_search_start..search_end];
+
+            // Search backward within the window
+            let mut last_boundary = search_end;
+            let mut prev_ch = ' '; // Default for start of text
+
+            for (byte_offset, ch) in window_text.char_indices() {
+                let abs_byte_pos = safe_search_start + byte_offset;
+
+                if byte_offset > 0 && is_char_word_boundary(prev_ch, ch) {
+                    last_boundary = abs_byte_pos;
                 }
+                prev_ch = ch;
             }
-            // If no boundary found, return the requested position (UTF-8 safe)
-            Ok(self.find_utf8_boundary(text_bytes, pos, false)?)
+
+            Ok(last_boundary)
         }
     }
 }
@@ -397,29 +437,14 @@ fn is_utf8_char_boundary(bytes: &[u8], pos: usize) -> bool {
     (bytes[pos] & 0b11000000) != 0b10000000
 }
 
-/// Checks if a position is at a word boundary
-fn is_word_boundary(chars: &[char], pos: usize) -> bool {
-    if pos == 0 || pos >= chars.len() {
-        return true;
-    }
-
-    let prev = chars[pos - 1];
-    let curr = chars.get(pos).copied().unwrap_or(' ');
-
+/// Checks if two characters form a word boundary
+fn is_char_word_boundary(prev: char, curr: char) -> bool {
     // Word boundary if transitioning between word and non-word characters
     prev.is_whitespace()
         || curr.is_whitespace()
         || (prev.is_alphanumeric() != curr.is_alphanumeric())
         || prev.is_ascii_punctuation()
         || curr.is_ascii_punctuation()
-}
-
-/// Converts character index to byte offset
-fn char_byte_offset(text: &str, char_index: usize) -> usize {
-    text.char_indices()
-        .nth(char_index)
-        .map(|(offset, _)| offset)
-        .unwrap_or(text.len())
 }
 
 #[cfg(test)]
