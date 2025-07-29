@@ -1,0 +1,21 @@
+[package]
+name = "sakurs-delta-core"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Core Delta-Stack Monoid algorithm for sentence boundary detection"
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+
+[dependencies]
+# Zero external dependencies - only core/alloc
+
+[dev-dependencies]
+# For testing only

@@ -27,6 +27,9 @@ crate-type = ["cdylib", "rlib"]  # Both for testing flexibility
 
 [dependencies]
 pyo3 = { version = "0.25", features = ["abi3-py39"] }  # abi3 for forward compatibility
+sakurs-api = { path = "../sakurs-api" }
+sakurs-engine = { path = "../sakurs-engine" }
+sakurs-delta-core = { path = "../sakurs-delta-core" }
 sakurs-core = { path = "../sakurs-core" }
 thiserror = { workspace = true }
 toml = "0.9"

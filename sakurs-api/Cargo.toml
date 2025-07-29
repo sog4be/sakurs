@@ -1,0 +1,23 @@
+[package]
+name = "sakurs-api"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Public API for Sakurs sentence boundary detection"
+
+[dependencies]
+sakurs-engine = { path = "../sakurs-engine" }
+sakurs-delta-core = { path = "../sakurs-delta-core" }
+thiserror.workspace = true
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+default = ["serde"]
+serde = ["dep:serde", "dep:serde_json"]
+
+[dev-dependencies]

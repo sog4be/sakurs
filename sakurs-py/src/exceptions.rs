@@ -71,11 +71,9 @@ impl From<InternalError> for PyErr {
     }
 }
 
-impl From<sakurs_core::application::ProcessingError> for InternalError {
-    fn from(err: sakurs_core::application::ProcessingError) -> Self {
-        InternalError::ProcessingError(err.to_string())
-    }
-}
+// Note: We're removing the automatic conversion from ProcessingError
+// since it's an internal type now. Errors will be converted to strings
+// at the API boundary instead.
 
 impl From<io::Error> for InternalError {
     fn from(err: io::Error) -> Self {

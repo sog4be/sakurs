@@ -22,7 +22,7 @@ use input::PyInput;
 use language_config::LanguageConfig;
 use output::{boundaries_to_sentences_with_char_offsets, ProcessingMetadata, Sentence};
 use processor::PyProcessor;
-use sakurs_core::{Config, SentenceProcessor};
+use sakurs_api::Config;
 use std::time::Instant;
 
 /// Split text into sentences
@@ -66,27 +66,13 @@ fn split(
     // Convert to core Input type and get the text content
     let (core_input, text) = py_input.into_core_input_and_text(py, encoding)?;
 
-    // Build configuration and optionally custom language rules
-    let (mut config_builder, custom_rules) = if let Some(lang_config) = language_config {
-        // Use custom language configuration
-        let core_config = lang_config.to_core_config(py)?;
-
-        // Create custom language rules from the config
-        use sakurs_core::domain::language::ConfigurableLanguageRules;
-        use std::sync::Arc;
-
-        let language_rules = ConfigurableLanguageRules::from_config(&core_config)
-            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-        let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
-            Arc::new(language_rules);
-
-        // Use default language in config builder (will be overridden by custom rules)
-        (
-            Config::builder()
-                .language("en") // Default, will be overridden
-                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            Some(language_rules_arc),
+    // Build configuration
+    let mut config_builder = if let Some(_lang_config) = language_config {
+        // TODO: Custom language configuration not yet supported in new architecture
+        return Err(InternalError::ConfigurationError(
+            "Custom language configuration is not yet supported in this version".to_string(),
         )
+        .into());
     } else {
         // Use built-in language
         let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
@@ -99,12 +85,9 @@ fn split(
                 .into())
             }
         };
-        (
-            Config::builder()
-                .language(lang_code)
-                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            None,
-        )
+        Config::builder()
+            .language(lang_code)
+            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?
     };
 
     // Handle execution mode and performance parameters
@@ -118,7 +101,7 @@ fn split(
             config_builder = config_builder.threads(threads);
             // If parallel flag is set, ensure we use lower threshold
             if parallel {
-                config_builder = config_builder.parallel_threshold(0);
+                // Use defaults for parallel mode
             }
         }
         "adaptive" => {
@@ -139,24 +122,16 @@ fn split(
         config_builder = config_builder.chunk_size(kb * 1024);
     }
 
-    let config = config_builder
-        .build()
-        .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-
-    // Create processor with custom rules if provided
-    let processor = if let Some(rules) = custom_rules {
-        SentenceProcessor::with_custom_rules(config, rules)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-    } else {
-        SentenceProcessor::with_config(config)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-    };
+    // Create processor
+    let processor = config_builder
+        .build_processor()
+        .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     // execution_mode is now properly handled in the configuration above
 
     // Release GIL during processing for better performance
     let output = py
-        .allow_threads(|| processor.process(core_input))
+        .allow_threads(|| processor.process(&text))
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     let processing_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -164,9 +139,8 @@ fn split(
     if return_details {
         // Return list of Sentence objects with character offsets
         let boundaries_with_offsets: Vec<(usize, usize)> = output
-            .boundaries
             .iter()
-            .map(|b| (b.char_offset, b.offset))
+            .map(|b| (b.char_offset, b.byte_offset))
             .collect();
         let sentences = boundaries_to_sentences_with_char_offsets(
             &text,
@@ -175,19 +149,11 @@ fn split(
             py,
         )?;
 
-        // Determine actual execution mode used (from strategy)
-        let execution_mode_str = match output.metadata.strategy_used.as_str() {
-            "Sequential" => "sequential",
-            "Parallel" => "parallel",
-            _ => "adaptive",
-        };
+        // Determine actual execution mode used (simplified for now)
+        let execution_mode_str = "adaptive";
 
-        // Determine threads used (heuristic based on chunks)
-        let threads_used = if output.metadata.chunks_processed > 1 {
-            output.metadata.chunks_processed.min(8) // Reasonable estimate
-        } else {
-            1
-        };
+        // Thread count is not available in the simplified API
+        let threads_used = 1;
 
         // Create metadata
         let _metadata = ProcessingMetadata::new(
@@ -213,9 +179,9 @@ fn split(
             .map(|(char_pos, (byte_pos, _))| (char_pos, byte_pos))
             .collect();
 
-        for boundary in &output.boundaries {
+        for boundary in &output {
             let end_char = boundary.char_offset;
-            let end_byte = boundary.offset;
+            let end_byte = boundary.byte_offset;
 
             if end_char > start_char && end_byte <= text.len() {
                 let sentence = text[start_byte..end_byte].to_string();
