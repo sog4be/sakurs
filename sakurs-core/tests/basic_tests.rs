@@ -74,7 +74,14 @@ impl LanguageRules for TestRules {
         DotRole::Ordinary
     }
 
-    fn boundary_decision(&self, _text: &str, pos: usize) -> BoundaryDecision {
+    fn boundary_decision(
+        &self,
+        _text: &str,
+        pos: usize,
+        _terminator_char: char,
+        _prev_char: Option<char>,
+        _next_char: Option<char>,
+    ) -> BoundaryDecision {
         if pos == 0 {
             BoundaryDecision::Reject
         } else {

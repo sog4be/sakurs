@@ -75,7 +75,15 @@ pub trait LanguageRules: Send + Sync + 'static {
     // --- Semi-hot helpers (≤ one per candidate) ---
 
     /// Boundary decision for index 'pos' where `text[pos]` is guaranteed terminator
-    fn boundary_decision(&self, text: &str, pos: usize) -> BoundaryDecision;
+    /// prev_char and next_char are provided to avoid expensive character lookups
+    fn boundary_decision(
+        &self,
+        text: &str,
+        pos: usize,
+        terminator_char: char,
+        prev_char: Option<char>,
+        next_char: Option<char>,
+    ) -> BoundaryDecision;
 
     // --- Compatibility methods for existing code ---
 
@@ -103,7 +111,17 @@ pub trait LanguageRules: Send + Sync + 'static {
 
         // Check if the dot at dot_pos is an abbreviation
         // boundary_decision expects pos to be AFTER the terminator
-        match self.boundary_decision(text, dot_pos + 1) {
+        let prev_char = if dot_pos > 0 {
+            text.chars().nth(dot_pos - 1)
+        } else {
+            None
+        };
+        let next_char = if dot_pos + 1 < text.len() {
+            text.chars().nth(dot_pos + 1)
+        } else {
+            None
+        };
+        match self.boundary_decision(text, dot_pos + 1, '.', prev_char, next_char) {
             BoundaryDecision::Reject => true, // Rejected because it's an abbreviation
             _ => false,
         }

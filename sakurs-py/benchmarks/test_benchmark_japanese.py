@@ -28,7 +28,7 @@ def ja_segmenter() -> Callable[[str], list[str]]:
         former_matching_rule=r"^(?P<r>.+)(の)$",
         remove_former_matched=False,
     )
-    return make_pipeline(normalize, split_newline, concat_tail_no, split_punc)  # type: ignore[no-any-return]
+    return make_pipeline(normalize, split_newline, concat_tail_no, split_punc)  # type: ignore[return-value]
 
 
 # Benchmark configuration constants

@@ -49,7 +49,23 @@ impl Trie {
 
         for (category, abbreviations) in categories {
             for abbr in abbreviations {
+                // Insert the full abbreviation
                 trie.insert(&abbr, Some(category.clone()));
+
+                // For multi-period abbreviations like "U.S.A", also insert prefixes
+                // This allows detection at intermediate dots
+                if abbr.contains('.') {
+                    let parts: Vec<&str> = abbr.split('.').collect();
+                    if parts.len() > 1 {
+                        // Build and insert each prefix
+                        for i in 1..parts.len() {
+                            let prefix = parts[..i].join(".");
+                            if !prefix.is_empty() {
+                                trie.insert(&prefix, Some(format!("{category}_prefix")));
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -108,29 +124,33 @@ impl Trie {
             return false;
         }
 
-        // We need to find the word that ends at the dot position
-        // Scan backwards from the dot to find the start of the word
-        let mut word_start;
+        // Check if the character before pos is a dot
+        let before_pos = if pos > 0 {
+            &text[..pos]
+        } else {
+            return false;
+        };
+        if !before_pos.ends_with('.') {
+            return false;
+        }
 
-        // Find the start of the word by looking for non-alphabetic characters
+        // Find the start of the abbreviation by scanning backwards
+        let dot_pos = pos - 1; // Position of the dot itself
         let chars: Vec<char> = text.chars().collect();
-        let mut char_pos = 0;
-        let mut byte_pos = 0;
 
-        // Find the character position of the dot
-        while byte_pos < pos && char_pos < chars.len() {
-            byte_pos += chars[char_pos].len_utf8();
+        // Convert byte position to char position
+        let mut char_pos = 0;
+        let mut byte_count = 0;
+        while byte_count < dot_pos && char_pos < chars.len() {
+            byte_count += chars[char_pos].len_utf8();
             char_pos += 1;
         }
 
-        // Now scan backwards from the dot to find word start
-        let dot_char_pos = char_pos.saturating_sub(1);
-        let mut word_start_char_pos = dot_char_pos;
-
+        // Scan backwards to find the start of the abbreviation
+        let mut word_start_char_pos = char_pos;
         while word_start_char_pos > 0 {
             let prev_char = chars[word_start_char_pos - 1];
-            // For abbreviations, we allow dots within the word (e.g., U.S.A.)
-            // Stop at whitespace or other delimiters, but not dots
+            // Stop at delimiters but allow dots and letters
             if prev_char.is_whitespace()
                 || prev_char == ','
                 || prev_char == ';'
@@ -152,17 +172,16 @@ impl Trie {
         }
 
         // Calculate byte position of word start
-        word_start = 0;
-        for ch in &chars[..word_start_char_pos] {
-            word_start += ch.len_utf8();
-        }
+        let word_start = chars[..word_start_char_pos]
+            .iter()
+            .map(|c| c.len_utf8())
+            .sum::<usize>();
 
-        // Extract the word (which may contain dots for abbreviations like U.S.)
-        let word = &text[word_start..pos];
-        let word_chars: Vec<char> = word.chars().collect();
+        // Extract the word up to the current dot (excluding the dot)
+        let word = &text[word_start..dot_pos];
 
         // Check if this word is an abbreviation
-        self.match_at(&word_chars)
+        self.match_at(&word.chars().collect::<Vec<_>>())
     }
 
     /// Check if the char slice matches an abbreviation
@@ -211,10 +230,50 @@ mod tests {
         trie.insert("Mr", None);
         trie.insert("U.S", None);
 
-        assert!(trie.find_abbrev("Dr", 2));
-        assert!(trie.find_abbrev("Mr", 2));
-        assert!(trie.find_abbrev("U.S", 3));
-        assert!(!trie.find_abbrev("Ms", 2));
+        // Test single-word abbreviations (pos is after the dot)
+        assert!(trie.find_abbrev("Dr.", 3));
+        assert!(trie.find_abbrev("Mr.", 3));
+        assert!(trie.find_abbrev("Hello Dr.", 9));
+        assert!(!trie.find_abbrev("Ms.", 3));
+    }
+
+    #[test]
+    fn test_multi_period_abbreviations() {
+        let mut categories = HashMap::new();
+        categories.insert(
+            "locations".to_string(),
+            vec!["U.S".to_string(), "U.K".to_string(), "U.S.A".to_string()],
+        );
+
+        let trie = Trie::from_categories(categories, false);
+
+        // Test "U.S." - should detect at both dot positions
+        assert!(trie.find_abbrev("U.", 2), "Should detect 'U' at first dot");
+        assert!(
+            trie.find_abbrev("U.S.", 4),
+            "Should detect 'U.S' at second dot"
+        );
+
+        // Test "U.S.A." - should detect at all three dot positions
+        assert!(trie.find_abbrev("U.", 2), "Should detect 'U' at first dot");
+        assert!(
+            trie.find_abbrev("U.S.", 4),
+            "Should detect 'U.S' at second dot"
+        );
+        assert!(
+            trie.find_abbrev("U.S.A.", 6),
+            "Should detect 'U.S.A' at third dot"
+        );
+
+        // Test in context
+        assert!(
+            trie.find_abbrev("from the U.S.", 13),
+            "Should detect in context"
+        );
+        assert!(
+            trie.find_abbrev("from the U.S.A.", 15),
+            "Should detect U.S.A in context"
+        );
     }
 
     #[test]
@@ -222,8 +281,8 @@ mod tests {
         let mut trie = Trie::new(false);
         trie.insert("Dr", None);
 
-        assert!(trie.find_abbrev("dr", 2));
-        assert!(trie.find_abbrev("DR", 2));
-        assert!(trie.find_abbrev("Dr", 2));
+        assert!(trie.find_abbrev("dr.", 3));
+        assert!(trie.find_abbrev("DR.", 3));
+        assert!(trie.find_abbrev("Dr.", 3));
     }
 }

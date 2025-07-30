@@ -10,15 +10,15 @@ fn test_usa_abbreviation() {
     let text = "U.S.A.";
 
     // After first dot (position 2)
-    let decision1 = rules.boundary_decision(text, 2);
+    let decision1 = rules.boundary_decision(text, 2, '.', Some('U'), Some('S'));
     eprintln!("Decision at pos 2: {:?}", decision1);
 
     // After second dot (position 4)
-    let decision2 = rules.boundary_decision(text, 4);
+    let decision2 = rules.boundary_decision(text, 4, '.', Some('S'), Some('A'));
     eprintln!("Decision at pos 4: {:?}", decision2);
 
     // After third dot (position 6)
-    let decision3 = rules.boundary_decision(text, 6);
+    let decision3 = rules.boundary_decision(text, 6, '.', Some('A'), None);
     eprintln!("Decision at pos 6: {:?}", decision3);
 
     // First two should be rejected
@@ -45,7 +45,7 @@ fn test_home_period() {
 
     // Test "home." - should NOT be an abbreviation
     let text = "went home.";
-    let decision = rules.boundary_decision(text, 10); // After the period
+    let decision = rules.boundary_decision(text, 10, '.', Some('e'), None); // After the period
     eprintln!("'went home.' decision at pos 10: {:?}", decision);
 
     // Should be accepted as a boundary

@@ -280,13 +280,30 @@ impl<'r, R: LanguageRules + ?Sized> DeltaScanner<'r, R> {
             {
                 let pos = self.byte_offset + char_len;
 
+                // Get previous and next characters for context
+                let prev_char = if self.text_buffer.len() >= 2 {
+                    Some(self.text_buffer[self.text_buffer.len() - 2])
+                } else {
+                    None
+                };
+
+                // For next char, we need to look ahead in the text
+                let next_char = if let Some(ref full_text) = self.full_text {
+                    full_text.chars().nth(pos)
+                } else {
+                    // In streaming mode, we don't have lookahead
+                    None
+                };
+
                 // Use full text if available, otherwise use buffer
                 let decision = if let Some(ref full_text) = self.full_text {
-                    self.rules.boundary_decision(full_text, pos)
+                    self.rules
+                        .boundary_decision(full_text, pos, ch, prev_char, next_char)
                 } else {
                     // Build text from buffer for streaming mode
                     let text: String = self.text_buffer.iter().collect();
-                    self.rules.boundary_decision(&text, pos)
+                    self.rules
+                        .boundary_decision(&text, pos, ch, prev_char, next_char)
                 };
 
                 match decision {

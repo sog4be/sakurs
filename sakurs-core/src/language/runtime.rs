@@ -116,17 +116,24 @@ impl LanguageRules for ConfigurableLanguageRules {
         self.dot_table.classify(prev, next)
     }
 
-    fn boundary_decision(&self, text: &str, pos: usize) -> BoundaryDecision {
+    fn boundary_decision(
+        &self,
+        text: &str,
+        pos: usize,
+        term_char: char,
+        prev_char: Option<char>,
+        next_char: Option<char>,
+    ) -> BoundaryDecision {
         if pos == 0 || pos > text.len() {
             return BoundaryDecision::Reject;
         }
 
-        // Get the terminator character
-        let term_char = text.chars().nth(text[..pos].chars().count() - 1);
-        if term_char.is_none() {
+        // Check if this is actually a terminator character
+        if !self.is_terminator_char(term_char) {
             return BoundaryDecision::Reject;
         }
-        let term_char = term_char.unwrap();
+
+        // NOTE: Expensive O(n) character lookup eliminated - terminator passed as parameter!
 
         // Check suppression rules first
         if self.suppress.should_suppress(text, pos) {
@@ -139,19 +146,15 @@ impl LanguageRules for ConfigurableLanguageRules {
         if self.term_table.has_patterns() && (term_char == '!' || term_char == '?') {
             // Check if we're part of a multi-character terminator pattern
             // Look back to see if we complete a pattern
-            if pos >= 2 {
-                let prev_char = text.chars().nth(text[..pos - 1].chars().count() - 1);
-                if let Some(prev) = prev_char {
-                    let pattern = format!("{prev}{term_char}");
-                    if self.term_table.is_pattern(&pattern) {
-                        // This completes a pattern, so it's a boundary
-                        return BoundaryDecision::Accept(BoundaryStrength::Strong);
-                    }
+            if let Some(prev) = prev_char {
+                let pattern = format!("{prev}{term_char}");
+                if self.term_table.is_pattern(&pattern) {
+                    // This completes a pattern, so it's a boundary
+                    return BoundaryDecision::Accept(BoundaryStrength::Strong);
                 }
             }
 
             // Look ahead to see if this starts a pattern
-            let next_char = text.chars().nth(text[..pos].chars().count());
             if let Some(next) = next_char {
                 let pattern = format!("{term_char}{next}");
                 if self.term_table.is_pattern(&pattern) {
@@ -172,34 +175,18 @@ impl LanguageRules for ConfigurableLanguageRules {
             if self.ellipsis.is_ellipsis_at(text, pos - 1) {
                 is_ellipsis = true;
             } else {
-                // Check if we're in the middle of consecutive dots
-                let chars: Vec<char> = text.chars().collect();
-                let char_pos = text[..pos].chars().count();
+                // Simple consecutive dots check - most ellipses are "..." (3 dots)
+                // Check if we have dots immediately before and after this one
+                let has_prev_dot = matches!(prev_char, Some('.'));
+                let has_next_dot = matches!(next_char, Some('.'));
 
-                // Look for dots before and after
-                let mut dots_found = 1; // Current dot
-
-                // Count dots before
-                let mut i = char_pos.saturating_sub(2); // Start before current
-                while i < char_pos - 1 && i < chars.len() && chars[i] == '.' {
-                    dots_found += 1;
-                    if i == 0 {
-                        break;
-                    }
-                    i -= 1;
-                }
-
-                // Count dots after
-                if char_pos < chars.len() {
-                    let mut j = char_pos;
-                    while j < chars.len() && chars[j] == '.' {
-                        dots_found += 1;
-                        j += 1;
-                    }
-                }
-
-                // If we have 3 or more consecutive dots, it's an ellipsis
-                if dots_found >= 3 {
+                // If surrounded by dots, very likely an ellipsis
+                if has_prev_dot && has_next_dot {
+                    is_ellipsis = true;
+                } else if has_prev_dot || has_next_dot {
+                    // Check if we're at the edge of an ellipsis pattern like "..."
+                    // This is a simple heuristic - if one neighbor is a dot, assume ellipsis
+                    // More sophisticated detection can be added later if needed
                     is_ellipsis = true;
                 }
             }
@@ -213,11 +200,16 @@ impl LanguageRules for ConfigurableLanguageRules {
             }
 
             // Check if it's an abbreviation
-            if self.abbv_trie.find_abbrev(text, pos - 1) {
-                // If we have sentence starters configured, check if one follows
+            // find_abbrev expects the position after the dot, which is pos
+            let is_abbrev = self.abbv_trie.find_abbrev(text, pos);
+
+            if is_abbrev {
+                // Re-enabled: Check if a sentence starter follows
                 if !self.sentence_starters.is_empty() {
                     // Check if a sentence starter follows the abbreviation
-                    if self.sentence_starters.check_after_abbreviation(text, pos) {
+                    let has_starter = self.sentence_starters.check_after_abbreviation(text, pos);
+
+                    if has_starter {
                         // Sentence starter after abbreviation = boundary
                         return BoundaryDecision::Accept(BoundaryStrength::Strong);
                     }

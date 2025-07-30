@@ -78,9 +78,18 @@ impl LanguageRules for LanguageRulesImpl {
         }
     }
 
-    fn boundary_decision(&self, text: &str, pos: usize) -> sakurs_core::language::BoundaryDecision {
+    fn boundary_decision(
+        &self,
+        text: &str,
+        pos: usize,
+        terminator_char: char,
+        prev_char: Option<char>,
+        next_char: Option<char>,
+    ) -> sakurs_core::language::BoundaryDecision {
         match self {
-            LanguageRulesImpl::Dynamic(rules) => rules.boundary_decision(text, pos),
+            LanguageRulesImpl::Dynamic(rules) => {
+                rules.boundary_decision(text, pos, terminator_char, prev_char, next_char)
+            }
         }
     }
 
@@ -158,12 +167,18 @@ impl LanguageRules for SimpleEnglishRules {
         sakurs_core::language::DotRole::Ordinary
     }
 
-    fn boundary_decision(&self, text: &str, pos: usize) -> sakurs_core::language::BoundaryDecision {
+    fn boundary_decision(
+        &self,
+        text: &str,
+        pos: usize,
+        terminator_char: char,
+        prev_char: Option<char>,
+        next_char: Option<char>,
+    ) -> sakurs_core::language::BoundaryDecision {
         use sakurs_core::language::{BoundaryDecision, BoundaryStrength};
 
         if pos > 0 && pos <= text.len() {
-            let term_char = text.chars().nth(text[..pos].chars().count() - 1);
-            if let Some('.') = term_char {
+            if terminator_char == '.' {
                 // Check simple abbreviations
                 if pos >= 3 {
                     let start = pos.saturating_sub(3);
@@ -251,6 +266,9 @@ impl LanguageRules for SimpleJapaneseRules {
         &self,
         _text: &str,
         pos: usize,
+        terminator_char: char,
+        prev_char: Option<char>,
+        next_char: Option<char>,
     ) -> sakurs_core::language::BoundaryDecision {
         use sakurs_core::language::{BoundaryDecision, BoundaryStrength};
 

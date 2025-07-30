@@ -45,7 +45,13 @@ fn debug_home_decision() {
         println!("  Is abbreviation: {}", is_abbrev);
 
         // Get boundary decision
-        let decision = rules.boundary_decision(text, pos);
+        let prev_char = if pos > 1 {
+            text.chars().nth(pos - 2)
+        } else {
+            None
+        };
+        let next_char = text.chars().nth(pos);
+        let decision = rules.boundary_decision(text, pos, '.', prev_char, next_char);
         println!("  Decision: {:?}", decision);
     }
 }

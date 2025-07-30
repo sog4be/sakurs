@@ -30,14 +30,20 @@ impl LanguageRules for DebugRules {
         DotRole::Ordinary
     }
 
-    fn boundary_decision(&self, text: &str, pos: usize) -> BoundaryDecision {
+    fn boundary_decision(
+        &self,
+        text: &str,
+        pos: usize,
+        terminator_char: char,
+        _prev_char: Option<char>,
+        _next_char: Option<char>,
+    ) -> BoundaryDecision {
         if pos == 0 || pos > text.len() {
             return BoundaryDecision::Reject;
         }
 
-        // Check if it's a dot at pos-1
-        let term_char = text.chars().nth(text[..pos].chars().count() - 1);
-        if let Some('.') = term_char {
+        // Check if it's a dot terminator
+        if terminator_char == '.' {
             // Check for abbreviations
             if self.is_abbreviation(text, pos - 1) {
                 eprintln!(

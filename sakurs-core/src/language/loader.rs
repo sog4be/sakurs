@@ -94,7 +94,14 @@ pub fn get_simple_rules() -> impl LanguageRules {
             DotRole::Ordinary
         }
 
-        fn boundary_decision(&self, _text: &str, _pos: usize) -> BoundaryDecision {
+        fn boundary_decision(
+            &self,
+            _text: &str,
+            _pos: usize,
+            _terminator_char: char,
+            _prev_char: Option<char>,
+            _next_char: Option<char>,
+        ) -> BoundaryDecision {
             BoundaryDecision::Accept(BoundaryStrength::Strong)
         }
     }
