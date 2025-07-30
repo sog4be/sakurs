@@ -18,7 +18,7 @@ pub use assembler::ResultAssembler;
 pub use config::{ChunkPolicy, EngineConfig};
 pub use error::{EngineError, Result};
 pub use executor::{ExecutionMode, Executor};
-pub use language::{EnglishRules, JapaneseRules, LanguageRulesImpl};
+pub use language::LanguageRulesImpl;
 pub use processor::{SentenceProcessor, SentenceProcessorBuilder};
 
 // Re-export from core for convenience

@@ -1,0 +1,58 @@
+[metadata]
+code = "ja"
+name = "Japanese"
+
+[terminators]
+# Japanese punctuation + half-width !? (commonly used in Japanese text)
+chars = ["。", "！", "？", "!", "?"]
+
+# Special patterns for emphasis (both full-width and half-width)
+patterns = [
+    { pattern = "！？", name = "surprised_question_fw" },
+    { pattern = "？！", name = "questioning_exclamation_fw" },
+    { pattern = "!?", name = "surprised_question" },
+    { pattern = "?!", name = "questioning_exclamation" }
+]
+
+[ellipsis]
+treat_as_boundary = true
+patterns = ["…"]
+
+# Context rules
+context_rules = []
+
+# Exception patterns
+exceptions = [
+    { regex = "えーと…", boundary = false }
+]
+
+[enclosures]
+# Japanese-specific brackets + half-width parentheses (commonly used)
+pairs = [
+    { open = "「", close = "」" },
+    { open = "『", close = "』" },
+    { open = "（", close = "）" },
+    { open = "【", close = "】" },
+    { open = "［", close = "］" },
+    { open = "〈", close = "〉" },
+    { open = "《", close = "》" },
+    { open = "〔", close = "〕" },
+    { open = "(", close = ")" }
+]
+
+[suppression]
+# Japanese brackets + half-width parentheses
+fast_patterns = [
+    { char = ")", line_start = true, before = "alnum" },
+    { char = "）", line_start = true, before = "alnum" }
+]
+
+[abbreviations]
+# Japanese typically doesn't use abbreviations with periods
+# But we include some common Western abbreviations used in Japanese text
+titles = ["Dr", "Mr", "Mrs", "Ms"]
+academic = ["Ph.D", "M.D"]
+time = ["a.m", "p.m", "A.M", "P.M"]
+geographic = ["U.S", "U.K", "U.S.A"]
+common = ["etc", "vs", "e.g", "i.e"]
+

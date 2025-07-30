@@ -32,10 +32,10 @@ fn test_execution_mode_selection() {
 #[test]
 fn test_sequential_executor() {
     use sakurs_engine::executor::{Executor, SequentialExecutor};
-    use sakurs_engine::language::EnglishRules;
+    use sakurs_engine::language::get_language_rules;
 
     let executor = SequentialExecutor;
-    let rules = EnglishRules;
+    let rules = get_language_rules("en").unwrap();
 
     let text = "Hello world. This is a test.";
     let boundaries = executor.process(text, &rules).unwrap();
@@ -60,9 +60,9 @@ fn test_sentence_processor_builder() {
 
 #[test]
 fn test_english_rules() {
-    use sakurs_engine::language::EnglishRules;
+    use sakurs_engine::language::get_language_rules;
 
-    let rules = EnglishRules;
+    let rules = get_language_rules("en").unwrap();
 
     assert_eq!(rules.is_terminator('.'), true);
     assert_eq!(rules.is_terminator('a'), false);
@@ -71,15 +71,15 @@ fn test_english_rules() {
     assert_eq!(rules.get_enclosure_pair(')'), Some((0, false)));
     assert_eq!(rules.get_enclosure_pair('a'), None);
 
-    assert_eq!(rules.is_abbreviation("Dr", 2), true);
+    assert_eq!(rules.is_abbreviation("Dr.", 2), true);
     assert_eq!(rules.is_abbreviation("Hello", 5), false);
 }
 
 #[test]
 fn test_japanese_rules() {
-    use sakurs_engine::language::JapaneseRules;
+    use sakurs_engine::language::get_language_rules;
 
-    let rules = JapaneseRules;
+    let rules = get_language_rules("ja").expect("Failed to get Japanese rules");
 
     assert_eq!(rules.is_terminator('。'), true);
     assert_eq!(rules.is_terminator('！'), true);

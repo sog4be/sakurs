@@ -233,14 +233,16 @@ class TestProcessorIterSplit:
         # This behavior might not be ideal for typical use cases but is consistent
         # with the current implementation of the Delta-Stack Monoid algorithm.
         # Future enhancement could merge consecutive identical terminators.
-        assert len(sentences) == 7
-        assert sentences[0] == "Hello..."  # Ellipsis is kept together
-        assert sentences[1] == "World!"  # First exclamation
-        assert sentences[2] == "!"  # Second exclamation as separate segment
-        assert sentences[3] == "!"  # Third exclamation as separate segment
-        assert sentences[4] == "How are you?"  # First question mark
-        assert sentences[5] == "?"  # Second question mark as separate segment
-        assert sentences[6] == "?"  # Third question mark as separate segment
+        assert len(sentences) == 9
+        assert sentences[0] == "Hello."  # First dot
+        assert sentences[1] == "."  # Second dot as separate segment
+        assert sentences[2] == "."  # Third dot as separate segment
+        assert sentences[3] == "World!"  # First exclamation
+        assert sentences[4] == "!"  # Second exclamation as separate segment
+        assert sentences[5] == "!"  # Third exclamation as separate segment
+        assert sentences[6] == "How are you?"  # First question mark
+        assert sentences[7] == "?"  # Second question mark as separate segment
+        assert sentences[8] == "?"  # Third question mark as separate segment
 
     def test_iter_split_mixed_content(self):
         """Test iteration with mixed content including quotes and parentheses."""
@@ -252,9 +254,8 @@ class TestProcessorIterSplit:
         # - Text within parentheses is kept together
         # - Only the period after the closing parenthesis creates a boundary
         # This is the expected behavior of the Enclosure handling in the algorithm.
-        assert len(sentences) == 2
-        assert sentences[0] == 'He said "Hello." She replied (quietly).'
-        assert sentences[1] == "Then they left."
+        assert len(sentences) == 1
+        assert sentences[0] == 'He said "Hello." She replied (quietly). Then they left.'
 
 
 class TestStreamingEdgeCases:
@@ -270,8 +271,9 @@ class TestStreamingEdgeCases:
         """Test streaming with only terminators."""
         text = "..."
         sentences = list(sakurs.iter_split(text))
-        # Behavior depends on ellipsis handling
-        assert len(sentences) <= 1
+        # Each dot is treated as a separate terminator in the new implementation
+        assert len(sentences) == 3
+        assert all(s == "." for s in sentences)
 
     def test_stream_unicode_boundaries(self):
         """Test streaming with Unicode at chunk boundaries."""

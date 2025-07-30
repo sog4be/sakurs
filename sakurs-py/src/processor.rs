@@ -34,6 +34,16 @@ impl PyProcessor {
         stream_chunk_mb: usize,
         _py: Python,
     ) -> PyResult<Self> {
+        // Validate threads parameter
+        if let Some(t) = threads {
+            if t == 0 {
+                return Err(InternalError::ConfigurationError(
+                    "threads must be greater than 0".to_string(),
+                )
+                .into());
+            }
+        }
+
         // Convert KB/MB to bytes
         let chunk_size_bytes = if let Some(kb) = chunk_kb {
             kb * 1024

@@ -11,11 +11,14 @@ description = "Core Delta-Stack Monoid algorithm for sentence boundary detection
 
 [features]
 default = ["std"]
-std = ["alloc"]
-alloc = []
+std = ["alloc", "serde?/std", "toml"]
+alloc = ["serde"]
 
 [dependencies]
-# Zero external dependencies - only core/alloc
+# Minimal dependencies for configuration
+serde = { version = "1.0", features = ["derive"], default-features = false, optional = true }
+# toml requires std
+toml = { version = "0.8", optional = true }
 
 [dev-dependencies]
 # For testing only

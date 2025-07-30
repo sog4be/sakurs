@@ -81,6 +81,16 @@ fn split(
             .map_err(|e| InternalError::ConfigurationError(e.to_string()))?
     };
 
+    // Validate threads parameter
+    if let Some(t) = threads {
+        if t == 0 {
+            return Err(InternalError::ConfigurationError(
+                "threads must be greater than 0".to_string(),
+            )
+            .into());
+        }
+    }
+
     // Handle execution mode and performance parameters
     match execution_mode {
         "sequential" => {
@@ -214,6 +224,16 @@ fn load(
     execution_mode: &str,
     py: Python,
 ) -> PyResult<PyProcessor> {
+    // Validate threads parameter
+    if let Some(t) = threads {
+        if t == 0 {
+            return Err(InternalError::ConfigurationError(
+                "threads must be greater than 0".to_string(),
+            )
+            .into());
+        }
+    }
+
     // Create processor with the specified parameters
     PyProcessor::new(
         Some(language),

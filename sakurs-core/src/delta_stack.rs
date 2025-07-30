@@ -6,7 +6,7 @@ use core::cmp;
 
 use crate::{
     error::{CoreError, Result},
-    traits::LanguageRules,
+    language::LanguageRules,
     types::{Boundary, BoundaryKind, Class},
 };
 
@@ -222,25 +222,32 @@ impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
 
             // Check if it's an abbreviation by looking at the buffer
             #[cfg(feature = "alloc")]
-            if ch == '.' && !self.text_buffer.is_empty() {
-                // Find the start of the current word
-                let mut word_start = self.text_buffer.len().saturating_sub(1);
+            if ch == '.' && self.text_buffer.len() > 1 {
+                // The dot is already in the buffer at the last position
+                // Look at the word before the dot
+                let buffer_without_dot = &self.text_buffer[..self.text_buffer.len() - 1];
+
+                // Find the last word in the buffer
+                let mut word_start = buffer_without_dot.len();
                 while word_start > 0 {
-                    let prev_char = self.text_buffer[word_start - 1];
-                    if !matches!(self.rules.classify_char(prev_char), Class::Alpha) {
+                    let idx = word_start - 1;
+                    if !matches!(
+                        self.rules.classify_char(buffer_without_dot[idx]),
+                        Class::Alpha
+                    ) {
                         break;
                     }
                     word_start -= 1;
                 }
 
-                // Extract the word before the dot
-                if word_start < self.text_buffer.len() - 1 {
-                    let word: String = self.text_buffer[word_start..self.text_buffer.len() - 1]
-                        .iter()
-                        .collect();
+                // Extract the word if we found one
+                if word_start < buffer_without_dot.len() {
+                    let word: String = buffer_without_dot[word_start..].iter().collect();
 
                     // Check if it's an abbreviation
-                    is_abbrev = self.rules.abbrev_match(&word);
+                    if !word.is_empty() {
+                        is_abbrev = self.rules.abbrev_match(&word);
+                    }
                 }
             }
 
@@ -250,17 +257,15 @@ impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
                 is_abbrev = ch == '.' && self.last_was_dot;
             }
 
-            let boundary = Boundary::new(
-                self.byte_offset + char_len,
-                self.char_offset + 1,
-                if is_abbrev {
-                    BoundaryKind::Abbreviation
-                } else {
-                    BoundaryKind::Strong
-                },
-            );
-
-            emit(boundary);
+            // Only emit boundary if it's not an abbreviation
+            if !is_abbrev {
+                let boundary = Boundary::new(
+                    self.byte_offset + char_len,
+                    self.char_offset + 1,
+                    BoundaryKind::Strong,
+                );
+                emit(boundary);
+            }
         }
 
         // Update tracking

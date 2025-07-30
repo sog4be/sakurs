@@ -1,5 +1,6 @@
 //! Basic tests for sakurs-core
 
+use sakurs_core::language::{BoundaryDecision, BoundaryStrength, DotRole, EnclosureInfo};
 use sakurs_core::*;
 
 #[test]
@@ -49,6 +50,38 @@ fn test_partial_state_creation() {
 struct TestRules;
 
 impl LanguageRules for TestRules {
+    fn is_terminator_char(&self, ch: char) -> bool {
+        matches!(ch, '.' | '!' | '?')
+    }
+
+    fn enclosure_info(&self, ch: char) -> Option<EnclosureInfo> {
+        match ch {
+            '(' => Some(EnclosureInfo {
+                type_id: 0,
+                delta: 1,
+                symmetric: false,
+            }),
+            ')' => Some(EnclosureInfo {
+                type_id: 0,
+                delta: -1,
+                symmetric: false,
+            }),
+            _ => None,
+        }
+    }
+
+    fn dot_role(&self, _prev: Option<char>, _next: Option<char>) -> DotRole {
+        DotRole::Ordinary
+    }
+
+    fn boundary_decision(&self, _text: &str, pos: usize) -> BoundaryDecision {
+        if pos == 0 {
+            BoundaryDecision::Reject
+        } else {
+            BoundaryDecision::Accept(BoundaryStrength::Strong)
+        }
+    }
+
     fn classify_char(&self, ch: char) -> Class {
         Class::from_char(ch)
     }

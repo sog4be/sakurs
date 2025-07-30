@@ -12,13 +12,13 @@ extern crate alloc;
 
 pub mod delta_stack;
 pub mod error;
-pub mod traits;
+pub mod language;
 pub mod types;
 
 // Re-export core types that work in no_std
 pub use delta_stack::{DeltaScanner, DeltaVec, PartialState, ENCLOSURE_MAX};
 pub use error::CoreError;
-pub use traits::LanguageRules;
+pub use language::LanguageRules;
 pub use types::{Boundary, BoundaryKind, Class};
 
 // Re-export alloc-dependent functions

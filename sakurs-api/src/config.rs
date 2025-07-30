@@ -65,7 +65,17 @@ impl ConfigBuilder {
 
     /// Set thread count
     pub fn threads(mut self, threads: Option<usize>) -> Self {
-        self.config.inner.threads = threads;
+        // Validate thread count if provided
+        if let Some(count) = threads {
+            if count == 0 {
+                // For now, we'll just ignore 0 and use None instead
+                self.config.inner.threads = None;
+            } else {
+                self.config.inner.threads = Some(count);
+            }
+        } else {
+            self.config.inner.threads = threads;
+        }
         self
     }
 
