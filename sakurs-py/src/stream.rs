@@ -83,14 +83,14 @@ pub fn create_iter_split_iterator(
     // Process the entire text at once
     // Process text directly with the processor
     let output = processor
-        .process(&text)
+        .process(sakurs_engine::Input::from_text(text.clone()))
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     // Convert boundaries to sentences and add to iterator
     let mut sentences = Vec::new();
     let mut last_pos = 0;
 
-    for boundary in output {
+    for boundary in output.boundaries {
         let sentence = text[last_pos..boundary.byte_offset].trim().to_string();
         if !sentence.is_empty() {
             sentences.push(sentence);
@@ -350,10 +350,10 @@ impl LargeFileIterator {
         // Process buffer directly with the processor
         let output = self
             .processor
-            .process(&buffer)
+            .process(sakurs_engine::Input::from_text(buffer.clone()))
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
-        if output.is_empty() {
+        if output.boundaries.is_empty() {
             // No boundaries found, carry over entire buffer
             self.carry_over = buffer;
             return self.__next__();
@@ -362,14 +362,15 @@ impl LargeFileIterator {
         // Find the last safe boundary (not in overlap zone)
         let safe_boundary_pos = if buffer.len() < self.chunk_size {
             // Last chunk, process all boundaries
-            output.last().unwrap().byte_offset
+            output.boundaries.last().unwrap().byte_offset
         } else {
             // Find last boundary before overlap zone
             let overlap_start = buffer.len().saturating_sub(self.overlap_size);
             output
+                .boundaries
                 .iter()
                 .rposition(|b| b.byte_offset < overlap_start)
-                .map(|idx| output[idx].byte_offset)
+                .map(|idx| output.boundaries[idx].byte_offset)
                 .unwrap_or(0)
         };
 
@@ -381,7 +382,7 @@ impl LargeFileIterator {
 
         // Extract sentences up to safe boundary
         let mut last_pos = 0;
-        for boundary in &output {
+        for boundary in &output.boundaries {
             if boundary.byte_offset <= safe_boundary_pos {
                 let sentence = buffer[last_pos..boundary.byte_offset].trim().to_string();
                 if !sentence.is_empty() {

@@ -132,7 +132,7 @@ fn split(
 
     // Release GIL during processing for better performance
     let output = py
-        .allow_threads(|| processor.process(&text))
+        .allow_threads(|| processor.process(sakurs_engine::Input::from_text(text.clone())))
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     let processing_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -140,6 +140,7 @@ fn split(
     if return_details {
         // Return list of Sentence objects with character offsets
         let boundaries_with_offsets: Vec<(usize, usize)> = output
+            .boundaries
             .iter()
             .map(|b| (b.char_offset, b.byte_offset))
             .collect();
@@ -180,7 +181,7 @@ fn split(
             .map(|(char_pos, (byte_pos, _))| (char_pos, byte_pos))
             .collect();
 
-        for boundary in &output {
+        for boundary in &output.boundaries {
             let end_char = boundary.char_offset;
             let end_byte = boundary.byte_offset;
 

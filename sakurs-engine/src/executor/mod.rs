@@ -2,6 +2,7 @@
 
 use crate::error::Result;
 use sakurs_core::{Boundary, LanguageRules};
+use std::time::Duration;
 
 #[cfg(feature = "parallel")]
 pub mod parallel;
@@ -23,18 +24,70 @@ pub enum ExecutionMode {
     Parallel,
     /// Memory-efficient streaming
     Streaming,
+    /// Automatically select between Sequential and Parallel based on input size
+    Adaptive,
+}
+
+/// Performance metrics for execution
+#[derive(Debug, Clone)]
+pub struct ExecutionMetrics {
+    /// The execution mode that was actually used
+    pub mode_used: ExecutionMode,
+    /// Number of chunks processed (for parallel/streaming modes)
+    pub chunks_processed: usize,
+    /// Processing throughput in bytes per second
+    pub bytes_per_second: f64,
+    /// Thread efficiency (0.0 to 1.0, only meaningful for parallel mode)
+    pub thread_efficiency: f64,
+    /// Total processing time
+    pub processing_time: Duration,
+    /// Total bytes processed
+    pub bytes_processed: usize,
+}
+
+impl Default for ExecutionMetrics {
+    fn default() -> Self {
+        Self {
+            mode_used: ExecutionMode::Sequential,
+            chunks_processed: 1,
+            bytes_per_second: 0.0,
+            thread_efficiency: 1.0,
+            processing_time: Duration::from_secs(0),
+            bytes_processed: 0,
+        }
+    }
+}
+
+/// Extended result with execution metadata
+#[derive(Debug, Clone)]
+pub struct ProcessingOutput {
+    /// Detected sentence boundaries
+    pub boundaries: Vec<Boundary>,
+    /// Processing metadata
+    pub metadata: ExecutionMetrics,
 }
 
 /// Trait for execution strategies
 pub trait Executor: Send + Sync {
-    /// Process text and return boundaries
-    fn process<R: LanguageRules>(&self, text: &str, rules: &R) -> Result<Vec<Boundary>>;
+    /// Process text and return boundaries with metadata
+    fn process_with_metadata<R: LanguageRules>(
+        &self,
+        text: &str,
+        rules: &R,
+    ) -> Result<ProcessingOutput>;
+
+    /// Process text and return boundaries (legacy API)
+    fn process<R: LanguageRules>(&self, text: &str, rules: &R) -> Result<Vec<Boundary>> {
+        self.process_with_metadata(text, rules)
+            .map(|output| output.boundaries)
+    }
 
     /// Get the execution mode
     fn mode(&self) -> ExecutionMode;
 }
 
 /// Automatically select execution mode based on text size and config
+/// Implements the adaptive logic specified in DESIGN.md Section 6.1
 pub fn auto_select(text_len: usize, config: &crate::config::EngineConfig) -> ExecutionMode {
     use crate::config::ChunkPolicy;
 
@@ -43,25 +96,18 @@ pub fn auto_select(text_len: usize, config: &crate::config::EngineConfig) -> Exe
         return ExecutionMode::Streaming;
     }
 
-    // Check for very small texts
-    if text_len < 1024 {
-        return ExecutionMode::Sequential;
+    // Adaptive logic per DESIGN.md Section 6.1:
+    // - Sequential if bytes_per_core < 128KB AND input_size < 512KB
+    // - Parallel otherwise
+    let cores = rayon::current_num_threads().max(1);
+    let bytes_per_core = text_len / cores;
+    let adaptive_threshold_kb = 128; // Default from design spec
+    let adaptive_threshold_bytes = adaptive_threshold_kb * 1024;
+    let max_sequential_size = adaptive_threshold_bytes * 4; // 512KB
+
+    if bytes_per_core < adaptive_threshold_bytes && text_len < max_sequential_size {
+        ExecutionMode::Sequential
+    } else {
+        ExecutionMode::Parallel
     }
-
-    // Check against parallel threshold
-    if text_len < config.parallel_threshold {
-        return ExecutionMode::Sequential;
-    }
-
-    // Check if parallel is disabled via thread count
-    if config.threads == Some(1) {
-        return ExecutionMode::Sequential;
-    }
-
-    // Use parallel if available
-    #[cfg(feature = "parallel")]
-    return ExecutionMode::Parallel;
-
-    #[cfg(not(feature = "parallel"))]
-    ExecutionMode::Sequential
 }

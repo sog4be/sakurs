@@ -1,4 +1,4 @@
-use sakurs_engine::SentenceProcessorBuilder;
+use sakurs_engine::{Input, SentenceProcessorBuilder};
 
 #[test]
 fn test_ip_address_engine() {
@@ -9,11 +9,11 @@ fn test_ip_address_engine() {
 
     let text = "192.168.1.1";
 
-    let boundaries = processor.process(text).unwrap();
+    let output = processor.process(Input::from_text(text)).unwrap();
 
     println!("Text: {:?}", text);
-    println!("Boundaries found: {}", boundaries.len());
-    for (i, b) in boundaries.iter().enumerate() {
+    println!("Boundaries found: {}", output.boundaries.len());
+    for (i, b) in output.boundaries.iter().enumerate() {
         println!(
             "  [{}] byte_offset={}, text up to: '{}'",
             i,
@@ -23,5 +23,5 @@ fn test_ip_address_engine() {
     }
 
     // IP address should not have any boundaries
-    assert_eq!(boundaries.len(), 0);
+    assert_eq!(output.boundaries.len(), 0);
 }

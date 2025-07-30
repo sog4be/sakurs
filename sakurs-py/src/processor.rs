@@ -130,12 +130,16 @@ impl PyProcessor {
 
         // Release GIL during processing for better performance
         let output = py
-            .allow_threads(|| self.processor.process(&text))
+            .allow_threads(|| {
+                self.processor
+                    .process(sakurs_engine::Input::from_text(text.clone()))
+            })
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
         if return_details {
             // Return list of Sentence objects
             let boundaries_with_offsets: Vec<(usize, usize)> = output
+                .boundaries
                 .iter()
                 .map(|b| (b.char_offset, b.byte_offset))
                 .collect();
@@ -148,7 +152,7 @@ impl PyProcessor {
             Ok(PyList::new(py, sentences)?.unbind().into())
         } else {
             // Convert boundaries to sentence list
-            let boundaries: Vec<usize> = output.iter().map(|b| b.byte_offset).collect();
+            let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.byte_offset).collect();
             let result = PyProcessingResult::new(boundaries, (), text.to_string());
             Ok(PyList::new(py, result.sentences())?.unbind().into())
         }

@@ -26,14 +26,15 @@ pub fn process_with_processor(processor: &SentenceProcessor, text: &str) -> Resu
     let start = std::time::Instant::now();
     let text_len = text.len();
 
-    let boundaries = processor
-        .process(text)
+    let output = processor
+        .process(sakurs_engine::Input::from_text(text.to_string()))
         .map_err(|e| crate::error::ApiError::Engine(e.to_string()))?;
 
     let elapsed = start.elapsed();
 
     // Convert to DTOs
-    let boundary_dtos = boundaries
+    let boundary_dtos = output
+        .boundaries
         .into_iter()
         .map(|b| Boundary {
             byte_offset: b.byte_offset,
@@ -80,15 +81,17 @@ fn process_input(processor: SentenceProcessor, input: crate::dto::Input) -> Resu
 
     let text = input.read_text()?;
     let text_len = text.len();
+    let char_count = text.chars().count();
 
-    let boundaries = processor
-        .process(&text)
+    let output = processor
+        .process(sakurs_engine::Input::from_text(text))
         .map_err(|e| crate::error::ApiError::Engine(e.to_string()))?;
 
     let elapsed = start.elapsed();
 
     // Convert to DTOs
-    let boundary_dtos = boundaries
+    let boundary_dtos = output
+        .boundaries
         .into_iter()
         .map(|b| Boundary {
             byte_offset: b.byte_offset,
@@ -101,7 +104,7 @@ fn process_input(processor: SentenceProcessor, input: crate::dto::Input) -> Resu
         boundaries: boundary_dtos,
         metadata: ProcessingMetadata::new(
             text_len,
-            text.chars().count(),
+            char_count,
             elapsed.as_millis() as u64,
             "auto".to_string(),
             1, // TODO: Get from execution

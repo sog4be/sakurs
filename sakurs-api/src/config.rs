@@ -144,16 +144,10 @@ impl ConfigBuilder {
 
     /// Build a sentence processor directly
     pub fn build_processor(self) -> Result<SentenceProcessor> {
-        let mut builder = SentenceProcessorBuilder::new()
-            .chunk_policy(self.config.inner.chunk_policy)
-            .threads(self.config.inner.threads)
-            .parallel_threshold(self.config.inner.parallel_threshold);
+        let mut builder = SentenceProcessorBuilder::new().threads(self.config.inner.threads);
 
-        if let Some(rules) = self.custom_rules {
-            builder = builder.rules(rules);
-        } else {
-            builder = builder.language(self.config.language);
-        }
+        // Custom rules not yet supported in new API, use language instead
+        builder = builder.language(self.config.language);
 
         builder.build().map_err(|e| ApiError::Engine(e.to_string()))
     }

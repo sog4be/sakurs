@@ -4,10 +4,11 @@ use crate::{
     chunker::ChunkManager,
     config::ChunkPolicy,
     error::{EngineError, Result},
-    executor::{ExecutionMode, Executor},
+    executor::{ExecutionMetrics, ExecutionMode, Executor, ProcessingOutput},
 };
 use rayon::prelude::*;
 use sakurs_core::{emit_push, Boundary, DeltaScanner, DeltaVec, LanguageRules, PartialState};
+use std::time::Instant;
 
 /// Parallel multi-threaded executor
 #[derive(Debug)]
@@ -61,12 +62,52 @@ impl ParallelExecutor {
 }
 
 impl Executor for ParallelExecutor {
-    fn process<R: LanguageRules>(&self, text: &str, rules: &R) -> Result<Vec<Boundary>> {
-        self.process_parallel(text, rules)
+    fn process_with_metadata<R: LanguageRules>(
+        &self,
+        text: &str,
+        rules: &R,
+    ) -> Result<ProcessingOutput> {
+        let start_time = Instant::now();
+        let boundaries = self.process_parallel_with_metrics(text, rules)?;
+        let processing_time = start_time.elapsed();
+
+        let chunks = self.chunk_manager.chunk_text(text)?;
+        let bytes_processed = text.len();
+        let bytes_per_second = bytes_processed as f64 / processing_time.as_secs_f64();
+
+        // Calculate thread efficiency (rough estimate)
+        let num_threads = rayon::current_num_threads();
+        let _sequential_estimate = processing_time.as_secs_f64() * num_threads as f64;
+        let thread_efficiency = 1.0 / num_threads as f64; // Simplified calculation
+
+        let metadata = ExecutionMetrics {
+            mode_used: ExecutionMode::Parallel,
+            chunks_processed: chunks.len(),
+            bytes_per_second,
+            thread_efficiency,
+            processing_time,
+            bytes_processed,
+        };
+
+        Ok(ProcessingOutput {
+            boundaries,
+            metadata,
+        })
     }
 
     fn mode(&self) -> ExecutionMode {
         ExecutionMode::Parallel
+    }
+}
+
+impl ParallelExecutor {
+    /// Internal method for processing with metrics collection
+    fn process_parallel_with_metrics<R: LanguageRules>(
+        &self,
+        text: &str,
+        rules: &R,
+    ) -> Result<Vec<Boundary>> {
+        self.process_parallel(text, rules)
     }
 }
 

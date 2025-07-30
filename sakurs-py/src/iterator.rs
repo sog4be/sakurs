@@ -120,15 +120,17 @@ pub(crate) fn process_text_incrementally(
 
     // Process the buffered text
     let output = processor
-        .process(&state_guard.text_buffer)
+        .process(sakurs_engine::Input::from_text(
+            state_guard.text_buffer.clone(),
+        ))
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
     // Extract complete sentences (all but potentially the last one)
     let mut sentences = Vec::new();
     let mut last_boundary = 0;
 
-    for (i, boundary) in output.iter().enumerate() {
-        let is_last = i == output.len() - 1;
+    for (i, boundary) in output.boundaries.iter().enumerate() {
+        let is_last = i == output.boundaries.len() - 1;
 
         // For streaming, we keep the last sentence in the buffer
         // unless we're sure it's complete (e.g., followed by significant whitespace)
@@ -168,12 +170,14 @@ pub(crate) fn flush_buffer(
         // Process any remaining text
         // Process remaining text directly
         let output = processor
-            .process(&state_guard.text_buffer)
+            .process(sakurs_engine::Input::from_text(
+                state_guard.text_buffer.clone(),
+            ))
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         // Extract all sentences from the final buffer
         let mut last_boundary = 0;
-        for boundary in output {
+        for boundary in output.boundaries {
             let sentence = state_guard.text_buffer[last_boundary..boundary.byte_offset].to_string();
             let sentence = if state_guard.preserve_whitespace {
                 sentence

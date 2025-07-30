@@ -22,11 +22,13 @@ fn test_execution_mode_selection() {
     use sakurs_engine::executor::auto_select;
 
     let config = EngineConfig::default();
-    assert_eq!(auto_select(500, &config), ExecutionMode::Sequential);
-    assert_eq!(auto_select(10_000, &config), ExecutionMode::Sequential);
 
-    #[cfg(feature = "parallel")]
-    assert_eq!(auto_select(200_000, &config), ExecutionMode::Parallel);
+    // Small texts should use Sequential
+    assert_eq!(auto_select(1000, &config), ExecutionMode::Sequential);
+    assert_eq!(auto_select(100_000, &config), ExecutionMode::Sequential);
+
+    // Large texts should use Parallel
+    assert_eq!(auto_select(1_000_000, &config), ExecutionMode::Parallel);
 }
 
 #[test]
@@ -38,11 +40,11 @@ fn test_sequential_executor() {
     let rules = get_language_rules("en").unwrap();
 
     let text = "Hello world. This is a test.";
-    let boundaries = executor.process(text, &rules).unwrap();
+    let output = executor.process_with_metadata(text, &rules).unwrap();
 
-    assert_eq!(boundaries.len(), 2);
-    assert_eq!(boundaries[0].byte_offset, 12); // After "Hello world."
-    assert_eq!(boundaries[1].byte_offset, 28); // After "This is a test."
+    assert_eq!(output.boundaries.len(), 2);
+    assert_eq!(output.boundaries[0].byte_offset, 12); // After "Hello world."
+    assert_eq!(output.boundaries[1].byte_offset, 28); // After "This is a test."
 }
 
 #[test]
@@ -50,12 +52,12 @@ fn test_sentence_processor_builder() {
     let processor = SentenceProcessorBuilder::new()
         .language("en")
         .threads(Some(4))
-        .parallel_threshold(50_000)
+        .adaptive_threshold_kb(50)
         .build()
         .unwrap();
 
-    let boundaries = processor.process("Test.").unwrap();
-    assert_eq!(boundaries.len(), 1);
+    let output = processor.process(Input::from_text("Test.")).unwrap();
+    assert_eq!(output.boundaries.len(), 1);
 }
 
 #[test]

@@ -53,11 +53,11 @@ fn test_api_with_config() {
         .build_processor()
         .unwrap();
 
-    let boundaries = config.process("Dr. Smith").unwrap();
+    let output = config.process_text("Dr. Smith").unwrap();
     eprintln!(
         "Config processor: Dr. Smith -> {} boundaries",
-        boundaries.len()
+        output.boundaries.len()
     );
 
-    assert_eq!(boundaries.len(), 0);
+    assert_eq!(output.boundaries.len(), 0);
 }
