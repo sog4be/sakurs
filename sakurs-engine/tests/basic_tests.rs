@@ -73,7 +73,10 @@ fn test_english_rules() {
     assert_eq!(rules.get_enclosure_pair(')'), Some((0, false)));
     assert_eq!(rules.get_enclosure_pair('a'), None);
 
-    assert_eq!(rules.is_abbreviation("Dr.", 2), true);
+    // "Dr." at end of text is a boundary, not an abbreviation rejection
+    assert_eq!(rules.is_abbreviation("Dr.", 2), false);
+    // But "Dr. Smith" should have the abbreviation detected
+    assert_eq!(rules.is_abbreviation("Dr. Smith", 2), true);
     assert_eq!(rules.is_abbreviation("Hello", 5), false);
 }
 

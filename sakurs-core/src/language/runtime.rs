@@ -28,6 +28,7 @@ pub struct ConfigurableLanguageRules {
     abbv_trie: Trie,
     ellipsis: EllipsisSet,
     suppress: Suppresser,
+    sentence_starters: SentenceStarterTable,
 }
 
 impl ConfigurableLanguageRules {
@@ -79,6 +80,10 @@ impl ConfigurableLanguageRules {
                 .collect(),
         );
 
+        // Build sentence starters table
+        let sentence_starters =
+            SentenceStarterTable::from_categories(config.sentence_starters.categories.clone());
+
         Ok(Self {
             code: config.metadata.code.clone(),
             name: config.metadata.name.clone(),
@@ -88,6 +93,7 @@ impl ConfigurableLanguageRules {
             abbv_trie,
             ellipsis,
             suppress,
+            sentence_starters,
         })
     }
 }
@@ -208,6 +214,15 @@ impl LanguageRules for ConfigurableLanguageRules {
 
             // Check if it's an abbreviation
             if self.abbv_trie.find_abbrev(text, pos - 1) {
+                // If we have sentence starters configured, check if one follows
+                if !self.sentence_starters.is_empty() {
+                    // Check if a sentence starter follows the abbreviation
+                    if self.sentence_starters.check_after_abbreviation(text, pos) {
+                        // Sentence starter after abbreviation = boundary
+                        return BoundaryDecision::Accept(BoundaryStrength::Strong);
+                    }
+                }
+                // No sentence starter or none configured = not a boundary
                 return BoundaryDecision::Reject;
             }
 

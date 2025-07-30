@@ -22,6 +22,8 @@ pub struct LanguageConfig {
     pub enclosures: Enclosures,
     pub suppression: Suppression,
     pub abbreviations: Abbreviations,
+    #[serde(default)]
+    pub sentence_starters: SentenceStarters,
 }
 
 /// Language metadata
@@ -110,6 +112,20 @@ pub struct RegexPattern {
 /// Abbreviation configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Abbreviations {
+    #[serde(flatten)]
+    pub categories: HashMap<String, Vec<String>>,
+}
+
+/// Sentence starters configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SentenceStarters {
+    /// Whether to require following space (optional)
+    #[serde(default)]
+    pub require_following_space: bool,
+    /// Minimum word length to consider (optional)
+    #[serde(default)]
+    pub min_word_length: usize,
+    /// Categories of sentence starters
     #[serde(flatten)]
     pub categories: HashMap<String, Vec<String>>,
 }

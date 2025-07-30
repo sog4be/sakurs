@@ -5,11 +5,13 @@
 pub mod abbreviation;
 pub mod ellipsis;
 pub mod enclosure;
+pub mod sentence_starters;
 pub mod suppression;
 pub mod terminator;
 
 pub use abbreviation::Trie;
 pub use ellipsis::EllipsisSet;
 pub use enclosure::EncTable;
+pub use sentence_starters::SentenceStarterTable;
 pub use suppression::Suppresser;
 pub use terminator::{DotTable, TermTable};

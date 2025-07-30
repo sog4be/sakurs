@@ -21,7 +21,7 @@ fn test_usa_abbreviation() {
     let decision3 = rules.boundary_decision(text, 6);
     eprintln!("Decision at pos 6: {:?}", decision3);
 
-    // All should be rejected (no boundaries)
+    // First two should be rejected
     assert!(matches!(
         decision1,
         sakurs_core::language::BoundaryDecision::Reject
@@ -30,9 +30,12 @@ fn test_usa_abbreviation() {
         decision2,
         sakurs_core::language::BoundaryDecision::Reject
     ));
+
+    // The last one should be accepted because it's at the end of text
+    // "U.S.A." at the end of text is a valid sentence boundary
     assert!(matches!(
         decision3,
-        sakurs_core::language::BoundaryDecision::Reject
+        sakurs_core::language::BoundaryDecision::Accept(_)
     ));
 }
 

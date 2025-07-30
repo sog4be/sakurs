@@ -169,7 +169,7 @@ impl Trie {
     fn match_at(&self, chars: &[char]) -> bool {
         let mut current_idx = 0u32;
 
-        for &ch in chars {
+        for &ch in chars.iter() {
             let normalized = if self.case_sensitive {
                 ch
             } else {
@@ -177,13 +177,26 @@ impl Trie {
             };
 
             let node = &self.nodes[current_idx as usize];
+
             match node.children.get(&normalized) {
-                Some(&next_idx) => current_idx = next_idx,
-                None => return false,
+                Some(&next_idx) => {
+                    #[cfg(test)]
+                    eprintln!("      found child, next_idx={}", next_idx);
+                    current_idx = next_idx;
+                }
+                None => {
+                    #[cfg(test)]
+                    eprintln!("      no child found, returning false");
+                    return false;
+                }
             }
         }
 
-        self.nodes[current_idx as usize].is_end
+        let is_end = self.nodes[current_idx as usize].is_end;
+        #[cfg(test)]
+        eprintln!("  match_at result: is_end={}", is_end);
+
+        is_end
     }
 }
 
