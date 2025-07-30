@@ -211,14 +211,25 @@ impl LanguageRules for ConfigurableLanguageRules {
                 return BoundaryDecision::Reject;
             }
 
-            // Check for decimal point context
-            let chars: Vec<char> = text.chars().collect();
-            let char_pos = text[..pos].chars().count();
-            if char_pos > 1 && char_pos < chars.len() {
-                let prev = chars.get(char_pos - 2).copied();
-                let next = chars.get(char_pos).copied();
-                if let DotRole::DecimalDot = self.dot_table.classify(prev, next) {
-                    return BoundaryDecision::Reject;
+            // Check for decimal point or IP address context
+            // pos is the position after the dot, so dot is at pos-1
+            let dot_pos = pos - 1;
+            if dot_pos > 0 && pos < text.len() {
+                // Get char before the dot
+                let prev_char = if dot_pos > 0 {
+                    text[..dot_pos].chars().last()
+                } else {
+                    None
+                };
+                // Get char after the dot (at pos)
+                let next_char = text[pos..].chars().next();
+
+                // Check for number.number pattern (decimal or IP)
+                if let (Some(p), Some(n)) = (prev_char, next_char) {
+                    if p.is_ascii_digit() && n.is_ascii_digit() {
+                        // This is digit.digit - reject as boundary
+                        return BoundaryDecision::Reject;
+                    }
                 }
             }
         }

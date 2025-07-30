@@ -13,7 +13,7 @@ pub struct SequentialExecutor;
 impl Executor for SequentialExecutor {
     fn process<R: LanguageRules>(&self, text: &str, rules: &R) -> Result<Vec<Boundary>> {
         let mut boundaries = Vec::new();
-        let mut scanner = DeltaScanner::new(rules)?;
+        let mut scanner = DeltaScanner::with_text(rules, text)?;
 
         // Process each character
         for ch in text.chars() {
