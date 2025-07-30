@@ -269,7 +269,7 @@ impl LanguageRules for ConfigurableLanguageRules {
         if self.terminator_rules.is_terminator(ch) {
             // Create pattern context for pattern matching
             let pattern_context = PatternContext {
-                text: &context.text,
+                text: context.text,
                 position: context.position,
                 current_char: ch,
                 next_char: context.following_context.chars().next(),
@@ -299,7 +299,7 @@ impl LanguageRules for ConfigurableLanguageRules {
             // Check for abbreviations
             // context.position is the byte offset BEFORE the terminator (period)
             // We check if there's an abbreviation ending at this position
-            let abbr_result = self.process_abbreviation(&context.text, context.position);
+            let abbr_result = self.process_abbreviation(context.text, context.position);
             if abbr_result.is_abbreviation {
                 // Check if the next word is a sentence starter
                 if let Some((next_word, remaining_context)) =

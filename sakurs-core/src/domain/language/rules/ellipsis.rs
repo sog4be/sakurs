@@ -85,7 +85,7 @@ impl EllipsisRules {
     pub fn is_ellipsis_pattern(&self, context: &BoundaryContext) -> bool {
         // Check each pattern
         for pattern in &self.patterns {
-            if self.matches_pattern_at_position(&context.text, context.position, pattern) {
+            if self.matches_pattern_at_position(context.text, context.position, pattern) {
                 return true;
             }
         }
@@ -225,7 +225,7 @@ mod tests {
         .unwrap();
 
         let context = BoundaryContext {
-            text: "Hello... World".to_string(),
+            text: "Hello... World",
             position: 7, // After the last dot
             boundary_char: '.',
             preceding_context: "Hello..".to_string(),
@@ -250,7 +250,7 @@ mod tests {
 
         // Test followed by capital
         let context = BoundaryContext {
-            text: "Wait... Then he left.".to_string(),
+            text: "Wait... Then he left.",
             position: 7,
             boundary_char: '.',
             preceding_context: "Wait..".to_string(),
@@ -264,7 +264,7 @@ mod tests {
 
         // Test followed by lowercase
         let context = BoundaryContext {
-            text: "Wait... then he left.".to_string(),
+            text: "Wait... then he left.",
             position: 7,
             boundary_char: '.',
             preceding_context: "Wait..".to_string(),
@@ -288,7 +288,7 @@ mod tests {
         .unwrap();
 
         let context = BoundaryContext {
-            text: "He said um... I think so.".to_string(),
+            text: "He said um... I think so.",
             position: 12, // After "um..."
             boundary_char: '.',
             preceding_context: "He said um..".to_string(),
@@ -307,7 +307,7 @@ mod tests {
         let rules = EllipsisRules::new(true, vec!["...".to_string()], vec![], vec![]).unwrap();
 
         let context = BoundaryContext {
-            text: "Hello...".to_string(),
+            text: "Hello...",
             position: 7,
             boundary_char: '.',
             preceding_context: "Hello..".to_string(),

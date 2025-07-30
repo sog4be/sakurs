@@ -224,7 +224,7 @@ mod tests {
 
         // Test strong boundary
         let context = BoundaryContext {
-            text: "Hello!".to_string(),
+            text: "Hello!",
             position: 5,
             boundary_char: '!',
             preceding_context: "Hello".to_string(),
@@ -238,7 +238,7 @@ mod tests {
 
         // Test weak boundary
         let context = BoundaryContext {
-            text: "Hello.".to_string(),
+            text: "Hello.",
             position: 5,
             boundary_char: '.',
             preceding_context: "Hello".to_string(),

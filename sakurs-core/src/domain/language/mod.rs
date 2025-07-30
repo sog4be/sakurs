@@ -23,7 +23,7 @@
 //!
 //! // Analyze a potential sentence boundary
 //! let context = BoundaryContext {
-//!     text: "Dr. Smith said hello. This is a test.".to_string(),
+//!     text: "Dr. Smith said hello. This is a test.",
 //!     position: 18,
 //!     boundary_char: '.',
 //!     preceding_context: "Smith said hello".to_string(),
@@ -261,7 +261,7 @@ mod tests {
 
         // Test boundary detection
         let context = BoundaryContext {
-            text: "Hello world. This is a test.".to_string(),
+            text: "Hello world. This is a test.",
             position: 11,
             boundary_char: '.',
             preceding_context: "Hello world".to_string(),
@@ -296,7 +296,7 @@ mod tests {
         let rules = MockLanguageRules::english();
 
         let context = QuotationContext {
-            text: "He said \"Hello\"".to_string(),
+            text: "He said \"Hello\"",
             position: 8,
             quote_char: '"',
             inside_quotes: false,
@@ -329,7 +329,7 @@ mod tests {
 
         // Test comprehensive abbreviation handling
         let context = BoundaryContext {
-            text: "Dr. Smith works at Apple Inc. and lives on Main St. in the city.".to_string(),
+            text: "Dr. Smith works at Apple Inc. and lives on Main St. in the city.",
             position: 2,
             boundary_char: '.',
             preceding_context: "Dr".to_string(),
@@ -346,7 +346,7 @@ mod tests {
 
         // Test normal sentence boundary
         let context = BoundaryContext {
-            text: "Hello world. This is a test.".to_string(),
+            text: "Hello world. This is a test.",
             position: 11,
             boundary_char: '.',
             preceding_context: "Hello world".to_string(),
@@ -365,7 +365,7 @@ mod tests {
 
         // Test decimal numbers
         let context = BoundaryContext {
-            text: "The price is $29.99 for the item.".to_string(),
+            text: "The price is $29.99 for the item.",
             position: 16,
             boundary_char: '.',
             preceding_context: "price is $29".to_string(),
@@ -379,7 +379,7 @@ mod tests {
 
         // Test quotation handling
         let context = BoundaryContext {
-            text: "He said, \"Hello world.\" This is next.".to_string(),
+            text: "He said, \"Hello world.\" This is next.",
             position: 20,
             boundary_char: '.',
             preceding_context: "said, \"Hello world".to_string(),
@@ -393,7 +393,7 @@ mod tests {
 
         // Test strong punctuation
         let context = BoundaryContext {
-            text: "What a surprise! This is amazing.".to_string(),
+            text: "What a surprise! This is amazing.",
             position: 15,
             boundary_char: '!',
             preceding_context: "What a surprise".to_string(),

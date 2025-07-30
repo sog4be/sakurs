@@ -7,9 +7,9 @@ use crate::domain::BoundaryFlags;
 
 /// Context information for sentence boundary detection
 #[derive(Debug, Clone, PartialEq)]
-pub struct BoundaryContext {
-    /// The text being analyzed
-    pub text: String,
+pub struct BoundaryContext<'a> {
+    /// The text being analyzed (reference to avoid copying)
+    pub text: &'a str,
     /// Position of potential boundary in the text
     pub position: usize,
     /// Character at the boundary position
@@ -44,9 +44,9 @@ pub struct AbbreviationResult {
 
 /// Context for quotation mark processing
 #[derive(Debug, Clone, PartialEq)]
-pub struct QuotationContext {
-    /// The text being analyzed
-    pub text: String,
+pub struct QuotationContext<'a> {
+    /// The text being analyzed (reference to avoid copying)
+    pub text: &'a str,
     /// Position of the quotation mark
     pub position: usize,
     /// Type of quotation mark
@@ -83,7 +83,7 @@ pub trait LanguageRules: Send + Sync {
     ///
     /// # Returns
     /// Decision about whether this position is a sentence boundary
-    fn detect_sentence_boundary(&self, context: &BoundaryContext) -> BoundaryDecision;
+    fn detect_sentence_boundary(&self, context: &BoundaryContext<'_>) -> BoundaryDecision;
 
     /// Process potential abbreviations at a given position
     ///
@@ -102,7 +102,7 @@ pub trait LanguageRules: Send + Sync {
     ///
     /// # Returns
     /// Decision about how to handle this quotation mark
-    fn handle_quotation(&self, context: &QuotationContext) -> QuotationDecision;
+    fn handle_quotation(&self, context: &QuotationContext<'_>) -> QuotationDecision;
 
     /// Get the language identifier for this rule set
     ///
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn test_boundary_context_creation() {
         let context = BoundaryContext {
-            text: "Hello world. This is a test.".to_string(),
+            text: "Hello world. This is a test.",
             position: 11,
             boundary_char: '.',
             preceding_context: "Hello world".to_string(),

@@ -112,7 +112,6 @@ impl TextParser {
                 let should_suppress = if let Some(suppressor) =
                     language_rules.enclosure_suppressor()
                 {
-                    // Build context for suppression check
                     let context = build_enclosure_context(text, position, ch, &chars, last_char);
                     suppressor.should_suppress_enclosure(ch, &context)
                 } else {
@@ -159,11 +158,8 @@ impl TextParser {
 
             // Check for potential sentence terminators (record as candidate regardless of depth)
             if is_potential_terminator(ch) {
-                // Build context for language rules
                 let context =
                     build_boundary_context(text, position, ch, &chars, last_char, consecutive_dots);
-
-                // Ask language rules for decision
                 let decision = language_rules.detect_sentence_boundary(&context);
 
                 match decision {
@@ -238,14 +234,14 @@ fn is_potential_terminator(ch: char) -> bool {
 }
 
 /// Builds a boundary context for language rule evaluation.
-fn build_boundary_context(
-    text: &str,
+fn build_boundary_context<'a>(
+    text: &'a str,
     position: usize,
     terminator: char,
     chars_iter: &std::iter::Peekable<std::str::Chars>,
     _last_char: Option<char>,
     _consecutive_dots: usize,
-) -> BoundaryContext {
+) -> BoundaryContext<'a> {
     // Extract text before the boundary (up to DEFAULT_CONTEXT_WINDOW chars)
     // Need to find valid UTF-8 boundary
     let mut start = position.saturating_sub(DEFAULT_CONTEXT_WINDOW);
@@ -261,7 +257,7 @@ fn build_boundary_context(
         .collect::<String>();
 
     BoundaryContext {
-        text: text.to_string(),
+        text,
         position,
         boundary_char: terminator,
         preceding_context,

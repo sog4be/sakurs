@@ -112,11 +112,12 @@ impl<T: LanguageRules> BoundaryAnalyzer for LanguageRulesAdapter<T> {
         _state: &PartialState,
     ) -> NewBoundaryDecision {
         // Convert to old context format
+        let combined_text = format!(
+            "{}{}",
+            candidate.context.text_before, candidate.context.text_after
+        );
         let old_context = OldBoundaryContext {
-            text: format!(
-                "{}{}",
-                candidate.context.text_before, candidate.context.text_after
-            ),
+            text: &combined_text,
             position: candidate.context.text_before.len(),
             boundary_char: candidate.context.boundary_char,
             preceding_context: candidate.context.text_before.clone(),
