@@ -91,19 +91,25 @@ pub trait Executor: Send + Sync {
 pub fn auto_select(text_len: usize, config: &crate::config::EngineConfig) -> ExecutionMode {
     use crate::config::ChunkPolicy;
 
+    // If execution mode is not adaptive, return as configured
+    if config.execution_mode != ExecutionMode::Adaptive {
+        return config.execution_mode;
+    }
+
     // Check if streaming is explicitly configured
     if matches!(config.chunk_policy, ChunkPolicy::Streaming { .. }) {
         return ExecutionMode::Streaming;
     }
 
     // Adaptive logic per DESIGN.md Section 6.1:
-    // - Sequential if bytes_per_core < 128KB AND input_size < 512KB
+    // - Sequential if bytes_per_core < threshold AND input_size < threshold * 4
     // - Parallel otherwise
     let cores = rayon::current_num_threads().max(1);
     let bytes_per_core = text_len / cores;
-    let adaptive_threshold_kb = 128; // Default from design spec
-    let adaptive_threshold_bytes = adaptive_threshold_kb * 1024;
-    let max_sequential_size = adaptive_threshold_bytes * 4; // 512KB
+
+    // Use configured threshold or default 128KB
+    let adaptive_threshold_bytes = config.adaptive_threshold.unwrap_or(128 * 1024);
+    let max_sequential_size = adaptive_threshold_bytes * 4; // 4x threshold
 
     if bytes_per_core < adaptive_threshold_bytes && text_len < max_sequential_size {
         ExecutionMode::Sequential

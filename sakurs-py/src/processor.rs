@@ -92,7 +92,7 @@ impl PyProcessor {
             }
         }
 
-        config_builder = config_builder.chunk_size(chunk_size_bytes);
+        config_builder = config_builder.chunk_kb(Some(chunk_size_bytes / 1024));
 
         // Default chunk size is fine for now
 
@@ -132,7 +132,7 @@ impl PyProcessor {
         let output = py
             .allow_threads(|| {
                 self.processor
-                    .process(sakurs_engine::Input::from_text(text.clone()))
+                    .process(sakurs_api::Input::from_text(text.clone()))
             })
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 

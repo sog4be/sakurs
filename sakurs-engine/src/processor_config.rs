@@ -128,9 +128,11 @@ impl ProcessorConfig {
         };
 
         EngineConfig {
+            execution_mode: self.execution_mode,
             chunk_policy,
             threads: self.thread_count,
             parallel_threshold: self.adaptive_threshold_kb * 1024,
+            adaptive_threshold: Some(self.adaptive_threshold_kb * 1024),
         }
     }
 

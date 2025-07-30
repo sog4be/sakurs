@@ -120,7 +120,7 @@ fn split(
     }
 
     if let Some(kb) = chunk_kb {
-        config_builder = config_builder.chunk_size(kb * 1024);
+        config_builder = config_builder.chunk_kb(Some(kb));
     }
 
     // Create processor
@@ -132,7 +132,7 @@ fn split(
 
     // Release GIL during processing for better performance
     let output = py
-        .allow_threads(|| processor.process(sakurs_engine::Input::from_text(text.clone())))
+        .allow_threads(|| processor.process(sakurs_api::Input::from_text(text.clone())))
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     let processing_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;

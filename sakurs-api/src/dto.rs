@@ -151,3 +151,77 @@ pub struct Output {
     /// Processing metadata
     pub metadata: Metadata,
 }
+
+/// Execution mode for processing
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum ExecutionMode {
+    /// Single-threaded sequential processing
+    Sequential,
+    /// Multi-threaded parallel processing
+    Parallel,
+    /// Memory-efficient streaming
+    Streaming,
+    /// Automatically select between Sequential and Parallel based on input size
+    Adaptive,
+}
+
+impl From<sakurs_engine::ExecutionMode> for ExecutionMode {
+    fn from(mode: sakurs_engine::ExecutionMode) -> Self {
+        match mode {
+            sakurs_engine::ExecutionMode::Sequential => ExecutionMode::Sequential,
+            sakurs_engine::ExecutionMode::Parallel => ExecutionMode::Parallel,
+            sakurs_engine::ExecutionMode::Streaming => ExecutionMode::Streaming,
+            sakurs_engine::ExecutionMode::Adaptive => ExecutionMode::Adaptive,
+        }
+    }
+}
+
+impl From<ExecutionMode> for sakurs_engine::ExecutionMode {
+    fn from(mode: ExecutionMode) -> Self {
+        match mode {
+            ExecutionMode::Sequential => sakurs_engine::ExecutionMode::Sequential,
+            ExecutionMode::Parallel => sakurs_engine::ExecutionMode::Parallel,
+            ExecutionMode::Streaming => sakurs_engine::ExecutionMode::Streaming,
+            ExecutionMode::Adaptive => sakurs_engine::ExecutionMode::Adaptive,
+        }
+    }
+}
+
+/// Supported languages
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Language {
+    /// English
+    English,
+    /// Japanese
+    Japanese,
+}
+
+impl Language {
+    /// Get language code
+    pub fn code(&self) -> &str {
+        match self {
+            Language::English => "en",
+            Language::Japanese => "ja",
+        }
+    }
+}
+
+impl From<sakurs_engine::Language> for Language {
+    fn from(lang: sakurs_engine::Language) -> Self {
+        match lang {
+            sakurs_engine::Language::English => Language::English,
+            sakurs_engine::Language::Japanese => Language::Japanese,
+        }
+    }
+}
+
+impl From<Language> for sakurs_engine::Language {
+    fn from(lang: Language) -> Self {
+        match lang {
+            Language::English => sakurs_engine::Language::English,
+            Language::Japanese => sakurs_engine::Language::Japanese,
+        }
+    }
+}

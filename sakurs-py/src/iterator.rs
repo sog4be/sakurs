@@ -120,7 +120,7 @@ pub(crate) fn process_text_incrementally(
 
     // Process the buffered text
     let output = processor
-        .process(sakurs_engine::Input::from_text(
+        .process(sakurs_api::Input::from_text(
             state_guard.text_buffer.clone(),
         ))
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -170,7 +170,7 @@ pub(crate) fn flush_buffer(
         // Process any remaining text
         // Process remaining text directly
         let output = processor
-            .process(sakurs_engine::Input::from_text(
+            .process(sakurs_api::Input::from_text(
                 state_guard.text_buffer.clone(),
             ))
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;

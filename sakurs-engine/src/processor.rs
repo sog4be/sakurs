@@ -140,6 +140,14 @@ impl SentenceProcessor {
     pub fn process_text(&self, text: &str) -> ApiResult<Output> {
         self.process(Input::from_text(text.to_string()))
     }
+
+    /// Process with automatic mode selection (explicit adaptive)
+    ///
+    /// This method is equivalent to process() but makes it explicit
+    /// that adaptive mode selection is being used.
+    pub fn process_auto(&self, input: Input) -> ApiResult<Output> {
+        self.process_with_mode(input, ExecutionMode::Adaptive)
+    }
 }
 
 /// Builder for SentenceProcessor

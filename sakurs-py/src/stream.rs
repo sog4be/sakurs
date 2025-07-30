@@ -50,7 +50,7 @@ pub fn create_iter_split_iterator(
         config_builder = config_builder.threads(Some(threads));
     }
     if let Some(chunk_size) = chunk_size {
-        config_builder = config_builder.chunk_size(chunk_size);
+        config_builder = config_builder.chunk_kb(Some(chunk_size / 1024));
     }
 
     // Create processor
@@ -83,7 +83,7 @@ pub fn create_iter_split_iterator(
     // Process the entire text at once
     // Process text directly with the processor
     let output = processor
-        .process(sakurs_engine::Input::from_text(text.clone()))
+        .process(sakurs_api::Input::from_text(text.clone()))
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     // Convert boundaries to sentences and add to iterator
@@ -211,7 +211,9 @@ pub fn create_large_file_iterator(
 
     // Configure for memory-efficient processing
     let chunk_size = (max_memory_mb * 1024 * 1024) / 4; // Reserve memory for processing
-    config_builder = config_builder.chunk_size(chunk_size).threads(Some(1)); // Single thread for streaming
+    config_builder = config_builder
+        .chunk_kb(Some(chunk_size / 1024))
+        .threads(Some(1)); // Single thread for streaming
 
     // Create processor
     let processor = config_builder
@@ -350,7 +352,7 @@ impl LargeFileIterator {
         // Process buffer directly with the processor
         let output = self
             .processor
-            .process(sakurs_engine::Input::from_text(buffer.clone()))
+            .process(sakurs_api::Input::from_text(buffer.clone()))
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
         if output.boundaries.is_empty() {
