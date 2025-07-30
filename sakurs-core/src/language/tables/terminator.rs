@@ -11,6 +11,8 @@ pub struct TermTable {
     ascii_table: [bool; 128],
     /// HashSet for non-ASCII terminators (rare)
     non_ascii: HashSet<char>,
+    /// Multi-character patterns (e.g., "!?", "?!")
+    patterns: HashSet<String>,
 }
 
 impl TermTable {
@@ -30,7 +32,15 @@ impl TermTable {
         Self {
             ascii_table,
             non_ascii,
+            patterns: HashSet::new(),
         }
+    }
+
+    /// Create with patterns
+    pub fn with_patterns(terminators: Vec<char>, patterns: Vec<String>) -> Self {
+        let mut table = Self::new(terminators);
+        table.patterns = patterns.into_iter().collect();
+        table
     }
 
     /// Check if character is a terminator - hot path
@@ -43,6 +53,18 @@ impl TermTable {
             // Slow path: hash lookup
             self.non_ascii.contains(&ch)
         }
+    }
+
+    /// Check if we have patterns
+    #[inline]
+    pub fn has_patterns(&self) -> bool {
+        !self.patterns.is_empty()
+    }
+
+    /// Check if a string is a known pattern
+    #[inline]
+    pub fn is_pattern(&self, pattern: &str) -> bool {
+        self.patterns.contains(pattern)
     }
 }
 

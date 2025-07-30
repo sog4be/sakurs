@@ -138,7 +138,7 @@ impl PartialState {
 }
 
 /// Streaming delta scanner for character-by-character processing
-pub struct DeltaScanner<'r, R: LanguageRules> {
+pub struct DeltaScanner<'r, R: LanguageRules + ?Sized> {
     rules: &'r R,
     state: PartialState,
     depths: [i32; ENCLOSURE_MAX],
@@ -151,9 +151,12 @@ pub struct DeltaScanner<'r, R: LanguageRules> {
     text_buffer: Vec<char>,
     /// Maximum characters to keep in buffer
     buffer_limit: usize,
+    /// The full text being processed (if available)
+    #[cfg(feature = "alloc")]
+    full_text: Option<String>,
 }
 
-impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
+impl<'r, R: LanguageRules + ?Sized> DeltaScanner<'r, R> {
     /// Create a new scanner
     pub fn new(rules: &'r R) -> Result<Self> {
         Ok(Self {
@@ -167,7 +170,17 @@ impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
             #[cfg(feature = "alloc")]
             text_buffer: Vec::with_capacity(128),
             buffer_limit: 128, // Keep last 128 chars for abbreviation context
+            #[cfg(feature = "alloc")]
+            full_text: None,
         })
+    }
+
+    /// Create a new scanner with full text context
+    #[cfg(feature = "alloc")]
+    pub fn with_text(rules: &'r R, text: &str) -> Result<Self> {
+        let mut scanner = Self::new(rules)?;
+        scanner.full_text = Some(text.to_string());
+        Ok(scanner)
     }
 
     /// Process a single character and emit boundaries
@@ -189,16 +202,59 @@ impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
         }
 
         // Handle enclosures
-        if let Some((pair_id, is_opening)) = self.rules.get_enclosure_pair(ch) {
-            let idx = pair_id as usize;
+        if let Some(enc_info) = self.rules.enclosure_info(ch) {
+            // For single quotes, check if it's an apostrophe (contraction or possessive)
+            if ch == '\'' && enc_info.symmetric {
+                #[cfg(feature = "alloc")]
+                {
+                    // Check if it's an apostrophe based on context
+                    let is_apostrophe = if self.text_buffer.len() > 1 {
+                        let prev_idx = self.text_buffer.len() - 2;
+                        let prev_char = self.text_buffer[prev_idx];
+
+                        // Check if there's a letter before and potentially after
+                        if matches!(self.rules.classify_char(prev_char), Class::Alpha) {
+                            // Look ahead to see if there's a letter after (for contractions)
+                            // This is a heuristic - in streaming mode we might not have the next char yet
+                            true // Assume it's an apostrophe if preceded by a letter
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+
+                    if is_apostrophe {
+                        // Skip apostrophes - they're not quote enclosures
+                        return Ok(());
+                    }
+                }
+            }
+
+            let idx = enc_info.type_id as usize;
             if idx >= self.state.deltas.len {
                 return Err(CoreError::TooManyEnclosureTypes);
             }
 
-            if is_opening {
+            let delta = if enc_info.symmetric {
+                // For symmetric quotes, determine opening/closing based on current depth
+                let current_depth = self.depths[idx];
+                if current_depth == 0 {
+                    1 // Opening quote
+                } else if current_depth == 1 {
+                    -1 // Closing quote
+                } else {
+                    0 // Ignore deeper nesting
+                }
+            } else {
+                // For asymmetric brackets, use the provided delta
+                enc_info.delta as i32
+            };
+
+            if delta > 0 {
                 self.depths[idx] = self.depths[idx].saturating_add(1);
                 self.total_depth = self.total_depth.saturating_add(1);
-            } else {
+            } else if delta < 0 {
                 self.depths[idx] = self.depths[idx].saturating_sub(1);
                 self.total_depth = self.total_depth.saturating_sub(1);
 
@@ -210,6 +266,7 @@ impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
                     cmp::min(min, self.depths[idx]),
                 )?;
             }
+            // If delta == 0, we ignore this quote (depth >= 2 for symmetric)
 
             // Update net change
             let (_, min) = self.state.deltas.get(idx).unwrap_or((0, 0));
@@ -218,35 +275,35 @@ impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
 
         // Check for terminators
         if self.rules.is_terminator(ch) && self.total_depth == 0 {
-            let mut is_abbrev = false;
-
-            // Check if it's an abbreviation by looking at the buffer
+            // Use boundary_decision to determine if this is a boundary
             #[cfg(feature = "alloc")]
-            if ch == '.' && self.text_buffer.len() > 1 {
-                // The dot is already in the buffer at the last position
-                // Look at the word before the dot
-                let buffer_without_dot = &self.text_buffer[..self.text_buffer.len() - 1];
+            {
+                let pos = self.byte_offset + char_len;
 
-                // Find the last word in the buffer
-                let mut word_start = buffer_without_dot.len();
-                while word_start > 0 {
-                    let idx = word_start - 1;
-                    if !matches!(
-                        self.rules.classify_char(buffer_without_dot[idx]),
-                        Class::Alpha
-                    ) {
-                        break;
+                // Use full text if available, otherwise use buffer
+                let decision = if let Some(ref full_text) = self.full_text {
+                    self.rules.boundary_decision(full_text, pos)
+                } else {
+                    // Build text from buffer for streaming mode
+                    let text: String = self.text_buffer.iter().collect();
+                    self.rules.boundary_decision(&text, pos)
+                };
+
+                match decision {
+                    crate::language::BoundaryDecision::Accept(strength) => {
+                        let kind = match strength {
+                            crate::language::BoundaryStrength::Strong => BoundaryKind::Strong,
+                            crate::language::BoundaryStrength::Weak => BoundaryKind::Weak,
+                        };
+                        let boundary = Boundary::new(pos, self.char_offset + 1, kind);
+                        emit(boundary);
                     }
-                    word_start -= 1;
-                }
-
-                // Extract the word if we found one
-                if word_start < buffer_without_dot.len() {
-                    let word: String = buffer_without_dot[word_start..].iter().collect();
-
-                    // Check if it's an abbreviation
-                    if !word.is_empty() {
-                        is_abbrev = self.rules.abbrev_match(&word);
+                    crate::language::BoundaryDecision::Reject => {
+                        // Do not emit boundary
+                    }
+                    crate::language::BoundaryDecision::NeedsLookahead => {
+                        // In streaming mode, we might need to wait for more context
+                        // For now, treat as reject
                     }
                 }
             }
@@ -254,17 +311,15 @@ impl<'r, R: LanguageRules> DeltaScanner<'r, R> {
             // For no_std, fall back to simple heuristic
             #[cfg(not(feature = "alloc"))]
             {
-                is_abbrev = ch == '.' && self.last_was_dot;
-            }
-
-            // Only emit boundary if it's not an abbreviation
-            if !is_abbrev {
-                let boundary = Boundary::new(
-                    self.byte_offset + char_len,
-                    self.char_offset + 1,
-                    BoundaryKind::Strong,
-                );
-                emit(boundary);
+                let is_abbrev = ch == '.' && self.last_was_dot;
+                if !is_abbrev {
+                    let boundary = Boundary::new(
+                        self.byte_offset + char_len,
+                        self.char_offset + 1,
+                        BoundaryKind::Strong,
+                    );
+                    emit(boundary);
+                }
             }
         }
 
@@ -306,12 +361,12 @@ pub fn emit_commit_if_depth0(
 
 /// Scan a chunk of text and collect boundaries
 #[cfg(feature = "alloc")]
-pub fn scan_chunk<R: LanguageRules>(
+pub fn scan_chunk<R: LanguageRules + ?Sized>(
     text: &str,
     rules: &R,
     emit: &mut impl FnMut(Boundary),
 ) -> Result<PartialState> {
-    let mut scanner = DeltaScanner::new(rules)?;
+    let mut scanner = DeltaScanner::with_text(rules, text)?;
 
     for ch in text.chars() {
         scanner.step(ch, emit)?;
@@ -336,9 +391,9 @@ pub fn reduce_deltas(deltas: &[DeltaVec]) -> Result<DeltaVec> {
 
 /// Reference sequential implementation for testing
 #[cfg(feature = "alloc")]
-pub fn run<R: LanguageRules>(text: &str, rules: &R) -> Result<Vec<Boundary>> {
+pub fn run<R: LanguageRules + ?Sized>(text: &str, rules: &R) -> Result<Vec<Boundary>> {
     let mut boundaries = Vec::new();
-    let mut scanner = DeltaScanner::new(rules)?;
+    let mut scanner = DeltaScanner::with_text(rules, text)?;
 
     for ch in text.chars() {
         scanner.step(ch, &mut emit_push(&mut boundaries))?;

@@ -12,8 +12,8 @@ patterns = [
 ]
 
 [ellipsis]
-# Default behavior: treat as boundary
-treat_as_boundary = true
+# Default behavior: don't treat as boundary (continuation)
+treat_as_boundary = false
 patterns = ["...", "…"]
 
 # Context-based rules
@@ -93,6 +93,10 @@ geographic = [
 
 common = [
     "etc", "vs", "e.g", "i.e", "cf", "al", "seq", "no", "No", "vol", "Vol",
+    # Multi-dot abbreviations (need to be registered separately)
+    "e.g.", "i.e.",
+    # Single letters that are part of multi-dot abbreviations
+    "e", "g", "i",
     # TODO: Single letter and short abbreviations need word boundary checking
     # "v", "pp", "p", "ed", "Ed", "trans", "Trans", "ca", "c", "esp", "viz"
 ]

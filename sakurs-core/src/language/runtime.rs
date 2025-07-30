@@ -36,7 +36,13 @@ impl ConfigurableLanguageRules {
         // Validate configuration
         config.validate()?;
         // Build terminator table
-        let term_table = TermTable::new(config.terminators.chars.clone());
+        let patterns: Vec<String> = config
+            .terminators
+            .patterns
+            .iter()
+            .map(|p| p.pattern.clone())
+            .collect();
+        let term_table = TermTable::with_patterns(config.terminators.chars.clone(), patterns);
 
         // Build dot table
         let dot_table = DotTable::new(config.ellipsis.patterns.clone());
@@ -121,10 +127,78 @@ impl LanguageRules for ConfigurableLanguageRules {
             return BoundaryDecision::Reject;
         }
 
+        // Check if this terminator is part of a multi-character pattern
+        // For patterns like "!?" or "?!", if we're at the first character,
+        // we should check if the next character completes a pattern
+        if self.term_table.has_patterns() && (term_char == '!' || term_char == '?') {
+            // Check if we're part of a multi-character terminator pattern
+            // Look back to see if we complete a pattern
+            if pos >= 2 {
+                let prev_char = text.chars().nth(text[..pos - 1].chars().count() - 1);
+                if let Some(prev) = prev_char {
+                    let pattern = format!("{prev}{term_char}");
+                    if self.term_table.is_pattern(&pattern) {
+                        // This completes a pattern, so it's a boundary
+                        return BoundaryDecision::Accept(BoundaryStrength::Strong);
+                    }
+                }
+            }
+
+            // Look ahead to see if this starts a pattern
+            let next_char = text.chars().nth(text[..pos].chars().count());
+            if let Some(next) = next_char {
+                let pattern = format!("{term_char}{next}");
+                if self.term_table.is_pattern(&pattern) {
+                    // This starts a pattern, so it's not a boundary yet
+                    return BoundaryDecision::Reject;
+                }
+            }
+        }
+
         // Special handling for dots
         if term_char == '.' {
             // Check if it's part of ellipsis
+            // We need to check if we're in the middle or at the end of an ellipsis
+            // Check both the current position and look ahead/behind for dots
+            let mut is_ellipsis = false;
+
+            // First check if an ellipsis pattern ends at our position
             if self.ellipsis.is_ellipsis_at(text, pos - 1) {
+                is_ellipsis = true;
+            } else {
+                // Check if we're in the middle of consecutive dots
+                let chars: Vec<char> = text.chars().collect();
+                let char_pos = text[..pos].chars().count();
+
+                // Look for dots before and after
+                let mut dots_found = 1; // Current dot
+
+                // Count dots before
+                let mut i = char_pos.saturating_sub(2); // Start before current
+                while i < char_pos - 1 && i < chars.len() && chars[i] == '.' {
+                    dots_found += 1;
+                    if i == 0 {
+                        break;
+                    }
+                    i -= 1;
+                }
+
+                // Count dots after
+                if char_pos < chars.len() {
+                    let mut j = char_pos;
+                    while j < chars.len() && chars[j] == '.' {
+                        dots_found += 1;
+                        j += 1;
+                    }
+                }
+
+                // If we have 3 or more consecutive dots, it's an ellipsis
+                if dots_found >= 3 {
+                    is_ellipsis = true;
+                }
+            }
+
+            if is_ellipsis {
                 return if self.ellipsis.treat_as_boundary() {
                     BoundaryDecision::Accept(BoundaryStrength::Weak)
                 } else {
