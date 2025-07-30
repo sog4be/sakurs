@@ -58,23 +58,29 @@ impl LanguageRules for DebugRules {
         if dot_pos == 0 {
             return false;
         }
-        let before = &text[..dot_pos];
 
-        // Check single letter abbreviations
-        if before.len() == 1 && before.chars().all(|c| c.is_ascii_alphabetic()) {
-            eprintln!(
-                "is_abbreviation: '{}' at {} -> single letter",
-                text, dot_pos
-            );
-            return true;
+        // Look for word boundary before the potential abbreviation
+        let mut start = dot_pos;
+        while start > 0 {
+            let ch = text.chars().nth(start - 1).unwrap();
+            if !ch.is_alphanumeric() && ch != '.' {
+                break;
+            }
+            start -= 1;
         }
 
-        let result = matches!(before, "Dr" | "Mr" | "U.S" | "U.S.A");
+        // Extract the potential abbreviation
+        let abbrev = &text[start..dot_pos];
+
+        // Check known abbreviations
+        let is_known = matches!(abbrev, "Dr" | "Mr" | "U" | "S" | "A" | "U.S" | "U.S.A");
+
         eprintln!(
-            "is_abbreviation: '{}' at {} -> {} (before='{}')",
-            text, dot_pos, result, before
+            "is_abbreviation: '{}' at {} -> {} (abbrev='{}')",
+            text, dot_pos, is_known, abbrev
         );
-        result
+
+        is_known
     }
 
     fn abbrev_match(&self, abbrev: &str) -> bool {

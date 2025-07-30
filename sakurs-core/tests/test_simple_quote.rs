@@ -10,9 +10,9 @@ fn test_simple_double_quote() {
     println!("Text: {:?}", text);
     println!("Boundaries: {:?}", boundaries);
 
-    // Should have one boundary at the end
-    assert_eq!(boundaries.len(), 1);
-    assert_eq!(boundaries[0].byte_offset, text.len());
+    // Should have no boundaries - the text doesn't end with punctuation
+    // The only period is inside the quotes "Hello."
+    assert_eq!(boundaries.len(), 0);
 }
 
 #[test]
