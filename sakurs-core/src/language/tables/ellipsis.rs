@@ -29,8 +29,11 @@ impl EllipsisSet {
         // Check each pattern
         for pattern in &self.patterns {
             if let Some(start) = pos.checked_sub(pattern.len() - 1) {
-                if text[start..].starts_with(pattern) {
-                    return true;
+                // Ensure we're at a valid UTF-8 boundary
+                if start <= text.len() && text.is_char_boundary(start) {
+                    if text[start..].starts_with(pattern) {
+                        return true;
+                    }
                 }
             }
         }

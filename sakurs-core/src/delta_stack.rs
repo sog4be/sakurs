@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use core::cmp;
 
 use crate::{
+    character_window::CharacterWindow,
     error::{CoreError, Result},
     language::LanguageRules,
     types::{Boundary, BoundaryKind, Class},
@@ -146,6 +147,8 @@ pub struct DeltaScanner<'r, R: LanguageRules + ?Sized> {
     byte_offset: usize,
     char_offset: usize,
     last_was_dot: bool,
+    /// Efficient character window for O(1) context access
+    char_window: CharacterWindow,
     /// Buffer for tracking recent text (for abbreviation detection)
     #[cfg(feature = "alloc")]
     text_buffer: Vec<char>,
@@ -167,6 +170,7 @@ impl<'r, R: LanguageRules + ?Sized> DeltaScanner<'r, R> {
             byte_offset: 0,
             char_offset: 0,
             last_was_dot: false,
+            char_window: CharacterWindow::new(),
             #[cfg(feature = "alloc")]
             text_buffer: Vec::with_capacity(128),
             buffer_limit: 128, // Keep last 128 chars for abbreviation context
@@ -183,9 +187,30 @@ impl<'r, R: LanguageRules + ?Sized> DeltaScanner<'r, R> {
         Ok(scanner)
     }
 
+    /// Get lookahead characters efficiently
+    fn get_lookahead_chars(&self, current_char: char) -> (Option<char>, Option<char>) {
+        #[cfg(feature = "alloc")]
+        {
+            if let Some(ref full_text) = self.full_text {
+                let next_pos = self.byte_offset + current_char.len_utf8();
+                if next_pos < full_text.len() {
+                    let mut chars = full_text[next_pos..].chars();
+                    let next_char = chars.next();
+                    let next_next_char = chars.next();
+                    return (next_char, next_next_char);
+                }
+            }
+        }
+        (None, None)
+    }
+
     /// Process a single character and emit boundaries
     pub fn step(&mut self, ch: char, emit: &mut impl FnMut(Boundary)) -> Result<()> {
         let char_len = ch.len_utf8();
+
+        // Update character window with two-character lookahead (O(1) operation)
+        let (next_char, next_next_char) = self.get_lookahead_chars(ch);
+        self.char_window.advance(ch, next_char, next_next_char);
 
         // Update text buffer for abbreviation detection
         #[cfg(feature = "alloc")]
@@ -275,67 +300,25 @@ impl<'r, R: LanguageRules + ?Sized> DeltaScanner<'r, R> {
 
         // Check for terminators
         if self.rules.is_terminator(ch) && self.total_depth == 0 {
-            // Use boundary_decision to determine if this is a boundary
-            #[cfg(feature = "alloc")]
-            {
-                let pos = self.byte_offset + char_len;
+            // Use efficient boundary decision with character window (O(1))
+            let pos = self.byte_offset + char_len;
+            let decision = self.rules.boundary_decision_efficient(&self.char_window, pos);
 
-                // Get previous and next characters for context
-                let prev_char = if self.text_buffer.len() >= 2 {
-                    Some(self.text_buffer[self.text_buffer.len() - 2])
-                } else {
-                    None
-                };
-
-                // For next char, we need to look ahead in the text
-                let next_char = if let Some(ref full_text) = self.full_text {
-                    full_text.chars().nth(pos)
-                } else {
-                    // In streaming mode, we don't have lookahead
-                    None
-                };
-
-                // Use full text if available, otherwise use buffer
-                let decision = if let Some(ref full_text) = self.full_text {
-                    self.rules
-                        .boundary_decision(full_text, pos, ch, prev_char, next_char)
-                } else {
-                    // Build text from buffer for streaming mode
-                    let text: String = self.text_buffer.iter().collect();
-                    self.rules
-                        .boundary_decision(&text, pos, ch, prev_char, next_char)
-                };
-
-                match decision {
-                    crate::language::BoundaryDecision::Accept(strength) => {
-                        let kind = match strength {
-                            crate::language::BoundaryStrength::Strong => BoundaryKind::Strong,
-                            crate::language::BoundaryStrength::Weak => BoundaryKind::Weak,
-                        };
-                        let boundary = Boundary::new(pos, self.char_offset + 1, kind);
-                        emit(boundary);
-                    }
-                    crate::language::BoundaryDecision::Reject => {
-                        // Do not emit boundary
-                    }
-                    crate::language::BoundaryDecision::NeedsLookahead => {
-                        // In streaming mode, we might need to wait for more context
-                        // For now, treat as reject
-                    }
-                }
-            }
-
-            // For no_std, fall back to simple heuristic
-            #[cfg(not(feature = "alloc"))]
-            {
-                let is_abbrev = ch == '.' && self.last_was_dot;
-                if !is_abbrev {
-                    let boundary = Boundary::new(
-                        self.byte_offset + char_len,
-                        self.char_offset + 1,
-                        BoundaryKind::Strong,
-                    );
+            match decision {
+                crate::language::BoundaryDecision::Accept(strength) => {
+                    let kind = match strength {
+                        crate::language::BoundaryStrength::Strong => BoundaryKind::Strong,
+                        crate::language::BoundaryStrength::Weak => BoundaryKind::Weak,
+                    };
+                    let boundary = Boundary::new(pos, self.char_offset + 1, kind);
                     emit(boundary);
+                }
+                crate::language::BoundaryDecision::Reject => {
+                    // Do not emit boundary
+                }
+                crate::language::BoundaryDecision::NeedsLookahead => {
+                    // In streaming mode, we might need to wait for more context
+                    // For now, treat as reject
                 }
             }
         }

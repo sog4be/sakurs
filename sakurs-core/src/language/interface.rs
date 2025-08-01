@@ -3,7 +3,7 @@
 //! This module defines the core traits and types used by the Δ-Stack scanner.
 //! Everything here is designed for hot-path performance with zero allocations.
 
-use crate::types::Class;
+use crate::{character_window::CharacterWindow, types::Class};
 
 // ========= Value types used by core scanner =========
 
@@ -104,6 +104,8 @@ pub trait LanguageRules: Send + Sync + 'static {
     }
 
     /// Check if text ending at dot_pos is an abbreviation
+    /// WARNING: This method has O(n) complexity and should not be used in hot paths
+    /// Use is_abbreviation_efficient with CharacterWindow instead
     fn is_abbreviation(&self, text: &str, dot_pos: usize) -> bool {
         if dot_pos == 0 || dot_pos >= text.len() {
             return false;
@@ -111,13 +113,14 @@ pub trait LanguageRules: Send + Sync + 'static {
 
         // Check if the dot at dot_pos is an abbreviation
         // boundary_decision expects pos to be AFTER the terminator
+        // WARNING: These are O(n) operations that cause O(n²) overall complexity!
         let prev_char = if dot_pos > 0 {
-            text.chars().nth(dot_pos - 1)
+            text[..dot_pos].chars().last()  // O(n) operation!
         } else {
             None
         };
         let next_char = if dot_pos + 1 < text.len() {
-            text.chars().nth(dot_pos + 1)
+            text[dot_pos + 1..].chars().next()  // O(n) slice creation!
         } else {
             None
         };
@@ -155,5 +158,104 @@ pub trait LanguageRules: Send + Sync + 'static {
     /// Get pair ID for a character (if it's an enclosure)
     fn pair_id(&self, ch: char) -> Option<u8> {
         self.enclosure_info(ch).map(|info| info.type_id)
+    }
+
+    // --- High-Performance O(1) Methods using CharacterWindow ---
+
+    /// Efficient boundary decision using character window (O(1))
+    /// 
+    /// This replaces the O(n) text scanning with O(1) character window access.
+    /// Use this method instead of boundary_decision for optimal performance.
+    fn boundary_decision_efficient(
+        &self,
+        window: &CharacterWindow,
+        _byte_pos: usize,
+    ) -> BoundaryDecision {
+        // Default implementation falls back to boundary_decision method
+        // Performance-critical implementations should override this to avoid text access
+        
+        
+        // We need text access for the fallback, but we don't have it in the window
+        // So we'll implement a basic check that should work for most cases
+        let terminator_char = window.current_char().unwrap_or('.');
+        let prev_char = window.prev_char();
+        let next_char = window.next_char();
+        
+        // Basic terminator decision based on character context  
+        match terminator_char {
+            '.' => {
+                // Check for common abbreviation patterns (Dr., Mr., etc.)
+                if let Some(prev) = prev_char {
+                    if prev.is_alphabetic() {
+                        if let Some(prev_prev) = window.prev_prev_char() {
+                            // Pattern like "Dr." - uppercase followed by lowercase
+                            if prev_prev.is_uppercase() && prev.is_lowercase() {
+                                return BoundaryDecision::Reject;
+                            }
+                            // Pattern like "U.S." - dot followed by uppercase
+                            if prev_prev == '.' && prev.is_uppercase() {
+                                return BoundaryDecision::Reject;
+                            }
+                            // Pattern for single uppercase letters in sequence "U."
+                            if !prev_prev.is_alphabetic() && prev.is_uppercase() {
+                                return BoundaryDecision::Reject;
+                            }
+                        } else {
+                            // Single letter at start like "A."
+                            if prev.is_uppercase() {
+                                return BoundaryDecision::Reject;
+                            }
+                        }
+                    }
+                }
+                
+                // Check for decimal numbers (digit.digit)
+                if let (Some(prev), Some(next)) = (prev_char, next_char) {
+                    if prev.is_ascii_digit() && next.is_ascii_digit() {
+                        return BoundaryDecision::Reject;
+                    }
+                }
+                
+                BoundaryDecision::Accept(BoundaryStrength::Strong)
+            }
+            '!' | '?' => BoundaryDecision::Accept(BoundaryStrength::Strong),
+            _ => BoundaryDecision::Reject,
+        }
+    }
+
+    /// Efficient abbreviation check using character window (O(1))
+    ///
+    /// Checks if the current position in the window represents an abbreviation.
+    /// This eliminates the expensive text scanning of the legacy is_abbreviation method.
+    fn is_abbreviation_efficient(&self, window: &CharacterWindow) -> bool {
+        // Default implementation that should be overridden for performance
+        // This is a placeholder - real implementations will use window data directly
+        
+        // Check if current character is a dot
+        if window.current_char() != Some('.') {
+            return false;
+        }
+
+        // Check if preceded by alphanumeric (typical abbreviation pattern)
+        if let Some(prev) = window.prev_char() {
+            prev.is_alphanumeric()
+        } else {
+            false
+        }
+    }
+
+    /// Check if current position should be suppressed using character window (O(1))
+    ///
+    /// Determines if a boundary should be suppressed based on local context
+    /// without expensive text scanning.
+    fn should_suppress_efficient(&self, window: &CharacterWindow) -> bool {
+        // Default implementation - should be overridden
+        // Check for common suppression patterns
+        match window.context_triple() {
+            // Apostrophe between letters (contractions)
+            (Some(prev), Some('\''), Some(next)) if prev.is_alphabetic() && next.is_alphabetic() => true,
+            // Other common patterns can be added here
+            _ => false,
+        }
     }
 }

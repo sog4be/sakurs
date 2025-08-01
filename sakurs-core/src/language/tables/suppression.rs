@@ -75,14 +75,12 @@ impl Suppresser {
             return false;
         }
 
-        let chars: Vec<char> = text.chars().collect();
-        let char_pos = text[..pos].chars().count();
-
-        if char_pos == 0 || char_pos >= chars.len() {
+        // Get the character at pos-1 efficiently using byte slicing
+        let ch = if let Some(c) = text[..pos].chars().last() {
+            c
+        } else {
             return false;
-        }
-
-        let ch = chars[char_pos - 1];
+        };
 
         // Check fast patterns
         for pattern in &self.patterns {
@@ -90,21 +88,43 @@ impl Suppresser {
                 continue;
             }
 
-            // Check line start
-            if pattern.line_start && char_pos > 1 {
-                continue;
-            }
-
-            // Check before context
-            if let Some(ref before_class) = pattern.before {
-                if char_pos < 2 || !before_class.matches(chars[char_pos - 2]) {
+            // Check line start - assume this means at beginning of text or after newline
+            if pattern.line_start {
+                // Check if we're at start or after newline
+                let at_line_start = pos == 0 || text[..pos].chars().last() == Some('\n');
+                if !at_line_start {
                     continue;
                 }
             }
 
-            // Check after context
+            // Check before context (character before ch)
+            if let Some(ref before_class) = pattern.before {
+                let before_char = if pos >= 2 {
+                    text[..pos-1].chars().last()
+                } else {
+                    None
+                };
+                if let Some(before_char) = before_char {
+                    if !before_class.matches(before_char) {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+            }
+
+            // Check after context (character after ch)
             if let Some(ref after_class) = pattern.after {
-                if char_pos >= chars.len() || !after_class.matches(chars[char_pos]) {
+                let after_char = if pos < text.len() {
+                    text[pos..].chars().next()
+                } else {
+                    None
+                };
+                if let Some(after_char) = after_char {
+                    if !after_class.matches(after_char) {
+                        continue;
+                    }
+                } else {
                     continue;
                 }
             }

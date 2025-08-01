@@ -10,12 +10,14 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+pub mod character_window;
 pub mod delta_stack;
 pub mod error;
 pub mod language;
 pub mod types;
 
 // Re-export core types that work in no_std
+pub use character_window::CharacterWindow;
 pub use delta_stack::{DeltaScanner, DeltaVec, PartialState, ENCLOSURE_MAX};
 pub use error::CoreError;
 pub use language::LanguageRules;

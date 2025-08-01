@@ -174,12 +174,7 @@ fn split(
         let mut start_char = 0;
         let mut start_byte = 0;
 
-        // Create a mapping of character positions to byte positions
-        let _char_to_byte: Vec<(usize, usize)> = text
-            .char_indices()
-            .enumerate()
-            .map(|(char_pos, (byte_pos, _))| (char_pos, byte_pos))
-            .collect();
+        // No need to create expensive char_to_byte mapping since boundaries already contain both offsets
 
         for boundary in &output.boundaries {
             let end_char = boundary.char_offset;

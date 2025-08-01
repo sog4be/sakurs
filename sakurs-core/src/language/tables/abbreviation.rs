@@ -111,9 +111,10 @@ impl Trie {
         node.category = category;
     }
 
-    /// Find abbreviation ending at position (backwards scan)
+    /// Find abbreviation ending at position (backwards scan) - O(n) SLOW VERSION
     ///
     /// Returns true if an abbreviation ends at text[..pos]
+    /// WARNING: This method has O(n) complexity and should not be used in hot paths
     pub fn find_abbrev(&self, text: &str, pos: usize) -> bool {
         if pos == 0 || self.nodes.is_empty() {
             return false;
@@ -134,61 +135,120 @@ impl Trie {
             return false;
         }
 
-        // Find the start of the abbreviation by scanning backwards
+        // Find the start of the abbreviation by scanning backwards efficiently
         let dot_pos = pos - 1; // Position of the dot itself
-        let chars: Vec<char> = text.chars().collect();
-
-        // Convert byte position to char position
-        let mut char_pos = 0;
-        let mut byte_count = 0;
-        while byte_count < dot_pos && char_pos < chars.len() {
-            byte_count += chars[char_pos].len_utf8();
-            char_pos += 1;
-        }
-
-        // Scan backwards to find the start of the abbreviation
-        let mut word_start_char_pos = char_pos;
-        while word_start_char_pos > 0 {
-            let prev_char = chars[word_start_char_pos - 1];
+        
+        // Scan backwards from the dot to find word boundary
+        let before_dot = &text[..dot_pos];
+        let mut word_start = dot_pos;
+        
+        // Scan backwards character by character
+        let mut chars_iter = before_dot.chars().rev();
+        let mut current_pos = dot_pos;
+        
+        while let Some(ch) = chars_iter.next() {
             // Stop at delimiters but allow dots and letters
-            if prev_char.is_whitespace()
-                || prev_char == ','
-                || prev_char == ';'
-                || prev_char == ':'
-                || prev_char == '('
-                || prev_char == ')'
-                || prev_char == '['
-                || prev_char == ']'
-                || prev_char == '{'
-                || prev_char == '}'
-                || prev_char == '"'
-                || prev_char == '\''
-                || prev_char == '!'
-                || prev_char == '?'
+            if ch.is_whitespace()
+                || ch == ','
+                || ch == ';'
+                || ch == ':'
+                || ch == '('
+                || ch == ')'
+                || ch == '['
+                || ch == ']'
+                || ch == '{'
+                || ch == '}'
+                || ch == '"'
+                || ch == '\''
+                || ch == '!'
+                || ch == '?'
             {
                 break;
             }
-            word_start_char_pos -= 1;
+            
+            // Move word_start back by this character's byte length
+            current_pos -= ch.len_utf8();
+            word_start = current_pos;
         }
-
-        // Calculate byte position of word start
-        let word_start = chars[..word_start_char_pos]
-            .iter()
-            .map(|c| c.len_utf8())
-            .sum::<usize>();
 
         // Extract the word up to the current dot (excluding the dot)
         let word = &text[word_start..dot_pos];
 
-        // Check if this word is an abbreviation
-        self.match_at(&word.chars().collect::<Vec<_>>())
+        // Check if this word is an abbreviation using string matching
+        self.match_word(word)
     }
 
-    /// Check if the char slice matches an abbreviation
-    fn match_at(&self, chars: &[char]) -> bool {
+    /// Efficient O(1) abbreviation check using character window
+    /// 
+    /// This method uses only the immediate character context from the window
+    /// to detect common abbreviation patterns without expensive text scanning
+    pub fn find_abbrev_efficient(&self, window: &crate::character_window::CharacterWindow) -> bool {
+        if self.nodes.is_empty() {
+            return false;
+        }
+
+        // Check if we're at a dot
+        if window.current_char() != Some('.') {
+            return false;
+        }
+
+        // Use the character window to check for common abbreviation patterns
+        // This is much more limited but O(1) and catches most common cases
+        
+        let prev_char = window.prev_char();
+        let prev_prev_char = window.prev_prev_char();
+        
+        if let Some(prev) = prev_char {
+            if prev.is_alphabetic() {
+                // Check if we're at the end of a word by looking further back
+                // If prev_prev is not alphabetic or doesn't exist, we might be at a single-letter abbreviation
+                let could_be_single_letter = match prev_prev_char {
+                    Some(pp) => !pp.is_alphabetic(),
+                    None => true, // Start of text
+                };
+                
+                if could_be_single_letter {
+                    // Only check single-letter abbreviations if we're actually at a single letter
+                    let single_letter = prev.to_string();
+                    if self.match_word(&single_letter) {
+                        return true;
+                    }
+                }
+                
+                // Try two-letter abbreviations: "Dr", "Mr", "Ms", "e.g", etc.
+                if let Some(prev_prev) = prev_prev_char {
+                    // Check for period before prev_prev (multi-period abbreviation)
+                    // This helps with "e.g." where we see ".g."
+                    if prev_prev == '.' {
+                        // We might be in the middle of a multi-period abbreviation
+                        // For now, accept it as an abbreviation to avoid false boundaries
+                        return true;
+                    }
+                    
+                    if prev_prev.is_alphabetic() {
+                        let two_char = format!("{}{}", prev_prev, prev);
+                        if self.match_word(&two_char) {
+                            return true;
+                        }
+                    }
+                }
+                
+                // Check if we're after another dot (multi-period pattern)
+                // This helps catch patterns like "U.S." where we might be at the second dot
+                if prev_char == Some('.') {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Check if the word matches an abbreviation (efficient string version)
+    fn match_word(&self, word: &str) -> bool {
         let mut current_idx = 0u32;
 
-        for &ch in chars.iter() {
+        for ch in word.chars() {
             let normalized = if self.case_sensitive {
                 ch
             } else {
@@ -197,26 +257,17 @@ impl Trie {
 
             let node = &self.nodes[current_idx as usize];
 
-            match node.children.get(&normalized) {
-                Some(&next_idx) => {
-                    #[cfg(test)]
-                    eprintln!("      found child, next_idx={}", next_idx);
-                    current_idx = next_idx;
-                }
-                None => {
-                    #[cfg(test)]
-                    eprintln!("      no child found, returning false");
-                    return false;
-                }
+            if let Some(&next_idx) = node.children.get(&normalized) {
+                current_idx = next_idx;
+            } else {
+                return false; // No transition for this character
             }
         }
 
-        let is_end = self.nodes[current_idx as usize].is_end;
-        #[cfg(test)]
-        eprintln!("  match_at result: is_end={}", is_end);
-
-        is_end
+        // Check if we're at an end node
+        self.nodes[current_idx as usize].is_end
     }
+
 }
 
 #[cfg(test)]
