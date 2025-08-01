@@ -3,11 +3,13 @@ name: Python Easy Benchmarks
 on:
   pull_request:
     paths:
+      - 'sakurs-core/**'
       - 'sakurs-py/**'
       - '.github/workflows/python-easy-benchmark.yml'
   push:
     branches: [main]
     paths:
+      - 'sakurs-core/**'
       - 'sakurs-py/**'
       - '.github/workflows/python-easy-benchmark.yml'
 
