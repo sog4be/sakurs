@@ -24,7 +24,7 @@ fn test_adaptive_mode() {
 
     // Small text should use Sequential mode
     assert_eq!(output.metadata.execution_mode, ExecutionMode::Sequential);
-    
+
     assert_eq!(output.boundaries.len(), 2);
 }
 

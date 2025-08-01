@@ -91,7 +91,7 @@ impl Suppresser {
             // Check line start - assume this means at beginning of text or after newline
             if pattern.line_start {
                 // Check if we're at start or after newline
-                let at_line_start = pos == 0 || text[..pos].chars().last() == Some('\n');
+                let at_line_start = pos == 0 || text[..pos].ends_with('\n');
                 if !at_line_start {
                     continue;
                 }
@@ -100,7 +100,7 @@ impl Suppresser {
             // Check before context (character before ch)
             if let Some(ref before_class) = pattern.before {
                 let before_char = if pos >= 2 {
-                    text[..pos-1].chars().last()
+                    text[..pos - 1].chars().last()
                 } else {
                     None
                 };

@@ -187,30 +187,32 @@ impl<'r, R: LanguageRules + ?Sized> DeltaScanner<'r, R> {
         Ok(scanner)
     }
 
-    /// Get lookahead characters efficiently
-    fn get_lookahead_chars(&self, current_char: char) -> (Option<char>, Option<char>) {
+    /// Get lookahead characters efficiently (up to 5 characters ahead)
+    fn get_lookahead_chars(&self, current_char: char) -> Vec<Option<char>> {
         #[cfg(feature = "alloc")]
         {
             if let Some(ref full_text) = self.full_text {
                 let next_pos = self.byte_offset + current_char.len_utf8();
                 if next_pos < full_text.len() {
                     let mut chars = full_text[next_pos..].chars();
-                    let next_char = chars.next();
-                    let next_next_char = chars.next();
-                    return (next_char, next_next_char);
+                    let mut lookahead = Vec::with_capacity(5);
+                    for _ in 0..5 {
+                        lookahead.push(chars.next());
+                    }
+                    return lookahead;
                 }
             }
         }
-        (None, None)
+        vec![None; 5]
     }
 
     /// Process a single character and emit boundaries
     pub fn step(&mut self, ch: char, emit: &mut impl FnMut(Boundary)) -> Result<()> {
         let char_len = ch.len_utf8();
 
-        // Update character window with two-character lookahead (O(1) operation)
-        let (next_char, next_next_char) = self.get_lookahead_chars(ch);
-        self.char_window.advance(ch, next_char, next_next_char);
+        // Update character window with extended lookahead (O(1) operation)
+        let lookahead_chars = self.get_lookahead_chars(ch);
+        self.char_window.advance(ch, &lookahead_chars);
 
         // Update text buffer for abbreviation detection
         #[cfg(feature = "alloc")]
@@ -302,7 +304,9 @@ impl<'r, R: LanguageRules + ?Sized> DeltaScanner<'r, R> {
         if self.rules.is_terminator(ch) && self.total_depth == 0 {
             // Use efficient boundary decision with character window (O(1))
             let pos = self.byte_offset + char_len;
-            let decision = self.rules.boundary_decision_efficient(&self.char_window, pos);
+            let decision = self
+                .rules
+                .boundary_decision_efficient(&self.char_window, pos);
 
             match decision {
                 crate::language::BoundaryDecision::Accept(strength) => {

@@ -134,7 +134,7 @@ pub fn boundaries_to_sentences_with_char_offsets(
     let mut sentences = Vec::new();
     let mut start_char = 0;
     let mut start_byte = 0;
-    
+
     // Pre-calculate total character count once instead of calling text.chars().count() repeatedly
     let total_char_count = text.chars().count();
 

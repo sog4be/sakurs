@@ -74,7 +74,7 @@ academic = [
 ]
 
 business = [
-    "Inc", "Corp", "Ltd", "LLC", "Co", "L.P", "L.L.C", "P.C", "N.A"
+    "Inc", "Corp", "Ltd", "LLC", "Co", "L.P", "L.L.C", "P.C", "N.A", "Assoc"
 ]
 
 time = [

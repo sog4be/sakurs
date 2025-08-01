@@ -173,12 +173,13 @@ impl LanguageRules for ConfigurableLanguageRules {
 
             // First check if an ellipsis pattern ends at our position
             // Need to ensure pos-1 is at a valid UTF-8 boundary
-            if pos > 0 && text.is_char_boundary(pos - 1) {
-                if self.ellipsis.is_ellipsis_at(text, pos - 1) {
-                    is_ellipsis = true;
-                }
+            if pos > 0
+                && text.is_char_boundary(pos - 1)
+                && self.ellipsis.is_ellipsis_at(text, pos - 1)
+            {
+                is_ellipsis = true;
             }
-            
+
             // If not detected yet, do simple consecutive dots check - most ellipses are "..." (3 dots)
             if !is_ellipsis {
                 // Check if we have dots immediately before and after this one
@@ -250,7 +251,6 @@ impl LanguageRules for ConfigurableLanguageRules {
     ) -> crate::language::interface::BoundaryDecision {
         use crate::language::interface::{BoundaryDecision, BoundaryStrength};
 
-
         let term_char = match window.current_char() {
             Some(ch) => ch,
             None => return BoundaryDecision::Reject,
@@ -295,9 +295,7 @@ impl LanguageRules for ConfigurableLanguageRules {
             let has_prev_dot = matches!(prev_char, Some('.'));
             let has_next_dot = matches!(next_char, Some('.'));
 
-            if has_prev_dot && has_next_dot {
-                is_ellipsis = true;
-            } else if has_prev_dot || has_next_dot {
+            if has_prev_dot || has_next_dot {
                 is_ellipsis = true;
             }
 
@@ -313,28 +311,28 @@ impl LanguageRules for ConfigurableLanguageRules {
             if self.abbv_trie.find_abbrev_efficient(window) {
                 // Use heuristic-based sentence boundary detection after abbreviations
                 // This avoids O(n²) complexity from text scanning
-                
+
                 // 1. End of text = always a boundary
                 if next_char.is_none() {
                     return BoundaryDecision::Accept(BoundaryStrength::Strong);
                 }
-                
+
                 // 2. Check for sentence boundary patterns using O(1) operations
                 // Pattern: abbreviation + space + uppercase = likely new sentence
                 if let Some(next) = next_char {
                     if next.is_whitespace() {
                         // For abbreviations followed by whitespace, we need better heuristics
                         // to distinguish "Dr. Smith" (name) from "Dr. He arrived" (new sentence)
-                        
+
                         // For now, we'll be conservative and reject boundaries after
                         // abbreviations with whitespace to avoid false positives.
                         // This maintains the original behavior before sentence starters.
-                        
+
                         // A more sophisticated approach would:
                         // 1. Check if the word after space is very short (1-2 chars) and uppercase
                         // 2. Use a small list of common sentence starters
                         // 3. Or use two-pass preprocessing as suggested in the design doc
-                        
+
                         return BoundaryDecision::Reject;
                     } else if next == ',' || next == ';' || next == ':' {
                         // Abbreviations followed by punctuation are NOT sentence boundaries
@@ -350,7 +348,7 @@ impl LanguageRules for ConfigurableLanguageRules {
                         return BoundaryDecision::Accept(BoundaryStrength::Strong);
                     }
                 }
-                
+
                 // 3. Default: reject boundary for abbreviations
                 return BoundaryDecision::Reject;
             }

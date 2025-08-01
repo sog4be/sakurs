@@ -115,12 +115,12 @@ pub trait LanguageRules: Send + Sync + 'static {
         // boundary_decision expects pos to be AFTER the terminator
         // WARNING: These are O(n) operations that cause O(n²) overall complexity!
         let prev_char = if dot_pos > 0 {
-            text[..dot_pos].chars().last()  // O(n) operation!
+            text[..dot_pos].chars().last() // O(n) operation!
         } else {
             None
         };
         let next_char = if dot_pos + 1 < text.len() {
-            text[dot_pos + 1..].chars().next()  // O(n) slice creation!
+            text[dot_pos + 1..].chars().next() // O(n) slice creation!
         } else {
             None
         };
@@ -163,7 +163,7 @@ pub trait LanguageRules: Send + Sync + 'static {
     // --- High-Performance O(1) Methods using CharacterWindow ---
 
     /// Efficient boundary decision using character window (O(1))
-    /// 
+    ///
     /// This replaces the O(n) text scanning with O(1) character window access.
     /// Use this method instead of boundary_decision for optimal performance.
     fn boundary_decision_efficient(
@@ -173,15 +173,14 @@ pub trait LanguageRules: Send + Sync + 'static {
     ) -> BoundaryDecision {
         // Default implementation falls back to boundary_decision method
         // Performance-critical implementations should override this to avoid text access
-        
-        
+
         // We need text access for the fallback, but we don't have it in the window
         // So we'll implement a basic check that should work for most cases
         let terminator_char = window.current_char().unwrap_or('.');
         let prev_char = window.prev_char();
         let next_char = window.next_char();
-        
-        // Basic terminator decision based on character context  
+
+        // Basic terminator decision based on character context
         match terminator_char {
             '.' => {
                 // Check for common abbreviation patterns (Dr., Mr., etc.)
@@ -208,14 +207,14 @@ pub trait LanguageRules: Send + Sync + 'static {
                         }
                     }
                 }
-                
+
                 // Check for decimal numbers (digit.digit)
                 if let (Some(prev), Some(next)) = (prev_char, next_char) {
                     if prev.is_ascii_digit() && next.is_ascii_digit() {
                         return BoundaryDecision::Reject;
                     }
                 }
-                
+
                 BoundaryDecision::Accept(BoundaryStrength::Strong)
             }
             '!' | '?' => BoundaryDecision::Accept(BoundaryStrength::Strong),
@@ -230,7 +229,7 @@ pub trait LanguageRules: Send + Sync + 'static {
     fn is_abbreviation_efficient(&self, window: &CharacterWindow) -> bool {
         // Default implementation that should be overridden for performance
         // This is a placeholder - real implementations will use window data directly
-        
+
         // Check if current character is a dot
         if window.current_char() != Some('.') {
             return false;
@@ -253,7 +252,11 @@ pub trait LanguageRules: Send + Sync + 'static {
         // Check for common suppression patterns
         match window.context_triple() {
             // Apostrophe between letters (contractions)
-            (Some(prev), Some('\''), Some(next)) if prev.is_alphabetic() && next.is_alphabetic() => true,
+            (Some(prev), Some('\''), Some(next))
+                if prev.is_alphabetic() && next.is_alphabetic() =>
+            {
+                true
+            }
             // Other common patterns can be added here
             _ => false,
         }

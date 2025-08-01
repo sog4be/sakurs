@@ -1,12 +1,9 @@
 use sakurs_core::run;
 
-// NOTE: This test currently fails due to performance optimization trade-offs.
-// The simplified O(1) abbreviation detection cannot reliably detect 3+ letter
-// abbreviations like "Prof.", "etc." with only 2-character lookback.
-// This is an acceptable trade-off to achieve O(n) performance vs O(n²).
-// For full accuracy, use two-pass preprocessing as described in the design docs.
+// NOTE: This test now passes thanks to the extended 11-character window
+// which enables detection of up to 5-letter abbreviations like "Prof.", "Corp.", "Assoc."
+// while maintaining O(1) performance.
 #[test]
-#[ignore = "Known limitation: 3+ letter abbreviations not detected with O(1) approach"]
 fn test_benchmark_example() {
     let input = r#"Mr. Baker, a coder from the U.S., drafted the following line: "Parser ready (v2.3 passes.) now." Can the server at 192.168.1.1 parse every case? Yes! Watch it stumble on sequences like e.g. ellipses... or does it!? Despite surprises, the module logs "Done (all tests ok.)" before midnight. Each token rides its boundary, yet pesky abbreviations lurk: Prof., Dr., St., etc., all set to trip splitters."#;
 

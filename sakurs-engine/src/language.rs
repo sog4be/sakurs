@@ -144,17 +144,25 @@ impl LanguageRules for LanguageRulesImpl {
         byte_pos: usize,
     ) -> sakurs_core::language::BoundaryDecision {
         match self {
-            LanguageRulesImpl::Dynamic(rules) => rules.boundary_decision_efficient(window, byte_pos),
+            LanguageRulesImpl::Dynamic(rules) => {
+                rules.boundary_decision_efficient(window, byte_pos)
+            }
         }
     }
 
-    fn is_abbreviation_efficient(&self, window: &sakurs_core::character_window::CharacterWindow) -> bool {
+    fn is_abbreviation_efficient(
+        &self,
+        window: &sakurs_core::character_window::CharacterWindow,
+    ) -> bool {
         match self {
             LanguageRulesImpl::Dynamic(rules) => rules.is_abbreviation_efficient(window),
         }
     }
 
-    fn should_suppress_efficient(&self, window: &sakurs_core::character_window::CharacterWindow) -> bool {
+    fn should_suppress_efficient(
+        &self,
+        window: &sakurs_core::character_window::CharacterWindow,
+    ) -> bool {
         match self {
             LanguageRulesImpl::Dynamic(rules) => rules.should_suppress_efficient(window),
         }
@@ -256,9 +264,9 @@ impl LanguageRules for SimpleEnglishRules {
         let terminator_char = window.current_char().unwrap_or('.');
         let prev_char = window.prev_char();
         let next_char = window.next_char();
-        
+
         use sakurs_core::language::{BoundaryDecision, BoundaryStrength};
-        
+
         if terminator_char == '.' {
             // Simple abbreviation check using window
             if let Some(prev) = prev_char {
@@ -277,7 +285,10 @@ impl LanguageRules for SimpleEnglishRules {
         BoundaryDecision::Accept(BoundaryStrength::Strong)
     }
 
-    fn is_abbreviation_efficient(&self, window: &sakurs_core::character_window::CharacterWindow) -> bool {
+    fn is_abbreviation_efficient(
+        &self,
+        window: &sakurs_core::character_window::CharacterWindow,
+    ) -> bool {
         // Simple check using character window
         if window.current_char() != Some('.') {
             return false;
@@ -292,7 +303,10 @@ impl LanguageRules for SimpleEnglishRules {
         false
     }
 
-    fn should_suppress_efficient(&self, _window: &sakurs_core::character_window::CharacterWindow) -> bool {
+    fn should_suppress_efficient(
+        &self,
+        _window: &sakurs_core::character_window::CharacterWindow,
+    ) -> bool {
         false
     }
 }
@@ -391,7 +405,7 @@ impl LanguageRules for SimpleJapaneseRules {
         _byte_pos: usize,
     ) -> sakurs_core::language::BoundaryDecision {
         use sakurs_core::language::{BoundaryDecision, BoundaryStrength};
-        
+
         if window.current_char().is_some() {
             BoundaryDecision::Accept(BoundaryStrength::Strong)
         } else {
@@ -399,11 +413,17 @@ impl LanguageRules for SimpleJapaneseRules {
         }
     }
 
-    fn is_abbreviation_efficient(&self, _window: &sakurs_core::character_window::CharacterWindow) -> bool {
+    fn is_abbreviation_efficient(
+        &self,
+        _window: &sakurs_core::character_window::CharacterWindow,
+    ) -> bool {
         false // Japanese rarely uses abbreviations with dots
     }
 
-    fn should_suppress_efficient(&self, _window: &sakurs_core::character_window::CharacterWindow) -> bool {
+    fn should_suppress_efficient(
+        &self,
+        _window: &sakurs_core::character_window::CharacterWindow,
+    ) -> bool {
         false
     }
 }
