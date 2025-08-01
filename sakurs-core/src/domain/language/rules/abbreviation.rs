@@ -91,16 +91,32 @@ impl AbbreviationTrie {
             return None;
         }
 
-        // We need to search backwards from the position
-        let text_chars: Vec<char> = text.chars().collect();
+        // We'll look back at most 30 bytes (to handle multi-byte chars)
+        let max_lookback_bytes = 30;
+        let window_start_byte = position.saturating_sub(max_lookback_bytes);
+
+        // Find valid UTF-8 boundary for window start
+        let mut actual_start_byte = window_start_byte;
+        while actual_start_byte < position && !text.is_char_boundary(actual_start_byte) {
+            actual_start_byte += 1;
+        }
+
+        // Extract only the window we need (from actual_start_byte to position + 1)
+        let window_end = (position + 1).min(text.len());
+        let window_text = &text[actual_start_byte..window_end];
+        let window_chars: Vec<char> = window_text.chars().collect();
+
+        // Calculate position within the window
+        let position_in_window = window_chars.len() - 1;
+
         let mut matches = Vec::new();
 
-        // Try different starting positions to find all possible matches
-        for start_offset in 0..=position.min(20) {
-            // Limit search to reasonable abbreviation length
-            if let Some(start_pos) = position.checked_sub(start_offset) {
+        // Try different starting positions within the window
+        let max_abbr_len = 20;
+        for start_offset in 0..=position_in_window.min(max_abbr_len) {
+            if let Some(start_pos) = position_in_window.checked_sub(start_offset) {
                 if let Some(abbr_match) =
-                    self.match_from_position(&text_chars, start_pos, position + 1)
+                    self.match_from_position(&window_chars, start_pos, position_in_window + 1)
                 {
                     matches.push(abbr_match);
                 }

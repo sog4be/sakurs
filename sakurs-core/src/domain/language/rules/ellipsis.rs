@@ -85,7 +85,7 @@ impl EllipsisRules {
     pub fn is_ellipsis_pattern(&self, context: &BoundaryContext) -> bool {
         // Check each pattern
         for pattern in &self.patterns {
-            if self.matches_pattern_at_position(&context.text, context.position, pattern) {
+            if self.matches_pattern_at_position(context.text, context.position, pattern) {
                 return true;
             }
         }

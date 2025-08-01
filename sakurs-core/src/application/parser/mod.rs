@@ -238,30 +238,51 @@ fn is_potential_terminator(ch: char) -> bool {
 }
 
 /// Builds a boundary context for language rule evaluation.
-fn build_boundary_context(
-    text: &str,
+fn build_boundary_context<'a>(
+    text: &'a str,
     position: usize,
     terminator: char,
-    chars_iter: &std::iter::Peekable<std::str::Chars>,
+    _chars_iter: &std::iter::Peekable<std::str::Chars>,
     _last_char: Option<char>,
     _consecutive_dots: usize,
-) -> BoundaryContext {
+) -> BoundaryContext<'a> {
     // Extract text before the boundary (up to DEFAULT_CONTEXT_WINDOW chars)
     // Need to find valid UTF-8 boundary
     let mut start = position.saturating_sub(DEFAULT_CONTEXT_WINDOW);
     while start > 0 && !text.is_char_boundary(start) {
         start -= 1;
     }
-    let preceding_context = text[start..position].to_string();
+    let preceding_context = &text[start..position];
 
-    // Peek at upcoming characters (up to DEFAULT_CONTEXT_WINDOW chars)
-    let following_context = chars_iter
-        .clone()
-        .take(DEFAULT_CONTEXT_WINDOW)
-        .collect::<String>();
+    // For following context, we need to find the end position
+    let mut end = position + terminator.len_utf8();
+    let mut char_count = 0;
+    let text_bytes = text.as_bytes();
+
+    while end < text_bytes.len() && char_count < DEFAULT_CONTEXT_WINDOW {
+        if text.is_char_boundary(end) {
+            char_count += 1;
+            // Find next char boundary
+            let ch_len = text[end..]
+                .chars()
+                .next()
+                .map(|c| c.len_utf8())
+                .unwrap_or(1);
+            end += ch_len;
+        } else {
+            end += 1;
+        }
+    }
+
+    // Ensure we're at a valid UTF-8 boundary
+    while end < text_bytes.len() && !text.is_char_boundary(end) {
+        end += 1;
+    }
+
+    let following_context = &text[position + terminator.len_utf8()..end.min(text.len())];
 
     BoundaryContext {
-        text: text.to_string(),
+        text,
         position,
         boundary_char: terminator,
         preceding_context,
@@ -274,7 +295,7 @@ fn build_enclosure_context<'a>(
     text: &'a str,
     position: usize,
     _ch: char,
-    chars_iter: &std::iter::Peekable<std::str::Chars>,
+    _chars_iter: &std::iter::Peekable<std::str::Chars>,
     last_char: Option<char>,
 ) -> crate::domain::enclosure_suppressor::EnclosureContext<'a> {
     use smallvec::SmallVec;
@@ -306,7 +327,7 @@ fn build_enclosure_context<'a>(
     }
 
     // Get following characters (up to 3)
-    let following_chars: SmallVec<[char; 3]> = chars_iter.clone().take(3).collect();
+    let following_chars: SmallVec<[char; 3]> = _chars_iter.clone().take(3).collect();
 
     // Calculate line offset (simple approximation)
     let line_offset = text[..position]
