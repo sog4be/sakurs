@@ -7,6 +7,7 @@ pub mod adapters;
 pub mod cross_chunk;
 pub mod enclosure;
 pub mod enclosure_suppressor;
+pub mod enhanced_abbreviation;
 pub mod error;
 pub mod language;
 pub mod monoid;

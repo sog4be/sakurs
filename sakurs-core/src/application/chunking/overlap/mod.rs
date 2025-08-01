@@ -3,11 +3,13 @@
 //! This module provides an overlap-based chunking system that can detect and handle
 //! patterns (like contractions and possessives) that span chunk boundaries.
 
+mod enhanced;
 mod manager;
 mod processor;
 mod types;
 
 // Re-export public types
+pub use enhanced::{EnhancedChunkTransitionState, EnhancedOverlapProcessor};
 pub use manager::{OverlapChunkConfig, OverlapChunkManager, StateTrackerConfig};
 pub use processor::OverlapProcessor;
 pub use types::{
