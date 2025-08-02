@@ -1,6 +1,5 @@
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use sakurs_core::api::Input;
 use std::path::PathBuf;
 
 /// Enum to represent different input types from Python
@@ -47,15 +46,15 @@ impl PyInput {
         ))
     }
 
-    /// Convert PyInput to sakurs_core::api::Input and return the text content
-    pub fn into_core_input_and_text(self, py: Python, encoding: &str) -> PyResult<(Input, String)> {
+    /// Convert PyInput to text content and return a tuple with unused first element for compatibility
+    pub fn into_core_input_and_text(self, py: Python, encoding: &str) -> PyResult<((), String)> {
         match self {
-            PyInput::Text(text) => Ok((Input::from_text(text.clone()), text)),
+            PyInput::Text(text) => Ok(((), text)),
 
             PyInput::Bytes(bytes) => {
                 // Decode bytes using the specified encoding
                 let text = decode_bytes(&bytes, encoding)?;
-                Ok((Input::from_text(text.clone()), text))
+                Ok(((), text))
             }
 
             PyInput::Path(path) => {
@@ -69,13 +68,13 @@ impl PyInput {
                 })?;
                 // Decode with the specified encoding
                 let text = decode_bytes(&bytes, encoding)?;
-                Ok((Input::from_file(path), text))
+                Ok(((), text))
             }
 
             PyInput::FileObject(obj) => {
                 // Read from file-like object
                 let content = read_file_object(py, &obj, encoding)?;
-                Ok((Input::from_text(content.clone()), content))
+                Ok(((), content))
             }
         }
     }

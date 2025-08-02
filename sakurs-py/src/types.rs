@@ -2,23 +2,18 @@
 
 #![allow(non_local_definitions)]
 
-use sakurs_core::ProcessingStats;
-
 /// Internal result for processing - not exposed to Python
 pub struct PyProcessingResult {
     /// Boundary offsets
     pub boundaries: Vec<usize>,
-    /// Processing statistics (unused but required by core API)
-    pub _stats: ProcessingStats,
     /// Original text for sentence extraction
     pub original_text: String,
 }
 
 impl PyProcessingResult {
-    pub fn new(boundaries: Vec<usize>, stats: ProcessingStats, original_text: String) -> Self {
+    pub fn new(boundaries: Vec<usize>, _stats: (), original_text: String) -> Self {
         Self {
             boundaries,
-            _stats: stats,
             original_text,
         }
     }

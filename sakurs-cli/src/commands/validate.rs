@@ -15,28 +15,19 @@ pub struct ValidateArgs {
 impl ValidateArgs {
     /// Execute the validate command
     pub fn execute(&self) -> Result<()> {
-        use sakurs_core::domain::language::ConfigurableLanguageRules;
-        use sakurs_core::LanguageRules;
-
         println!(
             "Validating language configuration: {}",
             self.language_config.display()
         );
 
-        // Try to load and validate the configuration
-        match ConfigurableLanguageRules::from_file(&self.language_config, None) {
-            Ok(rules) => {
-                println!("✓ Configuration is valid!");
-                println!("  Language code: {}", rules.language_code());
-                println!("  Language name: {}", rules.language_name());
-                Ok(())
-            }
-            Err(e) => {
-                println!("✗ Configuration is invalid!");
-                println!("  Error: {e}");
-                Err(anyhow::anyhow!("Validation failed: {}", e))
-            }
-        }
+        // TODO: Custom language configuration validation is not yet supported in the new architecture
+        println!(
+            "✗ Custom language configuration validation is not yet supported in this version."
+        );
+        println!("  Only built-in languages (en, ja) are currently available.");
+        Err(anyhow::anyhow!(
+            "Custom language configuration is not yet supported"
+        ))
     }
 }
 
@@ -58,7 +49,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_valid_config() {
+    fn test_validate_not_supported() {
         let toml_content = r#"
 [metadata]
 code = "test"
@@ -66,19 +57,6 @@ name = "Test Language"
 
 [terminators]
 chars = ["."]
-
-[ellipsis]
-patterns = []
-
-[enclosures]
-pairs = []
-
-[suppression]
-
-[abbreviations]
-
-[sentence_starters]
-common = ["The", "A"]
 "#;
 
         let mut temp_file = NamedTempFile::new().unwrap();
@@ -88,7 +66,8 @@ common = ["The", "A"]
             language_config: temp_file.path().to_path_buf(),
         };
 
-        assert!(args.execute().is_ok());
+        // Currently validation is not supported
+        assert!(args.execute().is_err());
     }
 
     #[test]

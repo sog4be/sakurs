@@ -12,8 +12,8 @@ patterns = [
 ]
 
 [ellipsis]
-# Default behavior: treat as boundary
-treat_as_boundary = true
+# Default behavior: don't treat as boundary (continuation)
+treat_as_boundary = false
 patterns = ["...", "…"]
 
 # Context-based rules
@@ -74,7 +74,7 @@ academic = [
 ]
 
 business = [
-    "Inc", "Corp", "Ltd", "LLC", "Co", "L.P", "L.L.C", "P.C", "N.A"
+    "Inc", "Corp", "Ltd", "LLC", "Co", "L.P", "L.L.C", "P.C", "N.A", "Assoc"
 ]
 
 time = [
@@ -82,7 +82,9 @@ time = [
 ]
 
 geographic = [
-    "U.S", "U.K", "U.S.A", "U.K", "E.U", "U.N", "D.C",
+    # Multi-part abbreviations - including intermediate forms
+    "U", "S", "A",  # Only the most common single letters used in geographic abbreviations
+    "U.S", "U.K", "U.S.A", "E.U", "U.N", "D.C",
     # Note: Added back St with specific common usage pattern to avoid false matches
     "St", "Ave", "Blvd", "Pkwy",
     # TODO: These short abbreviations need word boundary checking
@@ -91,6 +93,10 @@ geographic = [
 
 common = [
     "etc", "vs", "e.g", "i.e", "cf", "al", "seq", "no", "No", "vol", "Vol",
+    # Multi-dot abbreviations (need to be registered separately)
+    "e.g.", "i.e.",
+    # Single letters that are part of multi-dot abbreviations
+    "e", "g", "i",
     # TODO: Single letter and short abbreviations need word boundary checking
     # "v", "pp", "p", "ed", "Ed", "trans", "Trans", "ca", "c", "esp", "viz"
 ]

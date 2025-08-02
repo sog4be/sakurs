@@ -24,7 +24,7 @@ name = "sakurs"
 path = "src/main.rs"
 
 [dependencies]
-sakurs-core = { version = "0.1.0", path = "../sakurs-core" }
+sakurs-api = { path = "../sakurs-api" }
 clap = { version = "4.5", features = ["derive", "cargo", "env"] }
 anyhow = "1.0"
 indicatif = "0.18"

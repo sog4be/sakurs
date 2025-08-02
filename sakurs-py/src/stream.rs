@@ -3,10 +3,9 @@
 use crate::exceptions::InternalError;
 use crate::input::PyInput;
 use crate::iterator::SentenceIterator;
-use crate::language_config::LanguageConfig;
 use pyo3::prelude::*;
 use pyo3::types::PyIterator;
-use sakurs_core::{Config, SentenceProcessor};
+use sakurs_api::{Config, SentenceProcessor};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::PathBuf;
@@ -24,31 +23,12 @@ pub fn create_iter_split_iterator(
     py: Python,
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     threads: Option<usize>,
     chunk_size: Option<usize>,
     encoding: &str,
 ) -> PyResult<SentenceIterator> {
     // Build processor configuration
-    let (mut config_builder, custom_rules) = if let Some(lang_config) = language_config {
-        // Use custom language configuration
-        let core_config = lang_config.to_core_config(py)?;
-
-        use sakurs_core::domain::language::ConfigurableLanguageRules;
-        use std::sync::Arc;
-
-        let language_rules = ConfigurableLanguageRules::from_config(&core_config)
-            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-        let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
-            Arc::new(language_rules);
-
-        (
-            Config::builder()
-                .language("en")
-                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            Some(language_rules_arc),
-        )
-    } else {
+    let mut config_builder = {
         // Use built-in language
         let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
             "en" | "english" => "en",
@@ -60,12 +40,9 @@ pub fn create_iter_split_iterator(
                 .into())
             }
         };
-        (
-            Config::builder()
-                .language(lang_code)
-                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            None,
-        )
+        Config::builder()
+            .language(lang_code)
+            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?
     };
 
     // Configure for iter_split (uses normal processing settings)
@@ -73,21 +50,13 @@ pub fn create_iter_split_iterator(
         config_builder = config_builder.threads(Some(threads));
     }
     if let Some(chunk_size) = chunk_size {
-        config_builder = config_builder.chunk_size(chunk_size);
+        config_builder = config_builder.chunk_kb(Some(chunk_size / 1024));
     }
 
-    let config = config_builder
-        .build()
-        .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-
     // Create processor
-    let processor = if let Some(rules) = custom_rules {
-        SentenceProcessor::with_custom_rules(config, rules)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-    } else {
-        SentenceProcessor::with_config(config)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-    };
+    let processor = config_builder
+        .build_processor()
+        .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     // Create iterator
     let iterator = SentenceIterator::new_internal(false); // No whitespace preservation for now
@@ -112,9 +81,9 @@ pub fn create_iter_split_iterator(
     };
 
     // Process the entire text at once
-    let input = sakurs_core::Input::from_text(&text);
+    // Process text directly with the processor
     let output = processor
-        .process(input)
+        .process(sakurs_api::Input::from_text(text.clone()))
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     // Convert boundaries to sentences and add to iterator
@@ -122,11 +91,11 @@ pub fn create_iter_split_iterator(
     let mut last_pos = 0;
 
     for boundary in output.boundaries {
-        let sentence = text[last_pos..boundary.offset].trim().to_string();
+        let sentence = text[last_pos..boundary.byte_offset].trim().to_string();
         if !sentence.is_empty() {
             sentences.push(sentence);
         }
-        last_pos = boundary.offset;
+        last_pos = boundary.byte_offset;
     }
 
     // Add any remaining text
@@ -207,10 +176,9 @@ pub fn adapt_python_iterator(
 
 /// Create a memory-efficient iterator for large files
 pub fn create_large_file_iterator(
-    py: Python,
+    _py: Python,
     file_path: &str,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     max_memory_mb: usize,
     overlap_size: usize,
     encoding: &str,
@@ -224,25 +192,7 @@ pub fn create_large_file_iterator(
     }
 
     // Build processor configuration for memory-efficient processing
-    let (mut config_builder, custom_rules) = if let Some(lang_config) = language_config {
-        // Use custom language configuration
-        let core_config = lang_config.to_core_config(py)?;
-
-        use sakurs_core::domain::language::ConfigurableLanguageRules;
-        use std::sync::Arc;
-
-        let language_rules = ConfigurableLanguageRules::from_config(&core_config)
-            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-        let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
-            Arc::new(language_rules);
-
-        (
-            Config::builder()
-                .language("en")
-                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            Some(language_rules_arc),
-        )
-    } else {
+    let mut config_builder = {
         // Use built-in language
         let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
             "en" | "english" => "en",
@@ -254,33 +204,21 @@ pub fn create_large_file_iterator(
                 .into())
             }
         };
-        (
-            Config::builder()
-                .language(lang_code)
-                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            None,
-        )
+        Config::builder()
+            .language(lang_code)
+            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?
     };
 
     // Configure for memory-efficient processing
     let chunk_size = (max_memory_mb * 1024 * 1024) / 4; // Reserve memory for processing
     config_builder = config_builder
-        .chunk_size(chunk_size)
-        .overlap_size(overlap_size)
+        .chunk_kb(Some(chunk_size / 1024))
         .threads(Some(1)); // Single thread for streaming
 
-    let config = config_builder
-        .build()
-        .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-
     // Create processor
-    let processor = if let Some(rules) = custom_rules {
-        SentenceProcessor::with_custom_rules(config, rules)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-    } else {
-        SentenceProcessor::with_config(config)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-    };
+    let processor = config_builder
+        .build_processor()
+        .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     Ok(LargeFileIterator::new(
         PathBuf::from(file_path),
@@ -411,10 +349,10 @@ impl LargeFileIterator {
         }
 
         // Process the chunk
-        let input = sakurs_core::Input::from_text(&buffer);
+        // Process buffer directly with the processor
         let output = self
             .processor
-            .process(input)
+            .process(sakurs_api::Input::from_text(buffer.clone()))
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
         if output.boundaries.is_empty() {
@@ -426,15 +364,15 @@ impl LargeFileIterator {
         // Find the last safe boundary (not in overlap zone)
         let safe_boundary_pos = if buffer.len() < self.chunk_size {
             // Last chunk, process all boundaries
-            output.boundaries.last().unwrap().offset
+            output.boundaries.last().unwrap().byte_offset
         } else {
             // Find last boundary before overlap zone
             let overlap_start = buffer.len().saturating_sub(self.overlap_size);
             output
                 .boundaries
                 .iter()
-                .rposition(|b| b.offset < overlap_start)
-                .map(|idx| output.boundaries[idx].offset)
+                .rposition(|b| b.byte_offset < overlap_start)
+                .map(|idx| output.boundaries[idx].byte_offset)
                 .unwrap_or(0)
         };
 
@@ -447,12 +385,12 @@ impl LargeFileIterator {
         // Extract sentences up to safe boundary
         let mut last_pos = 0;
         for boundary in &output.boundaries {
-            if boundary.offset <= safe_boundary_pos {
-                let sentence = buffer[last_pos..boundary.offset].trim().to_string();
+            if boundary.byte_offset <= safe_boundary_pos {
+                let sentence = buffer[last_pos..boundary.byte_offset].trim().to_string();
                 if !sentence.is_empty() {
                     self.sentence_buffer.push(sentence);
                 }
-                last_pos = boundary.offset;
+                last_pos = boundary.byte_offset;
             }
         }
 

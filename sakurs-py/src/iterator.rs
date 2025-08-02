@@ -2,7 +2,6 @@
 
 use pyo3::exceptions::PyStopIteration;
 use pyo3::prelude::*;
-use sakurs_core::Input;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -112,19 +111,18 @@ impl SentenceIterator {
 pub(crate) fn process_text_incrementally(
     text: &str,
     state: &Arc<Mutex<IteratorState>>,
-    processor: &sakurs_core::SentenceProcessor,
+    processor: &sakurs_api::SentenceProcessor,
 ) -> PyResult<()> {
-    use sakurs_core::Input;
-
     let mut state_guard = state.lock().unwrap();
 
     // Append new text to buffer
     state_guard.text_buffer.push_str(text);
 
     // Process the buffered text
-    let input = Input::from_text(&state_guard.text_buffer);
     let output = processor
-        .process(input)
+        .process(sakurs_api::Input::from_text(
+            state_guard.text_buffer.clone(),
+        ))
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
     // Extract complete sentences (all but potentially the last one)
@@ -137,7 +135,7 @@ pub(crate) fn process_text_incrementally(
         // For streaming, we keep the last sentence in the buffer
         // unless we're sure it's complete (e.g., followed by significant whitespace)
         if !is_last || text.ends_with('\n') || text.ends_with("\n\n") {
-            let sentence = state_guard.text_buffer[last_boundary..boundary.offset].to_string();
+            let sentence = state_guard.text_buffer[last_boundary..boundary.byte_offset].to_string();
             let sentence = if state_guard.preserve_whitespace {
                 sentence
             } else {
@@ -146,7 +144,7 @@ pub(crate) fn process_text_incrementally(
             if !sentence.is_empty() {
                 sentences.push(sentence);
             }
-            last_boundary = boundary.offset;
+            last_boundary = boundary.byte_offset;
         }
     }
 
@@ -164,21 +162,23 @@ pub(crate) fn process_text_incrementally(
 /// Flush any remaining text in the buffer as a final sentence
 pub(crate) fn flush_buffer(
     state: &Arc<Mutex<IteratorState>>,
-    processor: &sakurs_core::SentenceProcessor,
+    processor: &sakurs_api::SentenceProcessor,
 ) -> PyResult<()> {
     let mut state_guard = state.lock().unwrap();
 
     if !state_guard.text_buffer.is_empty() {
         // Process any remaining text
-        let input = Input::from_text(&state_guard.text_buffer);
+        // Process remaining text directly
         let output = processor
-            .process(input)
+            .process(sakurs_api::Input::from_text(
+                state_guard.text_buffer.clone(),
+            ))
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         // Extract all sentences from the final buffer
         let mut last_boundary = 0;
         for boundary in output.boundaries {
-            let sentence = state_guard.text_buffer[last_boundary..boundary.offset].to_string();
+            let sentence = state_guard.text_buffer[last_boundary..boundary.byte_offset].to_string();
             let sentence = if state_guard.preserve_whitespace {
                 sentence
             } else {
@@ -187,7 +187,7 @@ pub(crate) fn flush_buffer(
             if !sentence.is_empty() {
                 state_guard.sentence_buffer.push_back(sentence);
             }
-            last_boundary = boundary.offset;
+            last_boundary = boundary.byte_offset;
         }
 
         // Add any remaining text as the last sentence

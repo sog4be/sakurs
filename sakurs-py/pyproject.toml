@@ -73,7 +73,7 @@ extend-select = [
 [tool.ruff.lint.per-file-ignores]
 # PyO3 specific ignores
 "src/lib.rs" = ["D"]  # Don't check Rust files
-"*.pyi" = ["D"]       # Type stubs don't need docstrings
+"*.pyi" = ["D", "UP007", "UP045"]  # Type stubs don't need docstrings, keep Python 3.9 compatible syntax
 # Japanese language tests contain fullwidth punctuation which is intentional
 "tests/test_*.py" = ["RUF001", "PLR2004"]  # Allow fullwidth chars and magic numbers in tests
 # Benchmark files allow more relaxed linting

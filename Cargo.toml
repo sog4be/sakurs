@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "sakurs-core",
+    "sakurs-engine", 
+    "sakurs-api",
     "sakurs-cli",
     "sakurs-py",
 ]

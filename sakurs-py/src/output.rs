@@ -135,6 +135,9 @@ pub fn boundaries_to_sentences_with_char_offsets(
     let mut start_char = 0;
     let mut start_byte = 0;
 
+    // Pre-calculate total character count once instead of calling text.chars().count() repeatedly
+    let total_char_count = text.chars().count();
+
     for &(end_char, end_byte) in boundaries {
         if end_char > start_char && end_byte <= text.len() {
             let sentence_text = text[start_byte..end_byte].to_string();
@@ -164,15 +167,14 @@ pub fn boundaries_to_sentences_with_char_offsets(
     // Handle any remaining text after the last boundary
     if start_byte < text.len() {
         let sentence_text = text[start_byte..].to_string();
-        let char_count = text.chars().count();
 
         let (final_text, final_start, final_end) = if preserve_whitespace {
-            (sentence_text, start_char, char_count)
+            (sentence_text, start_char, total_char_count)
         } else {
             // Trim the text but keep original offsets
             let trimmed = sentence_text.trim();
             if !trimmed.is_empty() {
-                (trimmed.to_string(), start_char, char_count)
+                (trimmed.to_string(), start_char, total_char_count)
             } else {
                 // Skip empty sentences
                 return Ok(sentences);

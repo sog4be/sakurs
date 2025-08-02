@@ -11,7 +11,6 @@ use pyo3::types::PyList;
 mod exceptions;
 mod input;
 mod iterator;
-mod language_config;
 mod output;
 mod processor;
 mod stream;
@@ -19,10 +18,9 @@ mod types;
 
 use exceptions::{register_exceptions, InternalError};
 use input::PyInput;
-use language_config::LanguageConfig;
 use output::{boundaries_to_sentences_with_char_offsets, ProcessingMetadata, Sentence};
 use processor::PyProcessor;
-use sakurs_core::{Config, SentenceProcessor};
+use sakurs_api::Config;
 use std::time::Instant;
 
 /// Split text into sentences
@@ -42,13 +40,12 @@ use std::time::Instant;
 /// Returns:
 ///     List of sentence strings or Sentence objects if return_details=True
 #[pyfunction]
-#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_kb=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
+#[pyo3(signature = (input, *, language=None, threads=None, chunk_kb=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 #[allow(unused_variables)]
 fn split(
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     threads: Option<usize>,
     chunk_kb: Option<usize>,
     parallel: bool,
@@ -66,28 +63,8 @@ fn split(
     // Convert to core Input type and get the text content
     let (core_input, text) = py_input.into_core_input_and_text(py, encoding)?;
 
-    // Build configuration and optionally custom language rules
-    let (mut config_builder, custom_rules) = if let Some(lang_config) = language_config {
-        // Use custom language configuration
-        let core_config = lang_config.to_core_config(py)?;
-
-        // Create custom language rules from the config
-        use sakurs_core::domain::language::ConfigurableLanguageRules;
-        use std::sync::Arc;
-
-        let language_rules = ConfigurableLanguageRules::from_config(&core_config)
-            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-        let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
-            Arc::new(language_rules);
-
-        // Use default language in config builder (will be overridden by custom rules)
-        (
-            Config::builder()
-                .language("en") // Default, will be overridden
-                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            Some(language_rules_arc),
-        )
-    } else {
+    // Build configuration
+    let mut config_builder = {
         // Use built-in language
         let lang_code = match language.unwrap_or("en").to_lowercase().as_str() {
             "en" | "english" => "en",
@@ -99,13 +76,20 @@ fn split(
                 .into())
             }
         };
-        (
-            Config::builder()
-                .language(lang_code)
-                .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            None,
-        )
+        Config::builder()
+            .language(lang_code)
+            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?
     };
+
+    // Validate threads parameter
+    if let Some(t) = threads {
+        if t == 0 {
+            return Err(InternalError::ConfigurationError(
+                "threads must be greater than 0".to_string(),
+            )
+            .into());
+        }
+    }
 
     // Handle execution mode and performance parameters
     match execution_mode {
@@ -118,7 +102,7 @@ fn split(
             config_builder = config_builder.threads(threads);
             // If parallel flag is set, ensure we use lower threshold
             if parallel {
-                config_builder = config_builder.parallel_threshold(0);
+                // Use defaults for parallel mode
             }
         }
         "adaptive" => {
@@ -136,27 +120,19 @@ fn split(
     }
 
     if let Some(kb) = chunk_kb {
-        config_builder = config_builder.chunk_size(kb * 1024);
+        config_builder = config_builder.chunk_kb(Some(kb));
     }
 
-    let config = config_builder
-        .build()
-        .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-
-    // Create processor with custom rules if provided
-    let processor = if let Some(rules) = custom_rules {
-        SentenceProcessor::with_custom_rules(config, rules)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-    } else {
-        SentenceProcessor::with_config(config)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-    };
+    // Create processor
+    let processor = config_builder
+        .build_processor()
+        .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     // execution_mode is now properly handled in the configuration above
 
     // Release GIL during processing for better performance
     let output = py
-        .allow_threads(|| processor.process(core_input))
+        .allow_threads(|| processor.process(sakurs_api::Input::from_text(text.clone())))
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     let processing_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -166,7 +142,7 @@ fn split(
         let boundaries_with_offsets: Vec<(usize, usize)> = output
             .boundaries
             .iter()
-            .map(|b| (b.char_offset, b.offset))
+            .map(|b| (b.char_offset, b.byte_offset))
             .collect();
         let sentences = boundaries_to_sentences_with_char_offsets(
             &text,
@@ -175,19 +151,11 @@ fn split(
             py,
         )?;
 
-        // Determine actual execution mode used (from strategy)
-        let execution_mode_str = match output.metadata.strategy_used.as_str() {
-            "Sequential" => "sequential",
-            "Parallel" => "parallel",
-            _ => "adaptive",
-        };
+        // Determine actual execution mode used (simplified for now)
+        let execution_mode_str = "adaptive";
 
-        // Determine threads used (heuristic based on chunks)
-        let threads_used = if output.metadata.chunks_processed > 1 {
-            output.metadata.chunks_processed.min(8) // Reasonable estimate
-        } else {
-            1
-        };
+        // Thread count is not available in the simplified API
+        let threads_used = 1;
 
         // Create metadata
         let _metadata = ProcessingMetadata::new(
@@ -206,16 +174,11 @@ fn split(
         let mut start_char = 0;
         let mut start_byte = 0;
 
-        // Create a mapping of character positions to byte positions
-        let _char_to_byte: Vec<(usize, usize)> = text
-            .char_indices()
-            .enumerate()
-            .map(|(char_pos, (byte_pos, _))| (char_pos, byte_pos))
-            .collect();
+        // No need to create expensive char_to_byte mapping since boundaries already contain both offsets
 
         for boundary in &output.boundaries {
             let end_char = boundary.char_offset;
-            let end_byte = boundary.offset;
+            let end_byte = boundary.byte_offset;
 
             if end_char > start_char && end_byte <= text.len() {
                 let sentence = text[start_byte..end_byte].to_string();
@@ -257,10 +220,19 @@ fn load(
     execution_mode: &str,
     py: Python,
 ) -> PyResult<PyProcessor> {
+    // Validate threads parameter
+    if let Some(t) = threads {
+        if t == 0 {
+            return Err(InternalError::ConfigurationError(
+                "threads must be greater than 0".to_string(),
+            )
+            .into());
+        }
+    }
+
     // Create processor with the specified parameters
     PyProcessor::new(
         Some(language),
-        None, // language_config
         threads,
         chunk_kb,
         execution_mode,
@@ -287,12 +259,11 @@ fn load(
 /// Returns:
 ///     Iterator that yields sentences one at a time
 #[pyfunction]
-#[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_kb=None, encoding="utf-8"))]
+#[pyo3(signature = (input, *, language=None, threads=None, chunk_kb=None, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 fn iter_split(
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     threads: Option<usize>,
     chunk_kb: Option<usize>,
     encoding: &str,
@@ -302,7 +273,6 @@ fn iter_split(
         py,
         input,
         language,
-        language_config,
         threads,
         chunk_kb.map(|kb| kb * 1024),
         encoding,
@@ -332,12 +302,11 @@ fn iter_split(
 ///     boundaries may be yielded slightly out of order compared to
 ///     their position in the file.
 #[pyfunction]
-#[pyo3(signature = (file_path, *, language=None, language_config=None, max_memory_mb=100, overlap_size=1024, encoding="utf-8"))]
+#[pyo3(signature = (file_path, *, language=None, max_memory_mb=100, overlap_size=1024, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 fn split_large_file(
     file_path: &str,
     language: Option<&str>,
-    language_config: Option<LanguageConfig>,
     max_memory_mb: usize,
     overlap_size: usize,
     encoding: &str,
@@ -347,7 +316,6 @@ fn split_large_file(
         py,
         file_path,
         language,
-        language_config,
         max_memory_mb,
         overlap_size,
         encoding,
@@ -373,20 +341,6 @@ fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<stream::LargeFileIterator>()?;
 
     // Language configuration classes
-    m.add_class::<LanguageConfig>()?;
-    m.add_class::<language_config::MetadataConfig>()?;
-    m.add_class::<language_config::TerminatorConfig>()?;
-    m.add_class::<language_config::TerminatorPattern>()?;
-    m.add_class::<language_config::EllipsisConfig>()?;
-    m.add_class::<language_config::ContextRule>()?;
-    m.add_class::<language_config::ExceptionPattern>()?;
-    m.add_class::<language_config::EnclosureConfig>()?;
-    m.add_class::<language_config::EnclosurePair>()?;
-    m.add_class::<language_config::SuppressionConfig>()?;
-    m.add_class::<language_config::FastPattern>()?;
-    m.add_class::<language_config::RegexPattern>()?;
-    m.add_class::<language_config::AbbreviationConfig>()?;
-    m.add_class::<language_config::SentenceStarterConfig>()?;
 
     // Main API functions
     m.add_function(pyo3::wrap_pyfunction!(split, m)?)?;
@@ -439,7 +393,6 @@ mod tests {
             let result = split(
                 input_str.as_ref(),
                 None,  // language
-                None,  // language_config
                 None,  // threads
                 None,  // chunk_size
                 false, // parallel
@@ -469,7 +422,6 @@ mod tests {
             let result = split(
                 input_str.as_ref(),
                 None,  // language
-                None,  // language_config
                 None,  // threads
                 None,  // chunk_size
                 false, // parallel

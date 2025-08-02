@@ -4,10 +4,9 @@
 
 use crate::exceptions::InternalError;
 use crate::input::PyInput;
-use crate::language_config::LanguageConfig;
 use crate::types::PyProcessingResult;
 use pyo3::prelude::*;
-use sakurs_core::{Config, SentenceProcessor};
+use sakurs_api::{Config, SentenceProcessor};
 
 /// Main sentence splitter class for sentence boundary detection
 #[pyclass(name = "SentenceSplitter")]
@@ -24,18 +23,27 @@ pub struct PyProcessor {
 impl PyProcessor {
     /// Create a new processor for the specified language
     #[new]
-    #[pyo3(signature = (*, language=None, language_config=None, threads=None, chunk_kb=None, execution_mode="adaptive", streaming=false, stream_chunk_mb=10))]
+    #[pyo3(signature = (*, language=None, threads=None, chunk_kb=None, execution_mode="adaptive", streaming=false, stream_chunk_mb=10))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         language: Option<&str>,
-        language_config: Option<LanguageConfig>,
         threads: Option<usize>,
         chunk_kb: Option<usize>,
         execution_mode: &str,
         streaming: bool,
         stream_chunk_mb: usize,
-        py: Python,
+        _py: Python,
     ) -> PyResult<Self> {
+        // Validate threads parameter
+        if let Some(t) = threads {
+            if t == 0 {
+                return Err(InternalError::ConfigurationError(
+                    "threads must be greater than 0".to_string(),
+                )
+                .into());
+            }
+        }
+
         // Convert KB/MB to bytes
         let chunk_size_bytes = if let Some(kb) = chunk_kb {
             kb * 1024
@@ -45,47 +53,23 @@ impl PyProcessor {
             256 * 1024 // Default 256KB (256 * 1024 bytes)
         };
 
-        // Build Rust configuration and optionally custom language rules
-        let (mut config_builder, language_display, is_custom, custom_rules) =
-            if let Some(lang_config) = language_config {
-                // Use custom language configuration
-                let core_config = lang_config.to_core_config(py)?;
-                let display_name = format!("custom({})", lang_config.metadata.code);
-
-                // Create custom language rules from the config
-                use sakurs_core::domain::language::ConfigurableLanguageRules;
-                use std::sync::Arc;
-
-                let language_rules = ConfigurableLanguageRules::from_config(&core_config)
-                    .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-                let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
-                    Arc::new(language_rules);
-
-                (
-                    Config::builder()
-                        .language("en") // Default, will be overridden
-                        .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-                    display_name,
-                    true,
-                    Some(language_rules_arc),
-                )
-            } else {
-                // Use built-in language
-                let lang = language.unwrap_or("en");
-                let lang_code = match lang.to_lowercase().as_str() {
-                    "en" | "english" => "en",
-                    "ja" | "japanese" => "ja",
-                    _ => return Err(InternalError::UnsupportedLanguage(lang.to_string()).into()),
-                };
-                (
-                    Config::builder()
-                        .language(lang_code)
-                        .map_err(|e| InternalError::ProcessingError(e.to_string()))?,
-                    lang.to_string(),
-                    false,
-                    None,
-                )
+        // Build Rust configuration
+        let (mut config_builder, language_display, is_custom) = {
+            // Use built-in language
+            let lang = language.unwrap_or("en");
+            let lang_code = match lang.to_lowercase().as_str() {
+                "en" | "english" => "en",
+                "ja" | "japanese" => "ja",
+                _ => return Err(InternalError::UnsupportedLanguage(lang.to_string()).into()),
             };
+            (
+                Config::builder()
+                    .language(lang_code)
+                    .map_err(|e| InternalError::ProcessingError(e.to_string()))?,
+                lang.to_string(),
+                false,
+            )
+        };
 
         // Handle execution mode
         match execution_mode {
@@ -108,24 +92,14 @@ impl PyProcessor {
             }
         }
 
-        config_builder = config_builder.chunk_size(chunk_size_bytes);
+        config_builder = config_builder.chunk_kb(Some(chunk_size_bytes / 1024));
 
-        config_builder = config_builder
-            .parallel_threshold(1024 * 1024) // 1MB
-            .overlap_size(256);
+        // Default chunk size is fine for now
 
-        let rust_config = config_builder
-            .build()
+        // Create processor
+        let processor = config_builder
+            .build_processor()
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
-
-        // Create processor with custom rules if provided
-        let processor = if let Some(rules) = custom_rules {
-            SentenceProcessor::with_custom_rules(rust_config, rules)
-                .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-        } else {
-            SentenceProcessor::with_config(rust_config)
-                .map_err(|e| InternalError::ProcessingError(e.to_string()))?
-        };
 
         Ok(Self {
             processor,
@@ -152,11 +126,14 @@ impl PyProcessor {
         let py_input = PyInput::from_py_object(py, input)?;
 
         // Convert to core Input type and get the text content
-        let (core_input, text) = py_input.into_core_input_and_text(py, encoding)?;
+        let (_, text) = py_input.into_core_input_and_text(py, encoding)?;
 
         // Release GIL during processing for better performance
         let output = py
-            .allow_threads(|| self.processor.process(core_input))
+            .allow_threads(|| {
+                self.processor
+                    .process(sakurs_api::Input::from_text(text.clone()))
+            })
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
         if return_details {
@@ -164,7 +141,7 @@ impl PyProcessor {
             let boundaries_with_offsets: Vec<(usize, usize)> = output
                 .boundaries
                 .iter()
-                .map(|b| (b.char_offset, b.offset))
+                .map(|b| (b.char_offset, b.byte_offset))
                 .collect();
             let sentences = boundaries_to_sentences_with_char_offsets(
                 &text,
@@ -175,8 +152,8 @@ impl PyProcessor {
             Ok(PyList::new(py, sentences)?.unbind().into())
         } else {
             // Convert boundaries to sentence list
-            let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.offset).collect();
-            let result = PyProcessingResult::new(boundaries, output.metadata.stats, text);
+            let boundaries: Vec<usize> = output.boundaries.iter().map(|b| b.byte_offset).collect();
+            let result = PyProcessingResult::new(boundaries, (), text.to_string());
             Ok(PyList::new(py, result.sentences())?.unbind().into())
         }
     }
@@ -216,9 +193,8 @@ impl PyProcessor {
             py,
             input,
             language,
-            None, // language_config already in processor
             self.num_threads,
-            Some(self.chunk_size),
+            Some(self.chunk_size / 1024), // Convert bytes back to KB
             encoding,
         )
     }
