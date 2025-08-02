@@ -1,11 +1,11 @@
 """Type stubs for sakurs Python bindings."""
 
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, Protocol, TextIO, overload
+from typing import Any, BinaryIO, Literal, Optional, Protocol, TextIO, Union, overload
 
 class FileProtocol(Protocol):
     """Protocol for file-like objects with read() method."""
-    def read(self, size: int = -1) -> str | bytes: ...
+    def read(self, size: int = -1) -> Union[str, bytes]: ...
 
 __version__: str
 
@@ -46,7 +46,7 @@ class Sentence:
         start: int,
         end: int,
         confidence: float = 1.0,
-        metadata: dict[str, Any] | None = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None: ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
@@ -96,7 +96,7 @@ class TerminatorConfig:
     patterns: list[TerminatorPattern]
 
     def __init__(
-        self, chars: list[str], patterns: list[TerminatorPattern] | None = None
+        self, chars: list[str], patterns: Optional[list[TerminatorPattern]] = None
     ) -> None: ...
     def __repr__(self) -> str: ...
 
@@ -129,9 +129,9 @@ class EllipsisConfig:
     def __init__(
         self,
         treat_as_boundary: bool = True,
-        patterns: list[str] | None = None,
-        context_rules: list[ContextRule] | None = None,
-        exceptions: list[ExceptionPattern] | None = None,
+        patterns: Optional[list[str]] = None,
+        context_rules: Optional[list[ContextRule]] = None,
+        exceptions: Optional[list[ExceptionPattern]] = None,
     ) -> None: ...
     def __repr__(self) -> str: ...
 
@@ -158,15 +158,15 @@ class FastPattern:
 
     char: str
     line_start: bool
-    before: str | None
-    after: str | None
+    before: Union[str, None]
+    after: Union[str, None]
 
     def __init__(
         self,
         char: str,
         line_start: bool = False,
-        before: str | None = None,
-        after: str | None = None,
+        before: Union[str, None] = None,
+        after: Union[str, None] = None,
     ) -> None: ...
     def __repr__(self) -> str: ...
 
@@ -174,9 +174,9 @@ class RegexPattern:
     """Regex pattern for suppression."""
 
     pattern: str
-    description: str | None
+    description: Union[str, None]
 
-    def __init__(self, pattern: str, description: str | None = None) -> None: ...
+    def __init__(self, pattern: str, description: Union[str, None] = None) -> None: ...
     def __repr__(self) -> str: ...
 
 class SuppressionConfig:
@@ -187,8 +187,8 @@ class SuppressionConfig:
 
     def __init__(
         self,
-        fast_patterns: list[FastPattern] | None = None,
-        regex_patterns: list[RegexPattern] | None = None,
+        fast_patterns: Optional[list[FastPattern]] = None,
+        regex_patterns: Optional[list[RegexPattern]] = None,
     ) -> None: ...
     def __repr__(self) -> str: ...
 
@@ -238,7 +238,7 @@ class LanguageConfig:
     enclosures: EnclosureConfig
     suppression: SuppressionConfig
     abbreviations: AbbreviationConfig
-    sentence_starters: SentenceStarterConfig | None
+    sentence_starters: Union[SentenceStarterConfig, None]
 
     def __init__(
         self,
@@ -248,11 +248,11 @@ class LanguageConfig:
         enclosures: EnclosureConfig,
         suppression: SuppressionConfig,
         abbreviations: AbbreviationConfig,
-        sentence_starters: SentenceStarterConfig | None = None,
+        sentence_starters: Union[SentenceStarterConfig, None] = None,
     ) -> None: ...
     @classmethod
-    def from_toml(cls, path: Path | str) -> LanguageConfig: ...
-    def to_toml(self, path: Path | str) -> None: ...
+    def from_toml(cls, path: Union[Path, str]) -> LanguageConfig: ...
+    def to_toml(self, path: Union[Path, str]) -> None: ...
     def __repr__(self) -> str: ...
 
 class SentenceSplitter:
@@ -261,10 +261,10 @@ class SentenceSplitter:
     def __init__(
         self,
         *,
-        language: str | None = None,
-        language_config: LanguageConfig | None = None,
-        threads: int | None = None,
-        chunk_kb: int | None = None,
+        language: Union[str, None] = None,
+        language_config: Union[LanguageConfig, None] = None,
+        threads: Union[int, None] = None,
+        chunk_kb: Union[int, None] = None,
         execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
         streaming: bool = False,
         stream_chunk_mb: int = 10,
@@ -272,7 +272,7 @@ class SentenceSplitter:
     @overload
     def split(
         self,
-        input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
+        input: Union[str, bytes, Path, TextIO, BinaryIO, FileProtocol],
         *,
         return_details: Literal[False] = False,
         encoding: str = "utf-8",
@@ -280,14 +280,14 @@ class SentenceSplitter:
     @overload
     def split(
         self,
-        input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
+        input: Union[str, bytes, Path, TextIO, BinaryIO, FileProtocol],
         *,
         return_details: Literal[True],
         encoding: str = "utf-8",
     ) -> list[Sentence]: ...
     def iter_split(
         self,
-        input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
+        input: Union[str, bytes, Path, TextIO, BinaryIO, FileProtocol],
         *,
         encoding: str = "utf-8",
         preserve_whitespace: bool = False,
@@ -299,21 +299,21 @@ class SentenceSplitter:
     def __enter__(self) -> SentenceSplitter: ...
     def __exit__(
         self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: object | None,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[object],
     ) -> bool: ...
     def __repr__(self) -> str: ...
 
 # Main API functions
 @overload
 def split(
-    input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
+    input: Union[str, bytes, Path, TextIO, BinaryIO, FileProtocol],
     *,
-    language: str | None = None,
-    language_config: LanguageConfig | None = None,
-    threads: int | None = None,
-    chunk_kb: int | None = None,
+    language: Union[str, None] = None,
+    language_config: Union[LanguageConfig, None] = None,
+    threads: Union[int, None] = None,
+    chunk_kb: Union[int, None] = None,
     parallel: bool = False,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
     return_details: Literal[False] = False,
@@ -322,12 +322,12 @@ def split(
 ) -> list[str]: ...
 @overload
 def split(
-    input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
+    input: Union[str, bytes, Path, TextIO, BinaryIO, FileProtocol],
     *,
-    language: str | None = None,
-    language_config: LanguageConfig | None = None,
-    threads: int | None = None,
-    chunk_kb: int | None = None,
+    language: Union[str, None] = None,
+    language_config: Union[LanguageConfig, None] = None,
+    threads: Union[int, None] = None,
+    chunk_kb: Union[int, None] = None,
     parallel: bool = False,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
     return_details: Literal[True],
@@ -337,20 +337,20 @@ def split(
 def load(
     language: str,
     *,
-    threads: int | None = None,
-    chunk_kb: int | None = None,
+    threads: Union[int, None] = None,
+    chunk_kb: Union[int, None] = None,
     execution_mode: Literal["sequential", "parallel", "adaptive"] = "adaptive",
 ) -> SentenceSplitter:
     """Load a sentence splitter for a specific language."""
     ...
 
 def iter_split(
-    input: str | bytes | Path | TextIO | BinaryIO | FileProtocol,
+    input: Union[str, bytes, Path, TextIO, BinaryIO, FileProtocol],
     *,
-    language: str | None = None,
-    language_config: LanguageConfig | None = None,
-    threads: int | None = None,
-    chunk_kb: int | None = None,
+    language: Union[str, None] = None,
+    language_config: Union[LanguageConfig, None] = None,
+    threads: Union[int, None] = None,
+    chunk_kb: Union[int, None] = None,
     encoding: str = "utf-8",
 ) -> SentenceIterator:
     """
@@ -363,10 +363,10 @@ def iter_split(
     ...
 
 def split_large_file(
-    file_path: str | Path,
+    file_path: Union[str, Path],
     *,
-    language: str | None = None,
-    language_config: LanguageConfig | None = None,
+    language: Union[str, None] = None,
+    language_config: Union[LanguageConfig, None] = None,
     max_memory_mb: int = 100,
     overlap_size: int = 1024,
     encoding: str = "utf-8",
