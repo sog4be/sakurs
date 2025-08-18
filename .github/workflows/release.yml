@@ -21,7 +21,7 @@ jobs:
     name: Validate Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Validate tag format
         run: |
@@ -74,7 +74,7 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -97,7 +97,7 @@ jobs:
     needs: [validate, test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - uses: dtolnay/rust-toolchain@stable
       
@@ -140,7 +140,7 @@ jobs:
     needs: [validate, test, publish-core]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - uses: dtolnay/rust-toolchain@stable
       
@@ -200,7 +200,7 @@ jobs:
     runs-on: ${{ matrix.platform.runner }}
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -256,7 +256,7 @@ jobs:
     if: always() && needs.validate.result == 'success'
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Extract changelog for this version
         id: changelog
