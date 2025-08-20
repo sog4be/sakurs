@@ -28,7 +28,7 @@ serde.workspace = true
 # Memory optimization
 smallvec = { version = "1.13", features = ["union", "serde"] }
 # Parallel processing support
-rayon = { version = "1.10", optional = true }
+rayon = { version = "1.11", optional = true }
 num_cpus = { version = "1.16", optional = true }
 # Configuration support
 toml = "0.9"
