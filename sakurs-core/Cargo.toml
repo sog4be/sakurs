@@ -32,7 +32,7 @@ rayon = { version = "1.11", optional = true }
 num_cpus = { version = "1.16", optional = true }
 # Configuration support
 toml = "0.9"
-regex = "1.10"
+regex = "1.11"
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }
