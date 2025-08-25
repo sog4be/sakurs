@@ -37,7 +37,7 @@ regex = "1.10"
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }
 proptest = "1.0"
-tempfile = "3.10"
+tempfile = "3.21"
 
 [[bench]]
 name = "sentence_processor_benchmarks"
