@@ -82,25 +82,36 @@ impl AbbreviationTrie {
 
     /// Find the longest abbreviation ending at the given position
     pub fn find_at_position(&self, text: &str, position: usize) -> Option<AbbreviationMatch> {
+        // Convert to chars once and call optimized version
+        let text_chars: Vec<char> = text.chars().collect();
+        self.find_at_position_chars(&text_chars, position)
+    }
+
+    /// Find the longest abbreviation ending at the given position (optimized version)
+    ///
+    /// This version accepts a pre-computed char vector to avoid repeated conversion.
+    /// Use this when processing the same text multiple times.
+    pub fn find_at_position_chars(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> Option<AbbreviationMatch> {
         // Early exit if trie is empty
         if self.is_empty() {
             return None;
         }
 
-        if position >= text.len() {
+        if position >= chars.len() {
             return None;
         }
 
-        // We need to search backwards from the position
-        let text_chars: Vec<char> = text.chars().collect();
         let mut matches = Vec::new();
 
         // Try different starting positions to find all possible matches
         for start_offset in 0..=position.min(20) {
             // Limit search to reasonable abbreviation length
             if let Some(start_pos) = position.checked_sub(start_offset) {
-                if let Some(abbr_match) =
-                    self.match_from_position(&text_chars, start_pos, position + 1)
+                if let Some(abbr_match) = self.match_from_position(chars, start_pos, position + 1)
                 {
                     matches.push(abbr_match);
                 }
@@ -154,10 +165,22 @@ impl AbbreviationTrie {
             return false;
         }
 
-        let chars: Vec<char> = text[start..].chars().collect();
+        let chars: Vec<char> = text.chars().collect();
+        self.is_abbreviation_chars(&chars, start)
+    }
+
+    /// Check if text starting at position matches any abbreviation (optimized version)
+    ///
+    /// This version accepts a pre-computed char vector to avoid repeated conversion.
+    /// Use this when processing the same text multiple times.
+    pub fn is_abbreviation_chars(&self, chars: &[char], start: usize) -> bool {
+        if start >= chars.len() {
+            return false;
+        }
+
         let mut current = &self.root;
 
-        for ch in chars {
+        for &ch in &chars[start..] {
             let normalized_ch = if self.case_sensitive {
                 ch
             } else {

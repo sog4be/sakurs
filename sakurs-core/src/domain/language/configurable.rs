@@ -373,6 +373,61 @@ impl LanguageRules for ConfigurableLanguageRules {
         }
     }
 
+    fn process_abbreviation_chars(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> AbbreviationResult {
+        // Look for abbreviations ending before the period
+        // position is the position of the period, so we check at position - 1
+        if position > 0 {
+            if let Some(abbr_match) =
+                self.abbreviation_trie
+                    .find_at_position_chars(chars, position - 1)
+            {
+                // Check for word boundary at the start of the abbreviation
+                let abbr_start = position - abbr_match.length;
+
+                // Simple word boundary check: the character before the abbreviation should not be alphanumeric
+                let has_word_boundary = if abbr_start == 0 {
+                    true // Start of text is a valid boundary
+                } else if abbr_start > 0 && abbr_start <= chars.len() {
+                    // Check the character before the abbreviation
+                    !chars[abbr_start - 1].is_alphanumeric()
+                } else {
+                    true
+                };
+
+                if has_word_boundary {
+                    AbbreviationResult {
+                        is_abbreviation: true,
+                        length: abbr_match.length,
+                        confidence: 1.0, // High confidence for exact matches
+                    }
+                } else {
+                    // Abbreviation found but not at word boundary
+                    AbbreviationResult {
+                        is_abbreviation: false,
+                        length: 0,
+                        confidence: 0.0,
+                    }
+                }
+            } else {
+                AbbreviationResult {
+                    is_abbreviation: false,
+                    length: 0,
+                    confidence: 0.0,
+                }
+            }
+        } else {
+            AbbreviationResult {
+                is_abbreviation: false,
+                length: 0,
+                confidence: 0.0,
+            }
+        }
+    }
+
     fn handle_quotation(&self, _context: &QuotationContext) -> QuotationDecision {
         // Basic quotation handling - can be enhanced later
         QuotationDecision::QuoteStart

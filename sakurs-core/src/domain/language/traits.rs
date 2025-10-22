@@ -95,6 +95,27 @@ pub trait LanguageRules: Send + Sync {
     /// Result indicating if an abbreviation was found and its properties
     fn process_abbreviation(&self, text: &str, position: usize) -> AbbreviationResult;
 
+    /// Process potential abbreviations at a given position (optimized version)
+    ///
+    /// This version accepts pre-computed char vector to avoid repeated conversion.
+    /// Default implementation converts text to chars and calls process_abbreviation_chars_impl.
+    ///
+    /// # Arguments
+    /// * `chars` - Pre-computed char vector of the text
+    /// * `position` - Position to check for abbreviations
+    ///
+    /// # Returns
+    /// Result indicating if an abbreviation was found and its properties
+    fn process_abbreviation_chars(
+        &self,
+        chars: &[char],
+        position: usize,
+    ) -> AbbreviationResult {
+        // Default implementation: reconstruct text from chars
+        let text: String = chars.iter().collect();
+        self.process_abbreviation(&text, position)
+    }
+
     /// Handle quotation marks and their effect on sentence boundaries
     ///
     /// # Arguments

@@ -71,7 +71,11 @@ impl TextParser {
         let mut local_depths = vec![0i32; enclosure_count];
         let mut min_depths = vec![0i32; enclosure_count];
 
+        // OPTIMIZATION: Convert text to chars once and reuse
+        let text_chars: Vec<char> = text.chars().collect();
+
         let mut position = 0;
+        let mut char_index = 0;
         let mut chars = text.chars().peekable();
 
         // Track parsing context
@@ -177,7 +181,9 @@ impl TextParser {
 
                         // Track abbreviation state
                         if ch == '.' {
-                            let abbr_result = language_rules.process_abbreviation(text, position);
+                            // OPTIMIZATION: Use char-based version to avoid repeated conversion
+                            let abbr_result =
+                                language_rules.process_abbreviation_chars(&text_chars, char_index);
                             if abbr_result.is_abbreviation {
                                 state.abbreviation = AbbreviationState::with_first_word(
                                     true, // dangling_dot
@@ -207,6 +213,7 @@ impl TextParser {
 
             last_char = Some(ch);
             position += char_len;
+            char_index += 1;
         }
 
         // Update final chunk length
