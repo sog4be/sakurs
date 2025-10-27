@@ -36,7 +36,7 @@ regex = "1.11"
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }
-proptest = "1.0"
+proptest = "1.9"
 tempfile = "3.21"
 
 [[bench]]
