@@ -216,7 +216,7 @@ jobs:
           manylinux: auto
       
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-${{ runner.os }}-${{ matrix.platform.target }}
           path: sakurs-py/dist
