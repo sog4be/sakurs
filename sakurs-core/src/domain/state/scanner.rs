@@ -121,7 +121,7 @@ mod tests {
     /// ported rule semantics against regressions.
     #[test]
     fn single_chunk_output_is_pinned() {
-        let en_cases: [(&str, &[usize]); 5] = [
+        let en_cases: [(&str, &[usize]); 7] = [
             (
                 "Dr. Smith went to Washington. He arrived at 3.5 p.m. and left.",
                 &[29, 62],
@@ -139,13 +139,17 @@ mod tests {
                 &[11, 33, 55],
             ),
             ("Short. Even shorter! End", &[6, 20]),
+            // A dot run fires only at its end: "...." is ellipsis + final
+            // dot, one boundary (identical to the legacy rules).
+            ("He waited.... Then he left.", &[13, 27]),
+            ("Wait... what?", &[13]),
         ];
         for (text, expected) in en_cases {
             let state = scan_chunk(text, &EN).resolve_edges(&*EN);
             assert_eq!(v2_boundaries(&state), expected, "en mismatch for {text:?}");
         }
 
-        let ja_cases: [(&str, &[usize]); 4] = [
+        let ja_cases: [(&str, &[usize]); 5] = [
             (
                 "彼は「こんにちは」と言った。今日は晴れ!明日は?",
                 &[42, 58, 68],
@@ -153,6 +157,11 @@ mod tests {
             ("彼は『引用「入れ子」だ』と言った。終わり。", &[51, 63]),
             ("これはテストです。値は3.5です。すごい!?", &[27, 45, 56]),
             ("「囲まれた文。」の外。", &[33]),
+            // A maximal "……" run yields one boundary at its end. (Departure
+            // from v0.1.2, where a byte-arithmetic quirk kept single-char
+            // ellipsis patterns from ever firing; documented in the 0.2.0
+            // changelog.)
+            ("彼は待った……そして言った。終わり。", &[21, 42, 54]),
         ];
         for (text, expected) in ja_cases {
             let state = scan_chunk(text, &JA).resolve_edges(&*JA);
