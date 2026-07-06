@@ -46,31 +46,28 @@ Before starting a release:
 
 ### 1. Create Release PR
 
-Create a new branch and update version numbers:
+Create a new branch and update the version number:
 ```bash
 # Create release branch
 git checkout -b chore/release-vX.Y.Z
 
-# Update version in all Cargo.toml files
-# In workspace root
+# The version is managed once in the workspace root Cargo.toml
+# ([workspace.package] version); all three crates inherit it via
+# `version.workspace = true`, and sakurs-py's pyproject.toml reads it
+# dynamically through maturin. Edit the single line:
 # macOS:
-sed -i '' 's/version = ".*-dev"/version = "X.Y.Z"/' Cargo.toml
-# Linux:
-# sed -i 's/version = ".*-dev"/version = "X.Y.Z"/' Cargo.toml
-
-# In each crate
-# macOS:
-sed -i '' 's/version = ".*-dev"/version = "X.Y.Z"/' sakurs-core/Cargo.toml
-sed -i '' 's/version = ".*-dev"/version = "X.Y.Z"/' sakurs-cli/Cargo.toml
-sed -i '' 's/version = ".*-dev"/version = "X.Y.Z"/' sakurs-py/Cargo.toml
+sed -i '' 's/^version = ".*"$/version = "X.Y.Z"/' Cargo.toml
 # Linux: use sed -i without ''
+
+# Refresh Cargo.lock with the new version
+cargo check --workspace
 ```
 
 ### 2. Final Checks
 
 ```bash
-# Verify versions match
-grep -h "^version = " */Cargo.toml Cargo.toml
+# Verify the workspace version
+grep "^version = " Cargo.toml
 
 # Run final tests
 cargo test --workspace
@@ -137,29 +134,10 @@ Monitor the progress at: https://github.com/sog4be/sakurs/actions
 
 After successful release:
 
-1. **Create post-release PR for next development version**:
-   ```bash
-   # Create new branch
-   git checkout -b chore/prepare-next-dev
-   
-   # Update all versions to next dev version
-   # macOS:
-   sed -i '' 's/version = "X.Y.Z"/version = "X.Y.(Z+1)-dev"/' */Cargo.toml Cargo.toml
-   # Linux:
-   # sed -i 's/version = "X.Y.Z"/version = "X.Y.(Z+1)-dev"/' */Cargo.toml Cargo.toml
-   
-   # Commit and push
-   git add -A
-   git commit -m "chore: prepare for next development iteration
-   
-   - Bump version to X.Y.(Z+1)-dev"
-   
-   git push origin chore/prepare-next-dev
-   
-   # Create PR
-   gh pr create --title "chore: prepare for next development iteration" \
-     --body "Bump version to X.Y.(Z+1)-dev for continued development."
-   ```
+1. **Version stays at the released value** until the next release branch
+   bumps it (this repository does not use `-dev` suffixes; the release
+   workflow validates that the tag matches the workspace version, so an
+   interim suffix would break tag validation).
 
 2. **Verify packages**:
    - Check https://crates.io/crates/sakurs-core (verify it's published but not promoted)
