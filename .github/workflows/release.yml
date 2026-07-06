@@ -187,8 +187,11 @@ jobs:
           - name: Linux x86_64
             runner: ubuntu-latest
             target: x86_64
+          # Intel macOS runners (macos-13) were retired by GitHub; the
+          # x86_64 wheel is cross-compiled on an ARM runner instead
+          # (maturin passes --target x86_64-apple-darwin to the toolchain).
           - name: macOS x86_64
-            runner: macos-13
+            runner: macos-14
             target: x86_64
           - name: macOS ARM64
             runner: macos-14
