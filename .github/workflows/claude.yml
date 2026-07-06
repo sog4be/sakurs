@@ -40,9 +40,11 @@ jobs:
           additional_permissions: |
             actions: read
           
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          model: "claude-opus-4-20250514"
-          
+          # Optional: pin a specific model. Left unset so the action's
+          # default (a current model) is used; the previous pin pointed at a
+          # retired model and every run failed with a 404.
+          # model: "claude-opus-4-6"
+
           # Optional: Customize the trigger phrase (default: @claude)
           # trigger_phrase: "/claude"
           

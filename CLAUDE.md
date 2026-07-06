@@ -8,6 +8,17 @@ Before making any changes, please review:
 
 When asked to create PRs or commits, always reference these documents to ensure compliance with project standards.
 
+## Claude Code Project Settings
+
+Shared configuration lives in `.claude/`:
+- `settings.json` — permission allow/deny lists and PreToolUse hooks
+- `hooks/` — `validate-commit-msg.sh` (Conventional Commits),
+  `block-main-push.sh` (no direct pushes to main; release tags allowed),
+  `validate-pr.sh` (PR title format + required template sections)
+- `commands/` — `/commit`, `/pr`, `/wrap-up` workflow helpers
+- Personal overrides go in `.claude/settings.local.json` (gitignored; copy
+  from `settings.local.json.example`)
+
 ## Tech Stack
 - Rust 1.81+ (workspace with 3 crates)
 - Cargo workspace resolver = "2"
@@ -151,12 +162,10 @@ When creating or helping with PRs:
    - Do NOT skip sections or use free-form descriptions
 2. Ensure all checklist items are addressed before marking as ready for review
 3. Follow the commit message conventions (feat:, fix:, docs:, etc.)
-4. Include the AI attribution footer in commits:
-   ```
-   🤖 Generated with [Claude Code](https://claude.ai/code)
-   
-   Co-Authored-By: Claude <noreply@anthropic.com>
-   ```
+4. Do NOT add AI attribution footers (`🤖 Generated with ...` /
+   `Co-Authored-By: Claude ...`) to commits or PR bodies. This is suppressed
+   via `includeCoAuthoredBy: false` in `.claude/settings.json`; do not add
+   them manually either.
 
 ## PR Template Compliance Checklist
 Before creating any PR, verify these requirements:
@@ -233,8 +242,9 @@ When the user asks you to create a new git commit, follow these steps carefully:
 3. **Commit Process**:
    - Stage only the necessary files with `git add`
    - Run final CI checks: `cargo fmt --all -- --check` and `cargo clippy --workspace -- -D warnings`
-   - Create commit with conventional commit format
-   - Include AI attribution footer
+   - Create commit with conventional commit format (validated by
+     `.claude/hooks/validate-commit-msg.sh`)
+   - Do NOT add AI attribution footers
 
 ## Temporary Files and Reports
 For temporary analysis reports, documentation, and other working files:
