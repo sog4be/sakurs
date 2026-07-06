@@ -144,7 +144,7 @@ impl PyProcessor {
         return_details: bool,
         encoding: &str,
         py: Python,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         use crate::output::boundaries_to_sentences_with_char_offsets;
         use pyo3::types::PyList;
 
@@ -156,7 +156,7 @@ impl PyProcessor {
 
         // Release GIL during processing for better performance
         let output = py
-            .allow_threads(|| self.processor.process(core_input))
+            .detach(|| self.processor.process(core_input))
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
         if return_details {

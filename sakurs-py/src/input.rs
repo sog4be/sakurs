@@ -8,14 +8,14 @@ pub enum PyInput {
     Text(String),
     Bytes(Vec<u8>),
     Path(PathBuf),
-    FileObject(PyObject),
+    FileObject(Py<PyAny>),
 }
 
 impl PyInput {
     /// Extract input from a Python object, detecting its type
     pub fn from_py_object(_py: Python, obj: &Bound<'_, PyAny>) -> PyResult<Self> {
         // Check if it's bytes first (before string)
-        if let Ok(bytes) = obj.downcast::<PyBytes>() {
+        if let Ok(bytes) = obj.cast::<PyBytes>() {
             return Ok(PyInput::Bytes(bytes.as_bytes().to_vec()));
         }
 
@@ -82,7 +82,7 @@ impl PyInput {
 }
 
 /// Read content from a Python file-like object
-fn read_file_object(py: Python, obj: &PyObject, encoding: &str) -> PyResult<String> {
+fn read_file_object(py: Python, obj: &Py<PyAny>, encoding: &str) -> PyResult<String> {
     // Call the read() method
     let read_result = obj.call_method0(py, "read")?;
 
@@ -90,7 +90,7 @@ fn read_file_object(py: Python, obj: &PyObject, encoding: &str) -> PyResult<Stri
     if let Ok(text) = read_result.extract::<String>(py) {
         // Text mode file object
         Ok(text)
-    } else if let Ok(bytes_bound) = read_result.downcast_bound::<PyBytes>(py) {
+    } else if let Ok(bytes_bound) = read_result.cast_bound::<PyBytes>(py) {
         // Binary mode file object
         decode_bytes(bytes_bound.as_bytes(), encoding)
     } else {

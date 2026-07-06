@@ -57,7 +57,7 @@ fn split(
     preserve_whitespace: bool,
     encoding: &str,
     py: Python,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let start_time = Instant::now();
 
     // Extract input from Python object
@@ -156,7 +156,7 @@ fn split(
 
     // Release GIL during processing for better performance
     let output = py
-        .allow_threads(|| processor.process(core_input))
+        .detach(|| processor.process(core_input))
         .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
     let processing_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
@@ -420,8 +420,8 @@ mod tests {
     #[test]
     fn test_module_builds() {
         // Test that the module can be created
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let module = PyModule::new(py, "test_sakurs").unwrap();
             let result = sakurs(&module);
             assert!(result.is_ok());
@@ -430,8 +430,8 @@ mod tests {
 
     #[test]
     fn test_split_function() {
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             // Create a Python string as input
             let input_str = pyo3::types::PyString::new(py, "Hello world. How are you?");
 
@@ -460,8 +460,8 @@ mod tests {
 
     #[test]
     fn test_split_with_details() {
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             // Create a Python string as input
             let input_str = pyo3::types::PyString::new(py, "Hello world. How are you?");
 

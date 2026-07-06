@@ -161,7 +161,7 @@ fn read_all_from_file_object(
     // Check if it's bytes or string
     if let Ok(text) = content.extract::<String>() {
         Ok(text)
-    } else if let Ok(bytes_obj) = content.downcast::<PyBytes>() {
+    } else if let Ok(bytes_obj) = content.cast::<PyBytes>() {
         // It's bytes, decode it
         let bytes = bytes_obj.extract::<Vec<u8>>()?;
         use encoding_rs::Encoding;

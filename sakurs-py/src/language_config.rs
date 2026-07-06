@@ -342,7 +342,7 @@ pub struct AbbreviationConfig {
 // Manual Clone implementation for AbbreviationConfig
 impl Clone for AbbreviationConfig {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             categories: self.categories.clone_ref(py),
         })
     }
@@ -375,7 +375,7 @@ impl AbbreviationConfig {
         categories
             .get_item(key)?
             .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(key.to_string()))?
-            .downcast::<PyList>()
+            .cast::<PyList>()
             .map(|list| list.clone().unbind())
             .map_err(|_| pyo3::exceptions::PyTypeError::new_err("Category must be a list"))
     }
@@ -402,7 +402,7 @@ pub struct SentenceStarterConfig {
 // Manual Clone implementation for SentenceStarterConfig
 impl Clone for SentenceStarterConfig {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             categories: self.categories.clone_ref(py),
             require_following_space: self.require_following_space,
             min_word_length: self.min_word_length,
