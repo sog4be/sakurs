@@ -2,6 +2,7 @@
 
 ## Table of Contents
 
+- [Known Issues (v0.1.1)](#known-issues-v011)
 - [Automatic Performance Tuning](#automatic-performance-tuning)
 - [Manual Thread Control](#manual-thread-control)
 - [Chunk Size Tuning](#chunk-size-tuning)
@@ -22,6 +23,52 @@
   - [Fast Processing (News Articles, Logs)](#fast-processing-news-articles-logs)
   - [Balanced Processing (Books, Documents)](#balanced-processing-books-documents)
   - [Heavy Processing (Large Corpora)](#heavy-processing-large-corpora)
+
+## Known Issues (v0.1.1)
+
+> **This section documents measured v0.1.1 behavior.** It contradicts some of
+> the tuning advice below; the advice is kept as-is because it describes the
+> intended design, which the v0.2.0 rework restores. Numbers were measured on
+> Apple Silicon (release build, 1MB synthetic English text) and are
+> reproducible with `cargo bench --bench throughput_baseline` plus the tests
+> referenced below.
+
+### Throughput is far below design targets, and larger chunks are *slower*
+
+Several per-terminator and per-enclosure code paths currently perform
+O(chunk_size) work (full-chunk copies and UTF-8 re-decodes), so total cost
+grows with chunk size instead of shrinking:
+
+| Configuration (threads=1) | plain prose | quote-heavy | abbreviation-heavy |
+|---|---|---|---|
+| naive 1-pass scan (reference) | 400 MB/s | 894 MB/s | 875 MB/s |
+| chunk=16KB | 0.57 MB/s | 0.83 MB/s | 0.44 MB/s |
+| chunk=64KB | 0.42 MB/s | 0.26 MB/s | 0.25 MB/s |
+| chunk=256KB (default) | 0.18 MB/s | 0.07 MB/s | 0.09 MB/s |
+| chunk=1MB (single chunk) | 0.05 MB/s | 0.02 MB/s | 0.02 MB/s |
+
+Until this is fixed, prefer *smaller* `--chunk-kb` values for throughput —
+but see the correctness caveat below before doing so.
+
+### Chunked results can diverge from sequential results
+
+Boundary decisions are finalized during the scan phase using context that is
+truncated at chunk edges, and overlapping chunk regions double-count
+enclosure state. Measured consequences (512KB synthetic corpora, compared
+against a single-chunk reference):
+
+- Japanese text with 「」/『』: with default 256KB chunks, ~50% of boundaries
+  are lost (everything after the first chunk boundary).
+- Quote-heavy English: 87% of boundaries lost at 64KB chunks; a handful of
+  spurious boundaries at 256KB chunks.
+- Text ending exactly at a terminator loses its final boundary in
+  multi-chunk mode.
+
+These failures are pinned by `sakurs-core/tests/chunk_invariance.rs` and
+`sakurs-core/tests/chunking_regressions.rs` (marked `#[ignore]` until fixed;
+run with `cargo test -- --ignored`). Fixes are planned for v0.1.2
+(contiguity, final boundary, abbreviation index bugs) and v0.2.0 (full
+chunk-invariance via the scanner redesign).
 
 ## Automatic Performance Tuning
 
