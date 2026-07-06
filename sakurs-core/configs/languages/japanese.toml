@@ -41,9 +41,11 @@ pairs = [
 ]
 
 [suppression]
-# Japanese brackets + half-width parentheses
-fast_patterns = [
-    { char = ")", line_start = true, before = "alnum" },
-    { char = "）", line_start = true, before = "alnum" }
-]
+# NOTE: the former line-start ")" / "）" list-item suppression rules were
+# removed: "alnum" matches kanji/kana, so the closing paren of ordinary
+# parentheticals like （例） near a line start was suppressed, leaving the
+# enclosure depth permanently unbalanced. Unmatched closing delimiters no
+# longer poison the document (negative depth does not suppress boundaries),
+# so bare list markers like 1） are harmless without a suppression rule.
+fast_patterns = []
 

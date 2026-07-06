@@ -47,7 +47,11 @@ impl BoundaryReducer {
     /// counted (the scanner adds one per character, because open vs. close
     /// cannot be decided chunk-locally). For those types a candidate is
     /// outside the enclosure when the cumulative count is even; asymmetric
-    /// types require a depth of exactly zero. Types beyond the slice length
+    /// types require a non-positive depth. Negative depth means the text
+    /// contained closing delimiters without matching openers (bare list
+    /// markers like "1)", editorial artifacts); treating that as "inside an
+    /// enclosure" would suppress every boundary in the rest of the document,
+    /// so only a positive depth suppresses. Types beyond the slice length
     /// default to asymmetric.
     pub fn evaluate_candidates_with_symmetry(
         candidates: &[BoundaryCandidate],
@@ -68,7 +72,7 @@ impl BoundaryReducer {
                             if symmetric_types.get(i).copied().unwrap_or(false) {
                                 global_depth % 2 == 0
                             } else {
-                                global_depth == 0
+                                global_depth <= 0
                             }
                         });
 

@@ -170,11 +170,15 @@ fn test_measurement_marks() {
 
 #[test]
 fn test_list_item_parentheses() {
+    // Bare list markers contribute unmatched ")" closers. Since negative
+    // enclosure depth no longer suppresses boundaries, every sentence is
+    // found. (The old expectations encoded the poisoning bug: everything
+    // after the second marker was silently dropped.)
     let test_cases = vec![
-        ("1) First item. 2) Second item.", vec![14]), // Corrected: only first sentence (2) is inside enclosure)
-        ("a) Option A is good. b) Option B is better.", vec![20]), // Corrected: only first sentence (b) is inside enclosure)
-        ("i) Introduction. ii) Main body.", vec![16]), // Corrected: only first sentence (ii) is inside enclosure)
-        ("1) First item.\n2) Second item.", vec![14, 30]), // With newline: both parentheses are suppressed
+        ("1) First item. 2) Second item.", vec![14, 30]),
+        ("a) Option A is good. b) Option B is better.", vec![20, 43]),
+        ("i) Introduction. ii) Main body.", vec![16, 31]),
+        ("1) First item.\n2) Second item.", vec![14, 30]),
     ];
 
     for (text, expected_offsets) in test_cases {
