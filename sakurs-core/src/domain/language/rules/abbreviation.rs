@@ -24,7 +24,7 @@ pub struct AbbreviationTrie {
 pub struct AbbreviationMatch {
     /// The matched abbreviation
     pub abbreviation: String,
-    /// Length of the match (in characters)
+    /// Length of the match in bytes
     pub length: usize,
     /// Category of the abbreviation
     pub category: Option<String>,
@@ -80,7 +80,12 @@ impl AbbreviationTrie {
         trie
     }
 
-    /// Find the longest abbreviation ending at the given position
+    /// Find the longest abbreviation ending at the given byte position.
+    ///
+    /// `position` is the byte offset of the last character of the candidate
+    /// abbreviation (i.e. the byte just before the trailing period). If it
+    /// falls inside a multi-byte character it is snapped back to that
+    /// character's start. The returned `length` is in bytes.
     pub fn find_at_position(&self, text: &str, position: usize) -> Option<AbbreviationMatch> {
         // Early exit if trie is empty
         if self.is_empty() {
@@ -91,61 +96,54 @@ impl AbbreviationTrie {
             return None;
         }
 
-        // We need to search backwards from the position
-        let text_chars: Vec<char> = text.chars().collect();
-        let mut matches = Vec::new();
+        // Snap to the start of the character containing `position`.
+        let mut position = position;
+        while position > 0 && !text.is_char_boundary(position) {
+            position -= 1;
+        }
 
-        // Try different starting positions to find all possible matches
-        for start_offset in 0..=position.min(20) {
-            // Limit search to reasonable abbreviation length
-            if let Some(start_pos) = position.checked_sub(start_offset) {
-                if let Some(abbr_match) =
-                    self.match_from_position(&text_chars, start_pos, position + 1)
-                {
-                    matches.push(abbr_match);
+        // Byte offset just past the character at `position`.
+        let end = position
+            + text[position..]
+                .chars()
+                .next()
+                .map(char::len_utf8)
+                .unwrap_or(0);
+
+        // Try every start within the last 21 characters (abbreviations are
+        // short) and keep the longest match. Iteration moves the start
+        // backwards, so each successful match is longer than the previous
+        // one and can simply overwrite it.
+        let mut best: Option<AbbreviationMatch> = None;
+        for (start, _) in text[..end].char_indices().rev().take(21) {
+            let candidate = &text[start..end];
+            if let Some(node) = self.walk(candidate) {
+                if node.is_end {
+                    best = Some(AbbreviationMatch {
+                        abbreviation: candidate.to_string(),
+                        length: end - start,
+                        category: node.category.clone(),
+                    });
                 }
             }
         }
 
-        // Return the longest match
-        matches.into_iter().max_by_key(|m| m.length)
+        best
     }
 
-    /// Match an abbreviation starting from a specific position
-    fn match_from_position(
-        &self,
-        chars: &[char],
-        start: usize,
-        end: usize,
-    ) -> Option<AbbreviationMatch> {
-        if start >= end || end > chars.len() {
-            return None;
-        }
-
+    /// Walk the trie over the given candidate string, returning the final
+    /// node if every character has a transition.
+    fn walk(&self, candidate: &str) -> Option<&TrieNode> {
         let mut current = &self.root;
-        let mut matched_text = String::new();
-
-        for &original_ch in &chars[start..end] {
+        for original_ch in candidate.chars() {
             let ch = if self.case_sensitive {
                 original_ch
             } else {
                 original_ch.to_lowercase().next()?
             };
-
-            matched_text.push(original_ch);
-
             current = current.children.get(&ch)?;
         }
-
-        if current.is_end {
-            Some(AbbreviationMatch {
-                abbreviation: matched_text,
-                length: end - start,
-                category: current.category.clone(),
-            })
-        } else {
-            None
-        }
+        Some(current)
     }
 
     /// Check if text starting at position matches any abbreviation

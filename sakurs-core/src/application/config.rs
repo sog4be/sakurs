@@ -17,7 +17,12 @@ pub struct ProcessorConfig {
     /// Maximum number of threads to use (None = use all available)
     pub max_threads: Option<usize>,
 
-    /// Size of overlap between chunks for cross-boundary detection
+    /// Size of overlap between chunks for cross-boundary detection.
+    ///
+    /// Note: since v0.1.2 the delta-stack pipeline always uses strictly
+    /// contiguous chunks, because overlapping chunks double-count enclosure
+    /// state and corrupt results. This setting no longer affects
+    /// `DeltaStackProcessor` and is slated for removal in v0.2.0.
     pub overlap_size: usize,
 }
 

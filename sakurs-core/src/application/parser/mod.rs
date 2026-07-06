@@ -59,10 +59,30 @@ impl TextParser {
 
     /// Scans a chunk of text and produces a partial state with boundary candidates.
     ///
+    /// Assumes the chunk starts at the beginning of a line; use
+    /// [`Self::scan_chunk_with_context`] when the chunk starts mid-line.
+    pub fn scan_chunk(&self, text: &str, language_rules: &dyn LanguageRules) -> PartialState {
+        self.scan_chunk_with_context(text, language_rules, 0)
+    }
+
+    /// Scans a chunk of text and produces a partial state with boundary candidates.
+    ///
     /// This implements the scan phase of the Δ-Stack Monoid algorithm.
     /// It tracks local enclosure depth and records boundary candidates without
     /// determining if they are valid (that happens in the reduce phase).
-    pub fn scan_chunk(&self, text: &str, language_rules: &dyn LanguageRules) -> PartialState {
+    ///
+    /// `line_offset_at_start` is the number of characters between the last
+    /// newline in the full text and the start of this chunk. Without it, a
+    /// chunk starting mid-line would look like a line start to suppression
+    /// rules (e.g. the list-item rule for `)`), silently corrupting enclosure
+    /// tracking for the rest of the text. Values above the rules' threshold
+    /// may be capped by the caller.
+    pub fn scan_chunk_with_context(
+        &self,
+        text: &str,
+        language_rules: &dyn LanguageRules,
+        line_offset_at_start: usize,
+    ) -> PartialState {
         // Initialize state with the number of enclosure types from language rules
         let enclosure_count = language_rules.enclosure_type_count();
         let mut state = PartialState::new(enclosure_count);
@@ -109,32 +129,39 @@ impl TextParser {
             // Check for enclosure characters using language rules
             if let Some(enc_char) = language_rules.get_enclosure_char(ch) {
                 // Check if this enclosure should be suppressed
-                let should_suppress = if let Some(suppressor) =
-                    language_rules.enclosure_suppressor()
-                {
-                    // Build context for suppression check
-                    let context = build_enclosure_context(text, position, ch, &chars, last_char);
-                    suppressor.should_suppress_enclosure(ch, &context)
-                } else {
-                    false
-                };
+                let should_suppress =
+                    if let Some(suppressor) = language_rules.enclosure_suppressor() {
+                        // Build context for suppression check
+                        let context = build_enclosure_context(
+                            text,
+                            position,
+                            ch,
+                            &chars,
+                            last_char,
+                            line_offset_at_start,
+                        );
+                        suppressor.should_suppress_enclosure(ch, &context)
+                    } else {
+                        false
+                    };
 
                 // Only track enclosure if not suppressed
                 if !should_suppress {
                     if let Some(type_id) = language_rules.get_enclosure_type_id(ch) {
                         if type_id < enclosure_count {
                             if enc_char.is_symmetric {
-                                // For symmetric quotes: depth 0 → +1, depth 1 → -1
-                                let current_depth = local_depths[type_id];
-                                if current_depth == 0 {
-                                    local_depths[type_id] += 1;
-                                } else if current_depth == 1 {
-                                    local_depths[type_id] -= 1;
-                                    min_depths[type_id] =
-                                        min_depths[type_id].min(local_depths[type_id]);
-                                } else {
-                                    // Depth 2 or higher: ignore (ML-based approach needed)
-                                }
+                                // Symmetric enclosures are tracked as a parity
+                                // count: every occurrence adds one, and
+                                // "outside" means an even cumulative count.
+                                // Deciding open vs. close from the chunk-local
+                                // depth would be wrong whenever a chunk starts
+                                // inside the enclosure (a chunk with an odd
+                                // number of quotes would always report net +1,
+                                // permanently corrupting the cumulative
+                                // depth), so the decision is deferred to the
+                                // reduce phase, which checks parity for these
+                                // types.
+                                local_depths[type_id] += 1;
                             } else {
                                 // For asymmetric enclosures: use is_opening flag
                                 if enc_char.is_opening {
@@ -158,7 +185,7 @@ impl TextParser {
             }
 
             // Check for potential sentence terminators (record as candidate regardless of depth)
-            if is_potential_terminator(ch) {
+            if language_rules.is_potential_terminator(ch) {
                 // Build context for language rules
                 let context =
                     build_boundary_context(text, position, ch, &chars, last_char, consecutive_dots);
@@ -232,11 +259,6 @@ impl Default for TextParser {
     }
 }
 
-/// Checks if a character is a potential sentence terminator.
-fn is_potential_terminator(ch: char) -> bool {
-    matches!(ch, '.' | '!' | '?' | '。' | '！' | '？')
-}
-
 /// Builds a boundary context for language rule evaluation.
 fn build_boundary_context(
     text: &str,
@@ -276,6 +298,7 @@ fn build_enclosure_context<'a>(
     _ch: char,
     chars_iter: &std::iter::Peekable<std::str::Chars>,
     last_char: Option<char>,
+    line_offset_at_start: usize,
 ) -> crate::domain::enclosure_suppressor::EnclosureContext<'a> {
     use smallvec::SmallVec;
 
@@ -287,17 +310,16 @@ fn build_enclosure_context<'a>(
         preceding_chars.push(ch);
     }
 
-    // Try to get more preceding characters from text
+    // Try to get more preceding characters from text, walking backwards only
+    // as far as needed (this runs for every enclosure character, so it must
+    // not scan back to the chunk start).
     if position > 0 {
-        let preceding_text = &text[..position];
-        let mut chars_before: Vec<char> = preceding_text.chars().collect();
-        chars_before.reverse();
-
         // Skip the first char if we already have it from last_char
         let skip = if last_char.is_some() { 1 } else { 0 };
 
-        for ch in chars_before
-            .into_iter()
+        for ch in text[..position]
+            .chars()
+            .rev()
             .skip(skip)
             .take(3 - preceding_chars.len())
         {
@@ -308,12 +330,28 @@ fn build_enclosure_context<'a>(
     // Get following characters (up to 3)
     let following_chars: SmallVec<[char; 3]> = chars_iter.clone().take(3).collect();
 
-    // Calculate line offset (simple approximation)
-    let line_offset = text[..position]
-        .chars()
-        .rev()
-        .take_while(|&c| c != '\n')
-        .count();
+    // Calculate line offset (simple approximation). If no newline exists in
+    // this chunk before the position, the line continues from the previous
+    // chunk, so add the carried-in offset at chunk start. Consumers only
+    // compare the offset against a small threshold (currently 10), so the
+    // backward scan stops once the value is decidable instead of walking to
+    // the chunk start.
+    const LINE_OFFSET_DECIDABLE: usize = 11;
+    let mut line_offset = 0;
+    let mut saw_newline = false;
+    for c in text[..position].chars().rev() {
+        if c == '\n' {
+            saw_newline = true;
+            break;
+        }
+        line_offset += 1;
+        if line_offset >= LINE_OFFSET_DECIDABLE {
+            break;
+        }
+    }
+    if !saw_newline && line_offset < LINE_OFFSET_DECIDABLE {
+        line_offset += line_offset_at_start;
+    }
 
     crate::domain::enclosure_suppressor::EnclosureContext {
         position,
