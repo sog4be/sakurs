@@ -298,10 +298,6 @@ fn test_parallel_vs_sequential_consistency_with_nested_quotes() {
             p_boundary.offset, s_boundary.offset,
             "Boundary positions should match between parallel and sequential"
         );
-        assert_eq!(
-            p_boundary.confidence, s_boundary.confidence,
-            "Boundary confidence should match"
-        );
     }
 }
 

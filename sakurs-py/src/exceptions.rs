@@ -71,12 +71,6 @@ impl From<InternalError> for PyErr {
     }
 }
 
-impl From<sakurs_core::application::ProcessingError> for InternalError {
-    fn from(err: sakurs_core::application::ProcessingError) -> Self {
-        InternalError::ProcessingError(err.to_string())
-    }
-}
-
 impl From<io::Error> for InternalError {
     fn from(err: io::Error) -> Self {
         match err.kind() {

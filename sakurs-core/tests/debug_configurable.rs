@@ -44,8 +44,8 @@ fn debug_basic_sentences() {
             ' '
         };
         println!(
-            "  Boundary {}: offset={}, char='{}', confidence={}",
-            i, boundary.offset, char_at_boundary, boundary.confidence
+            "  Boundary {}: offset={}, char='{}'",
+            i, boundary.offset, char_at_boundary
         );
         // Print the sentence
         let start = if i == 0 {

@@ -271,7 +271,7 @@ impl ProcessArgs {
                 language_code,
             } => {
                 // Load external configuration
-                use sakurs_core::domain::language::config::LanguageConfig;
+                use sakurs_core::LanguageConfig;
 
                 let language =
                     LanguageConfig::from_file(&path, language_code.as_deref()).map_err(|e| {

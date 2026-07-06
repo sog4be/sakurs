@@ -18,21 +18,6 @@ pub struct Boundary {
     pub offset: usize,
     /// Character offset in the original text
     pub char_offset: usize,
-    /// Confidence score (0.0 to 1.0)
-    pub confidence: f32,
-    /// Optional context for debugging
-    pub context: Option<BoundaryContext>,
-}
-
-/// Context information for a boundary (for debugging)
-#[derive(Debug, Clone)]
-pub struct BoundaryContext {
-    /// Text before the boundary
-    pub before: String,
-    /// Text after the boundary
-    pub after: String,
-    /// Reason for the boundary
-    pub reason: String,
 }
 
 /// Metadata about the processing
@@ -44,8 +29,6 @@ pub struct ProcessingMetadata {
     pub strategy_used: String,
     /// Number of chunks processed
     pub chunks_processed: usize,
-    /// Peak memory usage in bytes
-    pub memory_peak: usize,
     /// Additional statistics
     pub stats: ProcessingStats,
 }
@@ -81,8 +64,6 @@ impl Output {
             .map(|(offset, char_offset)| Boundary {
                 offset,
                 char_offset,
-                confidence: 1.0, // DeltaStack algorithm has high confidence
-                context: None,
             })
             .collect::<Vec<_>>();
 
@@ -106,7 +87,6 @@ impl Output {
                 duration,
                 strategy_used,
                 chunks_processed: result.chunk_count,
-                memory_peak: 0, // Future: memory tracking integration
                 stats: ProcessingStats {
                     bytes_processed: text.len(),
                     chars_processed: total_chars,
