@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enclosure suppression (e.g. apostrophes in contractions) is no longer guessed from truncated context at chunk edges, which previously corrupted quotation parity for the rest of the chunk
 - Very small chunk sizes produce correct boundaries (Issue #102)
 - Multi-character terminator patterns with multibyte characters (e.g. Japanese `！？`) are matched byte-correctly
+- Ellipsis characters (`…`) now produce boundaries: in v0.1.x a byte-arithmetic quirk prevented single-character ellipsis patterns from ever completing, so `…`/`……` never ended a sentence. Each maximal ellipsis run now yields at most one boundary at its end, subject to the configured context rules (dot runs like `....` behave exactly as before). On 吾輩は猫である this adds 137 boundaries after `……` runs while every v0.1.2 boundary is preserved; English output on War and Peace is byte-identical to v0.1.2
 
 ### Performance
 

@@ -382,16 +382,28 @@ impl CompiledRules {
     }
 
     /// True when an ellipsis pattern ends exactly at `pos` (the byte offset
-    /// just after the pattern's last character).
-    fn ellipsis_ends_at<'a>(&'a self, w: &str, pos: usize) -> Option<&'a str> {
-        self.ellipsis_patterns
-            .iter()
-            .find(|p| {
-                pos >= p.len()
-                    && w.is_char_boundary(pos - p.len())
-                    && &w[pos - p.len()..pos] == p.as_str()
+    /// just after the pattern's last character) *and* the run stops there: a
+    /// completion inside a longer run (the third dot of `....`, the first
+    /// `…` of `……`) does not fire — only the run's final position does, so
+    /// each maximal run yields at most one boundary.
+    fn ellipsis_completes_at(&self, w: &str, pos: usize) -> bool {
+        let ends_here = self.ellipsis_patterns.iter().any(|p| {
+            pos >= p.len() && w.is_char_boundary(pos - p.len()) && &w[pos - p.len()..pos] == p
+        });
+        if !ends_here {
+            return false;
+        }
+        // The run continues if any pattern occurrence overlaps or starts at
+        // `pos` and ends beyond it.
+        !self.ellipsis_patterns.iter().any(|q| {
+            let qlen = q.len();
+            (pos.saturating_sub(qlen - 1)..=pos).any(|s| {
+                w.is_char_boundary(s)
+                    && w.len() >= s + qlen
+                    && w.is_char_boundary(s + qlen)
+                    && &w[s..s + qlen] == q
             })
-            .map(String::as_str)
+        })
     }
 
     /// Ellipsis boundary evaluation: exception regexes on a ±20-byte window
@@ -564,8 +576,8 @@ impl Judge for CompiledRules {
         let preceding10 =
             &preceding[super::context::back_chars(preceding, preceding.len(), CONTEXT_REACH)..];
 
-        // 1. A completed ellipsis pattern gets the ellipsis evaluation.
-        if self.ellipsis_ends_at(w, pos_in_window).is_some() {
+        // 1. A completed ellipsis run gets the ellipsis evaluation.
+        if self.ellipsis_completes_at(w, pos_in_window) {
             return self.evaluate_ellipsis(w, term_pos, following10);
         }
 
