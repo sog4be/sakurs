@@ -20,7 +20,7 @@ Shared configuration lives in `.claude/`:
   from `settings.local.json.example`)
 
 ## Tech Stack
-- Rust 1.81+ (workspace with 3 crates)
+- Rust 1.83+ (workspace with 3 crates)
 - Cargo workspace resolver = "2"
 - Key dependencies: thiserror, serde, tracing
 - Testing: criterion (benchmarks), proptest (property testing)

@@ -1,7 +1,8 @@
 """Japanese sentence segmentation benchmarks comparing sakurs vs ja_sentence_segmenter."""
 
 import functools
-from typing import Callable, Final
+from collections.abc import Callable
+from typing import Final
 
 import pytest
 from ja_sentence_segmenter.common.pipeline import make_pipeline

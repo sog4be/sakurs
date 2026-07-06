@@ -32,7 +32,7 @@ cd sakurs/sakurs-py
 uv pip install -e .
 ```
 
-**Requirements**: Python 3.9 or later
+**Requirements**: Python 3.10 or later
 
 ## Quick Start
 

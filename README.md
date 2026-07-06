@@ -17,10 +17,10 @@
         <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
     </a>
     <a href="https://github.com/sog4be/sakurs">
-        <img src="https://img.shields.io/badge/rust-1.81+-orange.svg" alt="Rust Version">
+        <img src="https://img.shields.io/badge/rust-1.83+-orange.svg" alt="Rust Version">
     </a>
     <a href="https://github.com/sog4be/sakurs/tree/main/sakurs-py">
-        <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python Version">
+        <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python Version">
     </a>
 </p>
 

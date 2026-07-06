@@ -79,11 +79,11 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12']
         exclude:
           # Skip older Python versions on Windows to save CI time
           - os: windows-latest
-            python-version: '3.9'
+            python-version: '3.10'
     
     steps:
       - uses: actions/checkout@v7

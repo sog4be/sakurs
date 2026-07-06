@@ -2,7 +2,7 @@
 
 [tool.ruff]
 # Target the minimum supported Python version
-target-version = "py39"
+target-version = "py310"
 line-length = 88
 src = ["sakurs-py/src", "sakurs-py/tests", "sakurs-py/python"]
 
@@ -90,7 +90,7 @@ line-ending = "auto"
 
 # Tool integration
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

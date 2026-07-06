@@ -5,6 +5,15 @@ import pytest
 import sakurs
 
 
+def _exception_notes(exc: BaseException) -> str:
+    """Return the PEP 678 notes attached to an exception as a single string.
+
+    PyO3 0.29+ reports the offending argument name via ``add_note`` instead
+    of embedding it in the exception message.
+    """
+    return "\n".join(getattr(exc, "__notes__", []))
+
+
 class TestParameterValidation:
     """Test parameter validation and error handling."""
 
@@ -13,7 +22,7 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             list(sakurs.iter_split("Hello.", chunk_kb=1024.5))  # type: ignore
 
-        assert "chunk_kb" in str(exc_info.value)
+        assert "chunk_kb" in _exception_notes(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
@@ -22,7 +31,7 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             list(sakurs.split_large_file("/tmp/test.txt", max_memory_mb=10.5))  # type: ignore
 
-        assert "max_memory_mb" in str(exc_info.value)
+        assert "max_memory_mb" in _exception_notes(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
@@ -31,7 +40,7 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             sakurs.split("Hello.", threads=2.5)  # type: ignore
 
-        assert "threads" in str(exc_info.value)
+        assert "threads" in _exception_notes(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
@@ -40,7 +49,7 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             sakurs.split("Hello.", chunk_kb=1024.5)  # type: ignore
 
-        assert "chunk_kb" in str(exc_info.value)
+        assert "chunk_kb" in _exception_notes(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
@@ -49,7 +58,7 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             sakurs.load("en", threads=4.0)  # type: ignore
 
-        assert "threads" in str(exc_info.value)
+        assert "threads" in _exception_notes(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
@@ -58,7 +67,7 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             sakurs.load("en", chunk_kb=2048.0)  # type: ignore
 
-        assert "chunk_kb" in str(exc_info.value)
+        assert "chunk_kb" in _exception_notes(exc_info.value)
         assert "float" in str(exc_info.value)
         assert "cannot be interpreted as an integer" in str(exc_info.value)
 
