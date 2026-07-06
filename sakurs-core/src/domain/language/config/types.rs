@@ -128,6 +128,36 @@ fn default_one() -> usize {
 }
 
 impl LanguageConfig {
+    /// Loads a language configuration from an external TOML file, optionally
+    /// overriding the language code, and validates it.
+    pub fn from_file(
+        path: &std::path::Path,
+        language_code: Option<&str>,
+    ) -> Result<Self, DomainError> {
+        let content = std::fs::read_to_string(path).map_err(|e| {
+            DomainError::ConfigurationError(format!(
+                "Failed to read file '{}': {}",
+                path.display(),
+                e
+            ))
+        })?;
+
+        let mut config: LanguageConfig = toml::from_str(&content).map_err(|e| {
+            DomainError::ConfigurationError(format!(
+                "Failed to parse TOML from '{}': {}",
+                path.display(),
+                e
+            ))
+        })?;
+
+        if let Some(code) = language_code {
+            config.metadata.code = code.to_string();
+        }
+
+        config.validate()?;
+        Ok(config)
+    }
+
     /// Validate the language configuration
     pub fn validate(&self) -> Result<(), DomainError> {
         // Validate metadata

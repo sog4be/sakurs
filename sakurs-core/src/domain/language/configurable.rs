@@ -93,30 +93,7 @@ impl ConfigurableLanguageRules {
 
     /// Create language rules from external file
     pub fn from_file(path: &Path, language_code: Option<&str>) -> Result<Self, DomainError> {
-        let content = std::fs::read_to_string(path).map_err(|e| {
-            DomainError::ConfigurationError(format!(
-                "Failed to read file '{}': {}",
-                path.display(),
-                e
-            ))
-        })?;
-
-        let mut config: LanguageConfig = toml::from_str(&content).map_err(|e| {
-            DomainError::ConfigurationError(format!(
-                "Failed to parse TOML from '{}': {}",
-                path.display(),
-                e
-            ))
-        })?;
-
-        // Override language code if provided
-        if let Some(code) = language_code {
-            config.metadata.code = code.to_string();
-        }
-
-        // Validate configuration
-        config.validate()?;
-
+        let config = LanguageConfig::from_file(path, language_code)?;
         Self::from_config(&config)
     }
 

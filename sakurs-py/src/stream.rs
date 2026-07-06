@@ -30,23 +30,15 @@ pub fn create_iter_split_iterator(
     encoding: &str,
 ) -> PyResult<SentenceIterator> {
     // Build processor configuration
-    let (mut config_builder, custom_rules) = if let Some(lang_config) = language_config {
+    let (mut config_builder, custom_language) = if let Some(lang_config) = language_config {
         // Use custom language configuration
         let core_config = lang_config.to_core_config(py)?;
-
-        use sakurs_core::domain::language::ConfigurableLanguageRules;
-        use std::sync::Arc;
-
-        let language_rules = ConfigurableLanguageRules::from_config(&core_config)
-            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-        let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
-            Arc::new(language_rules);
 
         (
             Config::builder()
                 .language("en")
                 .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            Some(language_rules_arc),
+            Some(core_config),
         )
     } else {
         // Use built-in language
@@ -81,8 +73,8 @@ pub fn create_iter_split_iterator(
         .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
 
     // Create processor
-    let processor = if let Some(rules) = custom_rules {
-        SentenceProcessor::with_custom_rules(config, rules)
+    let processor = if let Some(language) = custom_language {
+        SentenceProcessor::with_language_config(config, &language)
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?
     } else {
         SentenceProcessor::with_config(config)
@@ -224,23 +216,15 @@ pub fn create_large_file_iterator(
     }
 
     // Build processor configuration for memory-efficient processing
-    let (mut config_builder, custom_rules) = if let Some(lang_config) = language_config {
+    let (mut config_builder, custom_language) = if let Some(lang_config) = language_config {
         // Use custom language configuration
         let core_config = lang_config.to_core_config(py)?;
-
-        use sakurs_core::domain::language::ConfigurableLanguageRules;
-        use std::sync::Arc;
-
-        let language_rules = ConfigurableLanguageRules::from_config(&core_config)
-            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-        let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
-            Arc::new(language_rules);
 
         (
             Config::builder()
                 .language("en")
                 .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            Some(language_rules_arc),
+            Some(core_config),
         )
     } else {
         // Use built-in language
@@ -274,8 +258,8 @@ pub fn create_large_file_iterator(
         .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
 
     // Create processor
-    let processor = if let Some(rules) = custom_rules {
-        SentenceProcessor::with_custom_rules(config, rules)
+    let processor = if let Some(language) = custom_language {
+        SentenceProcessor::with_language_config(config, &language)
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?
     } else {
         SentenceProcessor::with_config(config)
