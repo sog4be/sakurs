@@ -32,6 +32,16 @@
 > Apple Silicon (release build, 1MB synthetic English text) and are
 > reproducible with `cargo bench --bench throughput_baseline` plus the tests
 > referenced below.
+>
+> **Status update (v0.1.2 development):** the correctness issues below are
+> fixed except for one narrow class (decisions whose lookahead is cut
+> exactly at a chunk edge, e.g. an abbreviation split as `Dr.`|`Smith` —
+> pinned by the ignored `abbreviation_decision_at_exact_chunk_edge` test and
+> planned for the v0.2.0 scanner redesign). Throughput improved 30–110×
+> (plain 0.18 → 12.4 MB/s, quote-heavy 0.07 → 7.8 MB/s, abbreviation-heavy
+> 0.09 → 3.3 MB/s at default settings, threads=1); the remaining
+> chunk-size-proportional cost is the full-chunk copy into
+> `BoundaryContext::text` per terminator, also scheduled for v0.2.0.
 
 ### Throughput is far below design targets, and larger chunks are *slower*
 

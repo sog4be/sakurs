@@ -24,6 +24,10 @@ pub struct BoundaryReducer;
 impl BoundaryReducer {
     /// Evaluates boundary candidates in a single chunk based on global state.
     ///
+    /// Treats every enclosure type as asymmetric. Prefer
+    /// [`Self::evaluate_candidates_with_symmetry`] when the language defines
+    /// symmetric enclosures (same character opens and closes).
+    ///
     /// # Arguments
     /// * `candidates` - Boundary candidates from scan phase
     /// * `chunk_start` - Cumulative state at chunk start
@@ -34,21 +38,41 @@ impl BoundaryReducer {
         candidates: &[BoundaryCandidate],
         chunk_start: &ChunkStartState,
     ) -> Vec<Boundary> {
+        Self::evaluate_candidates_with_symmetry(candidates, chunk_start, &[])
+    }
+
+    /// Evaluates boundary candidates, honoring symmetric enclosure types.
+    ///
+    /// `symmetric_types[i]` marks enclosure type ids whose occurrences are
+    /// counted (the scanner adds one per character, because open vs. close
+    /// cannot be decided chunk-locally). For those types a candidate is
+    /// outside the enclosure when the cumulative count is even; asymmetric
+    /// types require a depth of exactly zero. Types beyond the slice length
+    /// default to asymmetric.
+    pub fn evaluate_candidates_with_symmetry(
+        candidates: &[BoundaryCandidate],
+        chunk_start: &ChunkStartState,
+        symmetric_types: &[bool],
+    ) -> Vec<Boundary> {
         candidates
             .iter()
             .filter_map(|candidate| {
-                // Check if all enclosure depths are zero (not inside any enclosure)
-                let all_depths_zero =
+                // Check that the candidate sits outside every enclosure type
+                let all_outside =
                     candidate
                         .local_depths
                         .iter()
                         .enumerate()
                         .all(|(i, &local_depth)| {
                             let global_depth = chunk_start.cumulative_deltas[i].net + local_depth;
-                            global_depth == 0
+                            if symmetric_types.get(i).copied().unwrap_or(false) {
+                                global_depth % 2 == 0
+                            } else {
+                                global_depth == 0
+                            }
                         });
 
-                if all_depths_zero {
+                if all_outside {
                     Some(Boundary {
                         offset: chunk_start.global_offset + candidate.local_offset,
                         flags: candidate.flags,
@@ -69,6 +93,15 @@ impl BoundaryReducer {
     /// # Returns
     /// Vector of all confirmed boundaries sorted by offset
     pub fn reduce_all(states: &[PartialState], chunk_starts: &[ChunkStartState]) -> Vec<Boundary> {
+        Self::reduce_all_with_symmetry(states, chunk_starts, &[])
+    }
+
+    /// Like [`Self::reduce_all`], honoring symmetric enclosure types.
+    pub fn reduce_all_with_symmetry(
+        states: &[PartialState],
+        chunk_starts: &[ChunkStartState],
+        symmetric_types: &[bool],
+    ) -> Vec<Boundary> {
         assert_eq!(states.len(), chunk_starts.len());
 
         // Process each chunk in parallel
@@ -76,7 +109,11 @@ impl BoundaryReducer {
             .par_iter()
             .zip(chunk_starts.par_iter())
             .flat_map(|(state, chunk_start)| {
-                Self::evaluate_candidates(&state.boundary_candidates, chunk_start)
+                Self::evaluate_candidates_with_symmetry(
+                    &state.boundary_candidates,
+                    chunk_start,
+                    symmetric_types,
+                )
             })
             .collect();
 
@@ -91,6 +128,14 @@ impl BoundaryReducer {
     ///
     /// This is used when processing a single chunk or in sequential mode.
     pub fn reduce_single(state: &PartialState) -> Vec<Boundary> {
+        Self::reduce_single_with_symmetry(state, &[])
+    }
+
+    /// Like [`Self::reduce_single`], honoring symmetric enclosure types.
+    pub fn reduce_single_with_symmetry(
+        state: &PartialState,
+        symmetric_types: &[bool],
+    ) -> Vec<Boundary> {
         let chunk_start = ChunkStartState {
             cumulative_deltas: DeltaVec::from_vec(vec![
                 crate::domain::types::DeltaEntry {
@@ -102,7 +147,11 @@ impl BoundaryReducer {
             global_offset: 0,
         };
 
-        Self::evaluate_candidates(&state.boundary_candidates, &chunk_start)
+        Self::evaluate_candidates_with_symmetry(
+            &state.boundary_candidates,
+            &chunk_start,
+            symmetric_types,
+        )
     }
 }
 

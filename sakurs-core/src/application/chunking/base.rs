@@ -173,13 +173,17 @@ impl ChunkManager {
             // Calculate target end position
             let target_end = (current_pos + self.chunk_size).min(text_len);
 
-            // Find actual chunk boundaries
+            // Find actual chunk boundaries. With overlap_size == 0 chunks are
+            // strictly contiguous (UTF-8 boundary snapping only): overlapping
+            // chunks would double-count enclosure deltas in the prefix sum,
+            // corrupting boundary decisions for every following chunk.
+            let overlap_enabled = self.overlap_size > 0;
             let (chunk_start, chunk_end, next_start) = self.find_chunk_boundaries(
                 text_bytes,
                 current_pos,
                 target_end,
-                chunk_index > 0,
-                target_end < text_len,
+                overlap_enabled && chunk_index > 0,
+                overlap_enabled && target_end < text_len,
             )?;
 
             // Extract chunk content

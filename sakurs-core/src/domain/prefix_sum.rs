@@ -1,8 +1,10 @@
-//! Parallel prefix-sum implementation for the Δ-Stack Monoid algorithm.
+//! Prefix-sum computation for the Δ-Stack Monoid algorithm.
 //!
-//! This module implements the parallel prefix-sum computation that calculates
-//! the cumulative state at the beginning of each chunk, enabling independent
-//! boundary candidate evaluation in the reduce phase.
+//! This module computes the cumulative state at the beginning of each chunk,
+//! enabling independent boundary candidate evaluation in the reduce phase.
+//! The scan is sequential: chunk counts are small (text size / chunk size),
+//! so an O(n) loop over per-chunk deltas is negligible next to the scan
+//! phase and much easier to verify than a tree-based parallel scan.
 
 use crate::application::chunking::TextChunk;
 use crate::domain::types::{DeltaEntry, DeltaVec, PartialState};
@@ -16,10 +18,7 @@ pub struct ChunkStartState {
     pub global_offset: usize,
 }
 
-/// Computes parallel prefix-sum of partial states.
-///
-/// This implements the classic parallel prefix-sum algorithm that computes
-/// cumulative states in O(log n) parallel time with O(n) work.
+/// Computes prefix sums of partial states.
 pub struct PrefixSumComputer;
 
 impl PrefixSumComputer {
@@ -51,32 +50,31 @@ impl PrefixSumComputer {
             n
         ];
 
-        // Sequential implementation for small inputs
-        if n <= 4 {
-            let mut cumulative_offset = 0;
-            let mut cumulative_deltas =
-                DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; states[0].deltas.len()]);
+        // Simple sequential scan. The number of chunks is small (text size /
+        // chunk size, typically well under a thousand), so an O(n) scan is
+        // both faster and easier to verify than a tree-based parallel scan.
+        // The previous Blelloch-style implementation produced incorrect
+        // cumulative deltas for some chunk counts, silently corrupting
+        // boundary decisions for entire chunks.
 
-            for (i, state) in states.iter().enumerate() {
-                result[i] = ChunkStartState {
-                    cumulative_deltas: cumulative_deltas.clone(),
-                    global_offset: cumulative_offset,
-                };
+        let mut cumulative_offset = 0;
+        let mut cumulative_deltas =
+            DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; states[0].deltas.len()]);
 
-                // Update cumulative values for next iteration
-                cumulative_offset += state.chunk_length;
-                for (j, delta) in state.deltas.iter().enumerate() {
-                    let old_net = cumulative_deltas[j].net;
-                    cumulative_deltas[j].net += delta.net;
-                    cumulative_deltas[j].min = cumulative_deltas[j].min.min(old_net + delta.min);
-                }
+        for (i, state) in states.iter().enumerate() {
+            result[i] = ChunkStartState {
+                cumulative_deltas: cumulative_deltas.clone(),
+                global_offset: cumulative_offset,
+            };
+
+            // Update cumulative values for next iteration
+            cumulative_offset += state.chunk_length;
+            for (j, delta) in state.deltas.iter().enumerate() {
+                let old_net = cumulative_deltas[j].net;
+                cumulative_deltas[j].net += delta.net;
+                cumulative_deltas[j].min = cumulative_deltas[j].min.min(old_net + delta.min);
             }
-
-            return result;
         }
-
-        // Parallel implementation using work-efficient algorithm
-        Self::parallel_prefix_sum(states, &mut result);
 
         result
     }
@@ -119,201 +117,26 @@ impl PrefixSumComputer {
             n
         ];
 
-        // For small inputs, use sequential implementation
-        if n <= 4 {
-            let mut cumulative_deltas =
-                DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; states[0].deltas.len()]);
+        // Simple sequential scan (see compute_prefix_sum for rationale).
 
-            for (i, (state, chunk)) in states.iter().zip(chunks.iter()).enumerate() {
-                result[i] = ChunkStartState {
-                    cumulative_deltas: cumulative_deltas.clone(),
-                    global_offset: chunk.start_offset,
-                };
+        let mut cumulative_deltas =
+            DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; states[0].deltas.len()]);
 
-                // Update cumulative deltas for next iteration
-                for (j, delta) in state.deltas.iter().enumerate() {
-                    let old_net = cumulative_deltas[j].net;
-                    cumulative_deltas[j].net += delta.net;
-                    cumulative_deltas[j].min = cumulative_deltas[j].min.min(old_net + delta.min);
-                }
+        for (i, (state, chunk)) in states.iter().zip(chunks.iter()).enumerate() {
+            result[i] = ChunkStartState {
+                cumulative_deltas: cumulative_deltas.clone(),
+                global_offset: chunk.start_offset,
+            };
+
+            // Update cumulative deltas for next iteration
+            for (j, delta) in state.deltas.iter().enumerate() {
+                let old_net = cumulative_deltas[j].net;
+                cumulative_deltas[j].net += delta.net;
+                cumulative_deltas[j].min = cumulative_deltas[j].min.min(old_net + delta.min);
             }
-
-            return result;
         }
-
-        // For larger inputs, use parallel algorithm with chunk offsets
-        Self::parallel_prefix_sum_with_overlap(states, chunks, &mut result);
 
         result
-    }
-
-    /// Parallel prefix-sum using the work-efficient algorithm.
-    fn parallel_prefix_sum(states: &[PartialState], result: &mut [ChunkStartState]) {
-        let n = states.len();
-        let enclosure_count = states[0].deltas.len();
-
-        // Up-sweep phase (reduction)
-        let tree_depth = (n as f64).log2().ceil() as usize;
-        let mut tree =
-            vec![DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; enclosure_count]); n];
-        let mut offsets = vec![0usize; n];
-
-        // Initialize leaf nodes
-        for (i, state) in states.iter().enumerate() {
-            tree[i] = state.deltas.to_vec().into();
-            offsets[i] = state.chunk_length;
-        }
-
-        // Up-sweep
-        for level in 0..tree_depth {
-            let stride = 1 << (level + 1);
-            let half_stride = 1 << level;
-
-            // Process this level sequentially to avoid borrow checker issues
-            for i in (half_stride..n).step_by(stride) {
-                let left_idx = i - half_stride;
-                let right_idx = i;
-
-                // Combine deltas
-                let left_deltas = tree[left_idx].clone();
-                let right_deltas = tree[right_idx].clone();
-                for j in 0..enclosure_count {
-                    tree[i][j] = DeltaEntry {
-                        net: left_deltas[j].net + right_deltas[j].net,
-                        min: left_deltas[j]
-                            .min
-                            .min(left_deltas[j].net + right_deltas[j].min),
-                    };
-                }
-
-                // Combine offsets
-                offsets[i] = offsets[left_idx] + offsets[right_idx];
-            }
-        }
-
-        // Down-sweep phase
-        if n > 0 {
-            tree[n - 1] = DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; enclosure_count]);
-            offsets[n - 1] = 0;
-        }
-
-        for level in (0..tree_depth).rev() {
-            let stride = 1 << (level + 1);
-            let half_stride = 1 << level;
-
-            // Process this level sequentially
-            for i in (half_stride..n).step_by(stride) {
-                let left_idx = i - half_stride;
-                let right_idx = i;
-
-                // Save current value
-                let temp_deltas = tree[right_idx].clone();
-                let temp_offset = offsets[right_idx];
-
-                // Update right child
-                tree[right_idx] = tree[left_idx].clone();
-                offsets[right_idx] = offsets[left_idx];
-
-                // Update left child
-                for (j, temp) in temp_deltas.iter().enumerate().take(enclosure_count) {
-                    let old = tree[left_idx][j].clone();
-                    tree[left_idx][j] = DeltaEntry {
-                        net: old.net + temp.net,
-                        min: old.min.min(old.net + temp.min),
-                    };
-                }
-                offsets[left_idx] += temp_offset;
-            }
-        }
-
-        // Copy results
-        for (i, chunk_start) in result.iter_mut().enumerate() {
-            chunk_start.cumulative_deltas = tree[i].clone();
-            chunk_start.global_offset = offsets[i];
-        }
-    }
-
-    /// Parallel prefix-sum with chunk offset handling.
-    fn parallel_prefix_sum_with_overlap(
-        states: &[PartialState],
-        chunks: &[TextChunk],
-        result: &mut [ChunkStartState],
-    ) {
-        let n = states.len();
-        let enclosure_count = states[0].deltas.len();
-
-        // Up-sweep phase (reduction)
-        let tree_depth = (n as f64).log2().ceil() as usize;
-        let mut tree =
-            vec![DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; enclosure_count]); n];
-        let mut offsets = vec![0usize; n];
-
-        // Initialize leaf nodes with chunk start offsets
-        for (i, (state, chunk)) in states.iter().zip(chunks.iter()).enumerate() {
-            tree[i] = state.deltas.to_vec().into();
-            offsets[i] = chunk.start_offset;
-        }
-
-        // Up-sweep - combine deltas
-        for level in 0..tree_depth {
-            let stride = 1 << (level + 1);
-            let half_stride = 1 << level;
-
-            for i in (half_stride..n).step_by(stride) {
-                let left_idx = i - half_stride;
-                let right_idx = i;
-
-                // Combine deltas
-                let left_deltas = tree[left_idx].clone();
-                let right_deltas = tree[right_idx].clone();
-                for j in 0..enclosure_count {
-                    tree[i][j] = DeltaEntry {
-                        net: left_deltas[j].net + right_deltas[j].net,
-                        min: left_deltas[j]
-                            .min
-                            .min(left_deltas[j].net + right_deltas[j].min),
-                    };
-                }
-
-                // Note: We don't combine offsets in up-sweep as we use chunk positions directly
-            }
-        }
-
-        // Down-sweep phase
-        if n > 0 {
-            tree[n - 1] = DeltaVec::from_vec(vec![DeltaEntry { net: 0, min: 0 }; enclosure_count]);
-        }
-
-        for level in (0..tree_depth).rev() {
-            let stride = 1 << (level + 1);
-            let half_stride = 1 << level;
-
-            for i in (half_stride..n).step_by(stride) {
-                let left_idx = i - half_stride;
-                let right_idx = i;
-
-                // Save current value
-                let temp_deltas = tree[right_idx].clone();
-
-                // Update right child
-                tree[right_idx] = tree[left_idx].clone();
-
-                // Update left child
-                for (j, temp) in temp_deltas.iter().enumerate().take(enclosure_count) {
-                    let old = tree[left_idx][j].clone();
-                    tree[left_idx][j] = DeltaEntry {
-                        net: old.net + temp.net,
-                        min: old.min.min(old.net + temp.min),
-                    };
-                }
-            }
-        }
-
-        // Copy results with actual chunk offsets
-        for (i, (chunk_start, chunk)) in result.iter_mut().zip(chunks.iter()).enumerate() {
-            chunk_start.cumulative_deltas = tree[i].clone();
-            chunk_start.global_offset = chunk.start_offset;
-        }
     }
 
     /// Applies cumulative state to boundary candidates in a chunk.

@@ -116,23 +116,30 @@ impl Output {
         }
     }
 
-    /// Calculate character offsets from byte offsets
+    /// Calculate character offsets from byte offsets.
+    ///
+    /// `byte_offsets` must be sorted ascending (guaranteed by the boundary
+    /// merge step), which allows a single merged pass instead of a linear
+    /// search per character.
     fn calculate_char_offsets(text: &str, byte_offsets: &[usize]) -> Vec<usize> {
         let mut char_offsets = Vec::with_capacity(byte_offsets.len());
+        let mut offsets = byte_offsets.iter().copied().peekable();
         let mut char_count = 0;
         let mut byte_count = 0;
 
-        for (i, ch) in text.chars().enumerate() {
-            if byte_offsets.contains(&byte_count) {
-                char_offsets.push(i);
+        for ch in text.chars() {
+            while offsets.peek() == Some(&byte_count) {
+                char_offsets.push(char_count);
+                offsets.next();
             }
             byte_count += ch.len_utf8();
             char_count += 1;
         }
 
-        // Handle any remaining offsets at the end
-        if byte_offsets.contains(&byte_count) {
+        // Handle any remaining offsets at the end of the text
+        while offsets.peek() == Some(&byte_count) {
             char_offsets.push(char_count);
+            offsets.next();
         }
 
         char_offsets

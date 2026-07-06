@@ -145,6 +145,32 @@ pub trait LanguageRules: Send + Sync {
     /// Number of distinct enclosure types
     fn enclosure_type_count(&self) -> usize;
 
+    /// Returns true if the character can potentially terminate a sentence
+    /// and should be evaluated by [`Self::detect_sentence_boundary`].
+    ///
+    /// The default covers the common Latin and CJK terminators for backward
+    /// compatibility. Implementations backed by configuration should
+    /// override this so that every configured terminator, terminator
+    /// pattern, and ellipsis character is actually evaluated during
+    /// scanning.
+    fn is_potential_terminator(&self, ch: char) -> bool {
+        matches!(ch, '.' | '!' | '?' | '。' | '！' | '？')
+    }
+
+    /// Reports which enclosure type IDs are symmetric (the same character
+    /// opens and closes, e.g. straight quotes).
+    ///
+    /// Symmetric types are tracked as parity counts across chunks: the
+    /// scanner records one count per occurrence and the reduce phase treats
+    /// an even cumulative count as "outside the enclosure". The default
+    /// implementation reports every type as asymmetric.
+    ///
+    /// # Returns
+    /// One flag per enclosure type ID; `true` marks a symmetric type
+    fn symmetric_enclosure_types(&self) -> Vec<bool> {
+        vec![false; self.enclosure_type_count()]
+    }
+
     /// Get the enclosure suppressor for this language
     ///
     /// Returns None if this language doesn't have special enclosure suppression rules
