@@ -40,7 +40,7 @@ pub(crate) type PendingEncVec = SmallVec<[PendingEnclosure; 2]>;
 
 /// Resolved enclosure toggles collected during one combine, in combined-state
 /// coordinates.
-type ToggleVec = SmallVec<[(usize, EnclosureSlot); 4]>;
+pub(crate) type ToggleVec = SmallVec<[(usize, EnclosureSlot); 4]>;
 
 /// Parsing state of a text span under the Δ-Stack Monoid algorithm.
 #[derive(Debug, Clone, PartialEq)]
@@ -120,6 +120,10 @@ impl PartialState {
     /// verdicts for every parenthesization. Enclosures resolve before
     /// candidates because a confirmed enclosure retroactively shifts the
     /// depth/parity of everything positioned after it.
+    ///
+    /// The driver uses [`Self::absorb`] (the in-place form) directly; this
+    /// wrapper is the specification the property tests exercise.
+    #[cfg(test)]
     pub(crate) fn combine_with<J: Judge>(&self, other: &Self, judge: &J) -> Self {
         let mut acc = self.clone();
         acc.absorb(other, judge);
@@ -127,10 +131,10 @@ impl PartialState {
     }
 
     /// In-place [`Self::combine_with`]: `self` becomes the state of
-    /// `text(self) ++ text(other)`. The driver folds the chunk states with
-    /// this, so the accumulated candidates are never re-copied — one fold
-    /// over the whole text does O(total items) work.
-    pub(crate) fn absorb<J: Judge>(&mut self, other: &Self, judge: &J) {
+    /// `text(self) ++ text(other)`. Returns the enclosure toggles resolved at
+    /// this combine (in combined-state coordinates), which the driver needs
+    /// to adjust candidates it keeps outside the fold.
+    pub(crate) fn absorb<J: Judge>(&mut self, other: &Self, judge: &J) -> ToggleVec {
         // Rebasing `other`'s items needs the left-hand totals as they were
         // before the merge.
         let left_len = self.chunk_len;
@@ -227,6 +231,8 @@ impl PartialState {
                 self.pending.push(pc);
             }
         }
+
+        toggles
     }
 
     /// Resolves the remaining pending items with the knowledge that no more
@@ -235,7 +241,17 @@ impl PartialState {
     /// instead of completed). Called once by the driver after the final
     /// combine; sits outside the monoid. Enclosures resolve before
     /// candidates, as in combine.
-    pub(crate) fn resolve_edges<J: Judge>(mut self, judge: &J) -> Self {
+    ///
+    /// The driver uses [`Self::resolve_edges_full`] directly; this wrapper is
+    /// what the property tests exercise.
+    #[cfg(test)]
+    pub(crate) fn resolve_edges<J: Judge>(self, judge: &J) -> Self {
+        self.resolve_edges_full(judge).0
+    }
+
+    /// [`Self::resolve_edges`], additionally returning the enclosure toggles
+    /// it applied (for candidates the driver keeps outside the state).
+    pub(crate) fn resolve_edges_full<J: Judge>(mut self, judge: &J) -> (Self, ToggleVec) {
         let pending_enc = std::mem::take(&mut self.pending_enc);
         let mut toggles = ToggleVec::new();
         for pe in pending_enc {
@@ -294,7 +310,7 @@ impl PartialState {
             }
         }
         self.boundaries.sort_unstable_by_key(|c| c.local_offset);
-        self
+        (self, toggles)
     }
 }
 
@@ -317,7 +333,7 @@ fn resolve_window(joint_str: &str, joint_start: usize, p: usize) -> (&str, usize
 
 /// Rebases a right-hand candidate to the combined state's origin, given the
 /// left-hand span's pre-merge totals.
-fn rebase_candidate(
+pub(crate) fn rebase_candidate(
     c: &Candidate,
     left_len: usize,
     left_deltas: &DepthVec,
@@ -375,7 +391,7 @@ fn apply_slot_to_totals(deltas: &mut DepthVec, parity: &mut u32, slot: Enclosure
 
 /// Applies every confirmed enclosure positioned before `offset` to one
 /// candidate's depth/parity.
-fn adjust_for_toggles(
+pub(crate) fn adjust_for_toggles(
     depths: &mut DepthVec,
     parity: &mut u32,
     offset: usize,

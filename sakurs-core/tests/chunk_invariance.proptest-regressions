@@ -7,3 +7,4 @@
 cc 658e823f3449d254195306aa74aebf6f54fa4083f6600e5646686228f1be1f6a # shrinks to indices = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 2, 0], chunk_size = 1024, overlap = 16, threads = 2, trim_trailing = false
 cc 1a7a844976f58f0267fa1d35dcf7083691ffacc8e84de864b4e6a87cf083f93e # shrinks to indices = [2, 5, 5, 5, 5, 3, 0, 5, 2, 3, 4, 0, 2, 0], chunk_size = 64, overlap = 16, threads = 1, trim_trailing = false
 cc a4a76f33168760073ba72b7ec857a1780a5cbe399074fcad0578c5711c3d7081 # shrinks to indices = [1, 3, 1, 1, 4, 0, 0, 0, 0], chunk_size = 64, overlap = 0, threads = 1, trim_trailing = false
+cc 3adbbfe7b1d18d956c70fc547704cbad87e45aeb3d17e73093906233d537fbb4 # shrinks to indices = [1, 2, 0], chunk_size = 64, threads = 1, trim_trailing = false

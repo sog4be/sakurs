@@ -8,7 +8,11 @@ use crate::{
         config::{ProcessingError, ProcessingResult, ProcessorConfig},
     },
     domain::language::config::{get_language_config, LanguageConfig},
-    domain::state::{scan_chunk, CompiledRules, PartialState},
+    domain::state::{
+        adjust_for_toggles, rebase_candidate, scan_chunk, Candidate, CandidateVec, CompiledRules,
+        PartialState, ToggleVec,
+    },
+    domain::types::DepthVec,
 };
 
 use super::execution_mode::ExecutionMode;
@@ -74,16 +78,23 @@ impl DeltaStackProcessor {
         let chunks = chunk_spans(text, self.chunk_size);
         let chunk_count = chunks.len();
 
-        // Phase 1: scan chunks into partial states (parallel when warranted).
         let thread_count = mode.determine_thread_count(text.len());
-        let states: Vec<PartialState> = if thread_count > 1 {
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(thread_count)
-                .build()
-                .map_err(|e| ProcessingError::InvalidConfig {
-                    reason: format!("Failed to create thread pool: {e}"),
-                })?;
-            let rules = &self.rules;
+        let pool = if thread_count > 1 {
+            Some(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(thread_count)
+                    .build()
+                    .map_err(|e| ProcessingError::InvalidConfig {
+                        reason: format!("Failed to create thread pool: {e}"),
+                    })?,
+            )
+        } else {
+            None
+        };
+        let rules = self.rules.as_ref();
+
+        // Phase 1: scan chunks into partial states (parallel when warranted).
+        let mut states: Vec<PartialState> = if let Some(pool) = &pool {
             pool.install(|| {
                 chunks
                     .par_iter()
@@ -93,35 +104,121 @@ impl DeltaStackProcessor {
         } else {
             chunks
                 .iter()
-                .map(|chunk| scan_chunk(chunk, self.rules.as_ref()))
+                .map(|chunk| scan_chunk(chunk, rules))
                 .collect()
         };
 
-        // Phase 2: prefix fold. Sequential over per-chunk states (the number
-        // of chunks is small and each step only touches the new state's
-        // items), then edge resolution with the knowledge that the text ends.
+        // Phase 2: prefix fold over aggregates. The confirmed candidates are
+        // taken out of the states first, so the sequential fold only touches
+        // per-chunk totals, context buffers, and pending items; the bulk is
+        // rebased and filtered in parallel below. Seam-resolved candidates
+        // surface in the accumulator and are collected as extras; resolved
+        // enclosure toggles are routed to every chunk whose prefix was
+        // recorded before the toggle was known (later chunks receive them
+        // through the cumulative prefix itself).
+        let mut bulk: Vec<CandidateVec> = Vec::with_capacity(chunk_count);
+        let mut chunk_starts: Vec<usize> = Vec::with_capacity(chunk_count);
+        let mut prefix: Vec<(DepthVec, u32)> = Vec::with_capacity(chunk_count);
+        let mut toggles_by_chunk: Vec<ToggleVec> = vec![ToggleVec::new(); chunk_count];
         let mut acc = PartialState::identity();
-        for state in &states {
-            acc.absorb(state, self.rules.as_ref());
+        for (i, state) in states.iter_mut().enumerate() {
+            bulk.push(std::mem::take(&mut state.boundaries));
+            chunk_starts.push(acc.chunk_len);
+            prefix.push((acc.deltas.clone(), acc.parity));
+            let toggles = acc.absorb(state, rules);
+            assign_toggles(&mut toggles_by_chunk, &chunk_starts, toggles, i);
         }
-        let acc = acc.resolve_edges(self.rules.as_ref());
+        // Seam-resolved candidates stay in the accumulator through edge
+        // resolution: that is where boundary-of-text enclosure toggles are
+        // applied to them (a toggle resolved at a later step always sits
+        // after every earlier-confirmed candidate, but BOF/EOF toggles do
+        // not).
+        let (mut acc, edge_toggles) = acc.resolve_edges_full(rules);
+        assign_toggles(
+            &mut toggles_by_chunk,
+            &chunk_starts,
+            edge_toggles,
+            chunk_count - 1,
+        );
+        let extras: Vec<Candidate> = acc.boundaries.drain(..).collect();
 
-        // Phase 3: reduce. A candidate is a boundary iff it sits outside
-        // every enclosure: clamped depth for asymmetric types, even parity
-        // for symmetric types (offsets are text-global here, so the
-        // cumulative prefix is zero).
-        let boundaries: Vec<usize> = acc
-            .boundaries
+        // Phase 3: reduce — rebase each chunk's candidates to text-global
+        // coordinates, apply the toggles positioned before them, and keep
+        // candidates outside every enclosure: clamped depth for asymmetric
+        // types, even parity for symmetric types. Embarrassingly parallel.
+        let reduce_chunk = |i: usize| -> Vec<usize> {
+            let (deltas, parity) = &prefix[i];
+            let toggles = &toggles_by_chunk[i];
+            bulk[i]
+                .iter()
+                .filter_map(|c| {
+                    let mut c = rebase_candidate(c, chunk_starts[i], deltas, *parity);
+                    adjust_for_toggles(
+                        &mut c.local_depths,
+                        &mut c.local_parity,
+                        c.local_offset,
+                        toggles,
+                    );
+                    is_boundary(&c).then_some(c.local_offset)
+                })
+                .collect()
+        };
+        let per_chunk: Vec<Vec<usize>> = if let Some(pool) = &pool {
+            pool.install(|| (0..chunk_count).into_par_iter().map(reduce_chunk).collect())
+        } else {
+            (0..chunk_count).map(reduce_chunk).collect()
+        };
+
+        // Merge: per-chunk results are globally ordered by construction; the
+        // few seam/edge extras are merged in by offset.
+        let mut extra_offsets: Vec<usize> = extras
             .iter()
-            .filter(|c| c.local_parity == 0 && c.local_depths.iter().all(|&d| d <= 0))
+            .filter(|c| is_boundary(c))
             .map(|c| c.local_offset)
             .collect();
+        extra_offsets.sort_unstable();
+        let total: usize = per_chunk.iter().map(Vec::len).sum::<usize>() + extra_offsets.len();
+        let mut boundaries = Vec::with_capacity(total);
+        let mut extras_iter = extra_offsets.into_iter().peekable();
+        for chunk_offsets in per_chunk {
+            for off in chunk_offsets {
+                while extras_iter.peek().is_some_and(|&e| e < off) {
+                    boundaries.push(extras_iter.next().unwrap());
+                }
+                boundaries.push(off);
+            }
+        }
+        boundaries.extend(extras_iter);
+        boundaries.dedup();
 
         Ok(DeltaStackResult {
             boundaries,
             chunk_count,
             thread_count,
         })
+    }
+}
+
+/// A candidate is a sentence boundary iff it sits outside every enclosure.
+fn is_boundary(c: &Candidate) -> bool {
+    c.local_parity == 0 && c.local_depths.iter().all(|&d| d <= 0)
+}
+
+/// Routes resolved enclosure toggles to the chunks whose recorded prefix
+/// predates them: from the chunk containing the toggle through chunk `upto`
+/// (the step at which it resolved). Later chunks see the toggle through the
+/// cumulative prefix instead.
+fn assign_toggles(
+    by_chunk: &mut [ToggleVec],
+    chunk_starts: &[usize],
+    toggles: ToggleVec,
+    upto: usize,
+) {
+    for (q, slot) in toggles {
+        let from = chunk_starts[..=upto].partition_point(|&s| s <= q) - 1;
+        for list in &mut by_chunk[from..=upto] {
+            list.push((q, slot));
+        }
     }
 }
 

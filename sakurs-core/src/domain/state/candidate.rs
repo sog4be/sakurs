@@ -8,16 +8,14 @@
 
 use crate::domain::types::{BoundaryFlags, DepthVec};
 
-/// Classification of the terminator that produced a candidate, carried so the
-/// judgment can be re-invoked on a reconstructed window later.
+/// The terminator character that produced a candidate, carried so the
+/// judgment can be re-invoked on a reconstructed window later. Multi-character
+/// patterns and ellipses are re-detected from the window content itself,
+/// which keeps the kind chunk-invariant by construction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TerminatorKind {
     /// A single terminator character (e.g. `.`, `。`).
     Char(char),
-    /// A multi-character terminator pattern ending at the candidate (e.g. `!?`).
-    Pattern { len: u8 },
-    /// An ellipsis sequence ending at the candidate (e.g. `...`, `…`).
-    Ellipsis { len: u8 },
 }
 
 /// Verdict of the judgment function for one candidate.
