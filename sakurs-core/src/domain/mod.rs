@@ -12,6 +12,10 @@ pub mod language;
 pub mod monoid;
 pub mod prefix_sum;
 pub mod reduce;
+// The v2 state model; wired into the processing pipeline by the scanner and
+// combine/reduce work branches, which will also remove these allows.
+#[allow(dead_code, unused_imports)]
+pub(crate) mod state;
 pub mod traits;
 pub mod types;
 
