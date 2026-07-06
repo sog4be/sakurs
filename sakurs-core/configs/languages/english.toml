@@ -46,8 +46,12 @@ pairs = [
 # or add a special "possessive" pattern type for better performance.
 fast_patterns = [
     { char = "'", before = "alpha", after = "alpha" },
-    { char = "'", before = "s", after = "whitespace" },  # Possessive after s (partial support)
-    { char = ")", line_start = true, before = "alnum" }    # List items at line start
+    { char = "'", before = "s", after = "whitespace" }   # Possessive after s (partial support)
+    # NOTE: the former line-start ")" list-item rule was removed: it also
+    # suppressed the closing paren of ordinary parentheticals like "(note)"
+    # at a line start, leaving the enclosure depth permanently unbalanced.
+    # Bare list markers like "1)" are harmless without it, because unmatched
+    # closing delimiters no longer suppress boundaries (negative depth).
 ]
 
 # Regex patterns for more complex matching
