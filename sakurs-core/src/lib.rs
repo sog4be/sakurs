@@ -7,12 +7,13 @@
 //!
 //! # Stability Notice
 //!
-//! This crate is in pre-release (v0.1.0-dev). The API is not yet stable and may
-//! change significantly in future releases. Use with caution in production code.
+//! This crate is pre-1.0. The API is not yet stable and may change
+//! significantly in future releases (a breaking rework of the public
+//! surface is planned for v0.2.0). Use with caution in production code.
 //!
 //! We recommend pinning to exact versions in your Cargo.toml:
 //! ```toml
-//! sakurs-core = "=0.1.0"
+//! sakurs-core = "=0.1.2"
 //! ```
 //!
 //! # Architecture
