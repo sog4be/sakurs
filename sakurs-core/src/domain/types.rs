@@ -174,8 +174,6 @@ impl DeltaEntry {
 }
 
 /// Simplified abbreviation state for cross-chunk tracking
-///
-/// Based on the NAACL 2024 paper's linear cross-chunk abbreviation detection
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AbbreviationState {
     /// Ends with period preceded by alphabetic character (e.g., "Dr.")
