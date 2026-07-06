@@ -11,7 +11,7 @@
   - [1. Hexagonal Architecture](#1-hexagonal-architecture)
   - [2. Rust for Core Implementation](#2-rust-for-core-implementation)
   - [3. Rayon for Parallelism](#3-rayon-for-parallelism)
-  - [4. Language Rules as Traits with Configuration-Based Implementation](#4-language-rules-as-traits-with-configuration-based-implementation)
+  - [4. Languages as Compiled TOML Configurations](#4-languages-as-compiled-toml-configurations)
   - [5. Unified Public API](#5-unified-public-api)
   - [6. Simplified Execution Model](#6-simplified-execution-model)
 - [Component Structure](#component-structure)
@@ -20,29 +20,21 @@
   - [Application Layer](#application-layer-srcapplication)
   - [Adapter Layer](#adapter-layer)
 - [Language Configuration System](#language-configuration-system)
-  - [Overview](#overview-1)
   - [Configuration Structure](#configuration-structure)
   - [Adding a New Language](#adding-a-new-language)
-  - [Configuration Components](#configuration-components)
-  - [Performance Optimizations](#performance-optimizations)
+  - [Compilation and the Judgment Window](#compilation-and-the-judgment-window)
 - [Performance Characteristics](#performance-characteristics)
-  - [Memory Usage](#memory-usage)
-  - [Time Complexity](#time-complexity)
-  - [Optimization Strategies](#optimization-strategies)
-  - [Planned Optimizations](#planned-optimizations)
 - [Usage Examples](#usage-examples)
   - [Basic Usage (via API Layer)](#basic-usage-via-api-layer)
   - [CLI Usage](#cli-usage)
   - [Python Usage](#python-usage)
 - [FAQ](#faq)
 - [Implementation Status](#implementation-status)
-  - [Current Features (v0.1.1)](#current-features-v011)
-  - [Planned Features](#planned-features)
 - [Contributing](#contributing)
 
 ## Overview
 
-The Delta-Stack Monoid Sentence Boundary Detection (SBD) library is a high-performance, parallel text processing system designed to identify sentence boundaries in multiple languages. This document describes the architecture, design decisions, and extension points to help contributors understand and work with the codebase effectively.
+Sakurs is a high-performance, parallel sentence boundary detection (SBD) library. Its core is the Δ-Stack Monoid algorithm (see [DELTA_STACK_ALGORITHM.md](DELTA_STACK_ALGORITHM.md)), which formulates SBD as an associative combine over per-chunk states, so chunked and parallel processing produce exactly the same boundaries as a sequential scan. This document describes the code architecture around that algorithm and the extension points for contributors.
 
 ### Why This Architecture?
 
@@ -50,8 +42,8 @@ We chose a **Hexagonal Architecture (Ports & Adapters)** pattern to achieve:
 
 - **Clear separation of concerns** - Algorithm logic is isolated from I/O and language bindings
 - **Easy testing** - Core logic can be tested without external dependencies
-- **Multiple interfaces** - Same core supports CLI, Python, WASM, and streaming APIs
-- **Future extensibility** - New languages and adapters can be added without modifying the core
+- **Multiple interfaces** - Same core supports CLI, Python, and future adapters
+- **Future extensibility** - New languages are TOML files; new adapters depend only on the API layer
 
 ## System Architecture
 
@@ -62,291 +54,162 @@ graph TB
         PY[Python Apps]
         CLI[Command Line]
     end
-    
-    subgraph "Adapters (Outer Layer) - Implemented"
+
+    subgraph "Adapters (Outer Layer)"
         ADP_CLI[CLI Adapter<br/>sakurs-cli]
         ADP_PY[Python Adapter<br/>sakurs-py]
     end
-    
+
     subgraph "API Layer (Public Interface)"
         API[SentenceProcessor]
         CFG[Config & ConfigBuilder]
+        LCFG[LanguageConfig<br/>TOML schema]
         IN[Input Abstraction]
         OUT[Output & Metadata]
-        ERR[Error Types]
-        LANG[Language Enum]
     end
-    
-    subgraph "Application Layer"
-        APP[DeltaStackProcessor]
-        MODE[Execution Modes<br/>- Sequential<br/>- Parallel<br/>- Adaptive]
-        CHUNK[Chunking Functions<br/>- ChunkManager<br/>- OverlapChunkManager]
-        PARSER[Text Parser]
+
+    subgraph "Application Layer (crate-private)"
+        APP[DeltaStackProcessor<br/>scan → prefix → reduce]
+        MODE[ExecutionMode<br/>Sequential / Parallel / Adaptive]
+        CHUNK[chunk_spans<br/>contiguous borrowed slices]
     end
-    
-    subgraph "Domain Core (Inner Layer)"
-        ALGO[Delta-Stack Monoid]
-        RULES[Language Rules<br/>- Configurable Rules<br/>- TOML-based Config]
-        STATE[State Machine<br/>- PartialState<br/>- DeltaVec]
-        CROSS[Cross-Chunk Logic]
+
+    subgraph "Domain Core (crate-private)"
+        STATE[PartialState monoid<br/>candidates, pending items,<br/>Δ nets, parity, context buffers]
+        SCAN[Scanner<br/>one pass, zero alloc]
+        RULES[CompiledRules<br/>judge + suppress oracles]
     end
-    
+
     USER --> CLI
     CLI --> ADP_CLI
     PY --> ADP_PY
-    
+
     ADP_CLI --> API
     ADP_PY --> API
-    
-    API --> CFG
-    API --> IN
-    API --> OUT
-    API --> ERR
-    API --> LANG
+
     API --> APP
-    
     APP --> MODE
-    APP --> PARSER
-    MODE --> CHUNK
-    PARSER --> ALGO
-    
-    CHUNK --> STATE
-    PARSER --> STATE
-    STATE --> ALGO
-    ALGO --> RULES
-    ALGO --> CROSS
+    APP --> CHUNK
+    APP --> SCAN
+    SCAN --> STATE
+    SCAN --> RULES
+    LCFG --> RULES
 ```
 
 ### Future Architecture (Planned Extensions)
 
-```mermaid
-graph TB
-    subgraph "Future External World"
-        WEB[Web Browser]
-        STREAM[Streaming Apps]
-        C_APP[C/C++ Apps]
-    end
-    
-    subgraph "Future Adapters"
-        ADP_WASM[WASM Adapter]
-        ADP_C[C API Adapter]
-    end
-    
-    WEB --> ADP_WASM
-    STREAM --> API
-    C_APP --> ADP_C
-    
-    ADP_WASM --> API[Existing API Layer]
-    ADP_C --> API
-    
-    style ADP_WASM stroke-dasharray: 5 5
-    style ADP_C stroke-dasharray: 5 5
-    style WEB stroke-dasharray: 5 5
-    style STREAM stroke-dasharray: 5 5
-    style C_APP stroke-dasharray: 5 5
-```
-
-Note: Streaming functionality is available through configuration presets that optimize chunk size and overlap for memory-efficient processing of large texts or continuous streams.
+WASM and C-API adapters are planned; both would sit next to the CLI/Python adapters and depend only on the API layer.
 
 ## Core Algorithm
 
-The system is built around the **Delta-Stack Monoid** algorithm for parallel sentence boundary detection. For detailed mathematical foundation and implementation details, see [DELTA_STACK_ALGORITHM.md](DELTA_STACK_ALGORITHM.md).
+The system is built around the **Δ-Stack Monoid** algorithm for parallel sentence boundary detection with a sequential-equivalence guarantee. For the data structures (pending candidates and enclosures, context buffers, delta/parity state), the combine operation, and the correctness argument, see [DELTA_STACK_ALGORITHM.md](DELTA_STACK_ALGORITHM.md) — the implementation in `sakurs-core/src/domain/state/` follows it directly.
 
 ## Key Design Decisions
 
 ### 1. Hexagonal Architecture
 
-**Decision**: Separate domain logic from infrastructure concerns using Ports & Adapters pattern.
+**Decision**: Separate domain logic from infrastructure concerns using Ports & Adapters.
 
-**Rationale**: 
-- Allows pure functional core that's easy to test
-- Enables multiple delivery mechanisms (CLI, Python, WASM) without duplicating logic
-- Prepares for `no_std` support for embedded systems
+**Rationale**: pure, independently testable core; multiple delivery mechanisms without duplicating logic.
 
-**Trade-off**: More layers can be initially confusing for newcomers.
+**Trade-off**: more layers can be initially confusing for newcomers.
 
 ### 2. Rust for Core Implementation
 
-**Decision**: Implement core algorithm in Rust with safe abstractions.
+**Decision**: Implement the core in Rust with safe abstractions.
 
-**Rationale**:
-- Memory safety without garbage collection
-- Zero-cost abstractions for performance
-- Excellent FFI for Python/WASM bindings
-- Strong ecosystem for parallel processing (rayon)
+**Rationale**: memory safety without garbage collection, zero-cost abstractions, excellent FFI for Python/WASM, strong parallel ecosystem (rayon).
 
-**Trade-off**: Steeper learning curve than Python/Go.
+**Trade-off**: steeper learning curve than Python/Go.
 
 ### 3. Rayon for Parallelism
 
-**Decision**: Use rayon's work-stealing thread pool for parallel processing.
+**Decision**: Use rayon's work-stealing thread pool for the parallel phases.
+
+**Rationale**: battle-tested, automatic load balancing, integrates with Rust iterators.
+
+**Trade-off**: not available in WASM (sequential fallback).
+
+### 4. Languages as Compiled TOML Configurations
+
+**Decision**: A language is a TOML configuration file, compiled at load time into the two pure decision oracles the algorithm needs (boundary judgment and enclosure suppression).
 
 **Rationale**:
-- Battle-tested in production
-- Automatic load balancing
-- Integrates well with Rust iterators
 
-**Trade-off**: Not available in WASM (we fall back to sequential).
+- Adding a language requires no code — just a TOML file (bundled configurations are embedded at compile time; external files load at runtime)
+- One implementation for all languages: the compiled oracles are the only rules engine, so single-chunk and multi-chunk processing share the exact same decision code by construction
+- Compilation validates the configuration up front, including that every rule's context need fits the algorithm's judgment window — a configuration that could break sequential equivalence is rejected at load time instead of surfacing as wrong output
 
-### 4. Language Rules as Traits with Configuration-Based Implementation
-
-**Decision**: Define `LanguageRules` trait with configurable implementation loaded from TOML files.
-
-**Rationale**:
-- Easy to add new languages without modifying core - just add a TOML configuration file
-- Community can contribute language implementations via simple configuration files
-- Compile-time type safety with runtime configuration flexibility
-- Embedded configurations at build time for zero runtime overhead
-- Consistent rule structure across all languages
-
-**Trade-off**: Requires careful trait design to remain stable and configuration schema versioning.
+**Trade-off**: rule expressiveness is bounded by the schema and the judgment window; features needing unbounded context (deeply nested same-character quotes, URL grammar) are out of scope for the rule engine.
 
 ### 5. Unified Public API
 
-**Decision**: Create a separate API layer (`src/api/`) as the public interface.
+**Decision**: The public surface is the `api` module (re-exported at the crate root); `application` and `domain` are crate-private.
 
-**Rationale**:
-- Stable public interface independent of internal changes
-- Simplified usage for external consumers
-- Better encapsulation of implementation details
-- Easier to maintain backward compatibility
+**Rationale**: a stable, small interface lets internals change without breaking consumers; the 0.2 series is the first pass at this stability.
 
-**Trade-off**: Additional abstraction layer to maintain.
+**Trade-off**: an additional abstraction layer to maintain.
 
 ### 6. Simplified Execution Model
 
-**Decision**: Use enum-based execution modes instead of strategy pattern.
+**Decision**: Enum-based execution modes (`Sequential`, `Parallel`, `Adaptive`) instead of a strategy pattern.
 
-**Rationale**:
-- Eliminates virtual dispatch overhead for better performance
-- Simpler to understand and maintain
-- All execution modes share the same core Delta-Stack algorithm
-- No loss of functionality - all modes still available
-- Direct method dispatch enables compiler optimizations
+**Rationale**: no virtual dispatch, simple to understand, all modes share the same pipeline; `Adaptive` picks a thread count from the text size.
 
-**Trade-off**: Less extensible for adding new execution modes at runtime, but this is rarely needed in practice.
+**Trade-off**: less runtime extensibility, which has not been needed.
 
 ## Component Structure
 
 ### API Layer (`src/api/`)
 
-The public interface that provides a clean, stable API for external consumers:
+The public interface:
 
 ```rust
-// Main entry point
-pub struct SentenceProcessor {
-    // Internal implementation details hidden
+pub struct SentenceProcessor { /* … */ }
+
+impl SentenceProcessor {
+    pub fn new() -> Self;
+    pub fn with_language(code: impl Into<String>) -> Result<Self, Error>;
+    pub fn with_config(config: Config) -> Result<Self, Error>;
+    pub fn with_language_config(config: Config, language: &LanguageConfig) -> Result<Self, Error>;
+    pub fn process(&self, input: Input) -> Result<Output, Error>;
 }
 
-// Unified input handling
-pub enum Input {
-    Text(String),
-    File(PathBuf),
-    Bytes(Vec<u8>),
-    Reader(Box<dyn Read>),
-}
+pub enum Input { Text(String), File(PathBuf), Bytes(Vec<u8>), Reader(Box<dyn Read>) }
 
-// Configuration with builder pattern
-pub struct Config { /* fields */ }
-pub struct ConfigBuilder { /* builder */ }
-
-// Rich output information
 pub struct Output {
-    pub boundaries: Vec<Boundary>,
+    pub boundaries: Vec<Boundary>,   // { offset, char_offset }
     pub metadata: ProcessingMetadata,
 }
 ```
 
-Key features:
-- Hides internal implementation complexity
-- Provides intuitive, type-safe API
-- Supports configuration presets (fast, balanced, accurate)
-- Unified error handling with domain-specific error types
-- Rich output metadata including performance metrics
-- Support for various input sources (text, files, readers, bytes)
+`Config` (via `ConfigBuilder`) selects the language, thread count, and chunk size, and offers presets (`small_text`, `large_text`, `streaming`). `LanguageConfig` is the TOML schema, loadable from external files with `LanguageConfig::from_file`; the schema types live in `api::language_config` for programmatic construction (used by the Python bindings).
 
 ### Domain Layer (`src/domain/`)
 
-The pure business logic, no external dependencies:
+Crate-private. `domain::state` implements the algorithm document:
 
-```rust
-// Core algorithm trait
-pub trait Monoid {
-    fn identity() -> Self;
-    fn combine(&self, other: &Self) -> Self;
-}
+- `PartialState` — the monoid state ⟨B, P, E, Δ, π, H, T⟩ with `absorb` (in-place combine) and edge resolution; associativity and single-chunk equivalence are property-tested with judgment functions that are sensitive to every byte of the decision window
+- `scanner` — the one-pass scan: table-driven character classification, inline judgment on borrowed windows for interior items, pending items near chunk edges, zero per-character allocation
+- `compiled` — `CompiledRules`: a TOML configuration compiled into the `judge`/`suppress_enclosure` oracles (reverse-trie abbreviation matcher, terminator/ellipsis tables, `RegexSet` suppression, sentence-starter sets) plus the character classification the scanner consumes
 
-// Language-specific rules trait
-pub trait LanguageRules: Send + Sync {
-    fn is_sentence_boundary(&self, state: &PartialState, offset: usize) -> BoundaryDecision;
-    fn process_character(&self, ch: char, context: &ProcessingContext) -> CharacterEffect;
-    // ... other methods
-}
-
-// Configurable implementation that loads from embedded TOML
-pub struct ConfigurableLanguageRules {
-    config: &'static LanguageConfig,  // Embedded at compile time
-    terminator_rules: TerminatorRules,
-    ellipsis_rules: EllipsisRules,
-    abbreviation_trie: AbbreviationTrie,
-    enclosure_map: EnclosureMap,
-    suppressor: Suppressor,
-}
-```
+`domain::language::config` holds the TOML schema, validation, embedded bundled configurations, and file loading.
 
 ### Application Layer (`src/application/`)
 
-Orchestrates the domain logic with various processing strategies:
+Crate-private orchestration in `DeltaStackProcessor`:
 
-```rust
-// Delta-Stack processor with execution mode selection
-pub struct DeltaStackProcessor {
-    language_rules: Arc<dyn LanguageRules>,
-    execution_mode: ExecutionMode,
-}
-
-// Execution modes (no virtual dispatch)
-pub enum ExecutionMode {
-    Sequential,
-    Parallel { chunk_size: usize },
-    Adaptive,
-}
-
-impl DeltaStackProcessor {
-    pub fn process(&self, text: &str) -> Result<Vec<Boundary>> {
-        match &self.execution_mode {
-            ExecutionMode::Sequential => self.process_sequential(text),
-            ExecutionMode::Parallel { chunk_size } => self.process_parallel(text, *chunk_size),
-            ExecutionMode::Adaptive => self.process_adaptive(text),
-        }
-    }
-}
-```
-
-Key responsibilities:
-- Execution mode selection (sequential, parallel, adaptive)
-- Chunk management at valid UTF-8 boundaries
-- Cross-chunk boundary resolution
-- Performance optimization
-- Streaming support through overlap chunking configuration
-
+1. **Scan**: split the text into contiguous borrowed spans (`chunk_spans`, UTF-8 snapped, zero-copy) and scan them into partial states — in parallel when the execution mode says so
+2. **Prefix**: fold per-chunk aggregates left-to-right, resolving pending items with neighboring context, then resolve the text edges
+3. **Reduce**: rebase and filter each chunk's candidates against the cumulative state — embarrassingly parallel
 
 ### Adapter Layer
 
-Each adapter provides a different interface to the API layer:
-
-- **CLI** (`sakurs-cli/`): Command-line tool with file globbing, stdin support, and multiple output formats
-- **Python** (`sakurs-py/`): PyO3 bindings with NLTK-compatible API and streaming support
-- **WASM** (future): Browser-compatible with streaming support
-- **C API** (future): For integration with other languages
-
-Note: Streaming functionality is available through configuration presets that optimize for memory-efficient processing, accessible through all adapters.
+- **CLI** (`sakurs-cli/`): file globbing, stdin, text/JSON/markdown output, external language configs (`--language-config`), streaming mode for very large files
+- **Python** (`sakurs-py/`): PyO3 bindings with an NLTK-compatible API, custom language configurations, iterator-based streaming
+- **WASM / C API**: planned
 
 ## Language Configuration System
-
-### Overview
-
-Sakurs uses a TOML-based configuration system for language rules, enabling easy addition of new languages without code changes. Language configurations are embedded at compile time for zero runtime overhead.
 
 ### Configuration Structure
 
@@ -358,130 +221,85 @@ code = "en"                    # ISO 639-1 language code
 name = "English"               # Human-readable name
 
 [terminators]
-chars = [".", "!", "?"]        # Basic sentence-ending punctuation
+chars = [".", "!", "?"]        # Sentence-ending punctuation
 patterns = [                   # Multi-character patterns
     { pattern = "!?", name = "surprised_question" },
-    { pattern = "?!", name = "questioning_exclamation" }
 ]
 
 [ellipsis]
 treat_as_boundary = true       # Default ellipsis behavior
-patterns = ["...", "…"]        # Ellipsis patterns to recognize
+patterns = ["...", "…"]
 context_rules = [              # Context-based decisions
     { condition = "followed_by_capital", boundary = true },
-    { condition = "followed_by_lowercase", boundary = false }
+    { condition = "followed_by_lowercase", boundary = false },
 ]
 exceptions = [                 # Regex-based exceptions
-    { regex = "\\b(um|uh|er)\\.\\.\\.", boundary = false }
+    { regex = "\\b(um|uh|er)\\.\\.\\.", boundary = false },
 ]
 
 [enclosures]
-pairs = [                      # Paired delimiters
+pairs = [                      # Paired delimiters; symmetric = same char opens and closes
     { open = "(", close = ")" },
-    { open = "[", close = "]" },
     { open = "'", close = "'", symmetric = true },
-    { open = '"', close = '"', symmetric = true }
 ]
 
 [suppression]
-fast_patterns = [              # High-performance pattern matching
-    { char = "'", before = "alpha", after = "alpha" },  # Contractions
-    { char = ")", line_start = true, before = "alnum" } # List items
+fast_patterns = [              # Exclude non-enclosure uses from depth tracking
+    { char = "'", before = "alpha", after = "alpha" },   # Contractions
+]
+regex_patterns = [             # Applied to a small window around any enclosure char
+    { pattern = "\\d+'", description = "Feet measurement like 6'" },
 ]
 
 [abbreviations]
-common = ["Dr", "Mr", "Mrs", "Ms", "Prof", "Inc", "Ltd", "Co"]
-academic = ["Ph.D", "M.D", "B.A", "M.A", "B.S", "M.S"]
-locations = ["St", "Ave", "Blvd", "Rd", "Ct", "Pl"]
-# ... more categories
+titles = ["Dr", "Mr", "Mrs", "Prof"]    # Categories are free-form
+locations = ["St", "Ave"]
+
+[sentence_starters]            # Words that can begin a sentence after an abbreviation
+common = ["The", "He", "She"]
 ```
 
 ### Adding a New Language
 
-1. Create a new TOML file in `sakurs-core/configs/languages/{language_code}.toml`
-2. Define the language rules following the schema above
-3. Add the configuration to the loader in `config/loader.rs`:
-   ```rust
-   embed_language_config!("de", "../../../../configs/languages/german.toml"),
-   ```
-4. The language is now available through the standard API
+1. Create a TOML file following the schema (see [ADDING_LANGUAGES.md](ADDING_LANGUAGES.md))
+2. For a bundled language: add it to the embedded set in `domain/language/config/loader.rs`
+3. For an external language: no code at all — `sakurs process --language-config path/to/lang.toml`, `LanguageConfig::from_file`, or the Python `language_config` parameter
+4. Validate with `sakurs validate -c path/to/lang.toml`, which also compiles the configuration
 
-### Configuration Components
+### Compilation and the Judgment Window
 
-- **TerminatorRules**: Handles sentence-ending punctuation and patterns
-- **EllipsisRules**: Context-aware ellipsis processing
-- **AbbreviationTrie**: High-performance abbreviation lookup using Trie data structure
-- **EnclosureMap**: Manages paired delimiters with automatic ID assignment
-- **Suppressor**: Fast pattern matching for special cases (contractions, possessives)
-
-### Performance Optimizations
-
-- Configurations are embedded at compile time using `include_str!`
-- ASCII lookup tables for O(1) character classification
-- Trie structure for efficient abbreviation matching
-- Minimal runtime overhead - configurations are parsed once at startup
+Configurations are compiled once into flat, allocation-free structures: an ASCII classification table with a small non-ASCII map, terminator and ellipsis tables, a reverse trie over abbreviation entries, compiled regexes, and enclosure slot assignments (asymmetric pairs get depth counters, symmetric pairs get parity bits). Compilation derives the configuration's required context window (longest abbreviation, starter, pattern, regex reach) and rejects configurations exceeding the algorithm's judgment window `k`, which is what keeps every rule compatible with the sequential-equivalence guarantee (see the algorithm guide).
 
 ## Performance Characteristics
 
-### Memory Usage
+- **Time**: O(N) sequential; O(N/P + P) parallel with near-linear scaling (measured: 71% efficiency at 8 threads)
+- **Memory**: input text + O(P) small scan states + boundary storage; no per-character allocation
+- **Chunk-size independence**: per-character work is constant, so throughput is flat across chunk sizes and correctness never depends on where chunks are cut
+- **Determinism**: no model, no randomness, no execution-order dependence
 
-- **Sequential mode**: O(1) - Only current position state
-- **Parallel mode**: O(P) - One state per thread
-- **Streaming mode**: O(W) - Window size only
-
-### Time Complexity
-
-- **Sequential**: O(N) - Linear scan
-- **Parallel**: O(N/P + log P) - Near-linear speedup
-
-### Optimization Strategies
-
-1. **Zero-copy string handling** - Minimizes allocations
-2. **Cache-aware chunking** - Chunks fit in L2 cache
-3. **Lock-free combining** - Tree reduction without mutexes
-4. **UTF-8 safe chunking** - Ensures valid boundaries for all operations
-
-### Planned Optimizations
-
-1. **SIMD for character scanning** - Will use AVX2/NEON when available (not yet implemented)
-2. **Memory prefetching** - Optimize cache line usage
-3. **Vectorized terminal detection** - Batch process punctuation marks
-
+Measured numbers and tuning guidance live in [PERFORMANCE.md](PERFORMANCE.md). Planned optimizations: SIMD character scanning, memory prefetching.
 
 ## Usage Examples
 
 ### Basic Usage (via API Layer)
 
 ```rust
-use sakurs_core::api::{SentenceProcessor, Input};
+use sakurs_core::{Config, Input, LanguageConfig, SentenceProcessor};
 
 // Simple usage
 let processor = SentenceProcessor::with_language("en")?;
 let output = processor.process(Input::from_text("Hello world. How are you?"))?;
-
 for boundary in &output.boundaries {
-    println!("Sentence ends at byte offset: {}", boundary.offset);
-    println!("Sentence ends at char offset: {}", boundary.char_offset);
+    println!("byte {} / char {}", boundary.offset, boundary.char_offset);
 }
 
-// Advanced usage with custom configuration
-use sakurs_core::api::Config;
-
-let config = Config::builder()
-    .language("ja")?
-    .threads(Some(4))
-    .build()?;
-
+// Custom configuration
+let config = Config::builder().language("ja")?.threads(Some(4)).build()?;
 let processor = SentenceProcessor::with_config(config)?;
 
-// Streaming usage for large files or continuous input
-let config = Config::streaming()
-    .language("en")?
-    .build()?;
-
-let processor = SentenceProcessor::with_config(config)?;
-// Process large files or streams with memory-efficient chunking
-let output = processor.process(Input::from_file("large_document.txt"))?;
+// External language definition
+let lang = LanguageConfig::from_file("my_language.toml".as_ref(), None)?;
+let processor = SentenceProcessor::with_language_config(Config::default(), &lang)?;
 ```
 
 ### CLI Usage
@@ -493,8 +311,11 @@ sakurs process -i "*.txt" -f json
 # Process from stdin
 echo "Hello world." | sakurs process -i -
 
-# Japanese text with custom settings
-sakurs process -i doc.txt -l japanese --parallel
+# Japanese text, explicit parallelism
+sakurs process -i doc.txt -l japanese --threads 8
+
+# External language configuration
+sakurs process -i doc.txt --language-config my_language.toml
 ```
 
 ### Python Usage
@@ -503,68 +324,56 @@ sakurs process -i doc.txt -l japanese --parallel
 import sakurs
 
 # NLTK-compatible API
-sentences = sakurs.sent_tokenize(text, "en")
+sentences = sakurs.split(text, language="en")
 
 # Advanced usage
 processor = sakurs.load("ja")
-result = processor.process(text)
+result = processor.split(text)
 ```
 
 ## FAQ
 
 ### Q: Why not use regex for sentence detection?
 
-Regex cannot handle nested delimiters (parentheses within quotes within parentheses) correctly. Our state machine approach handles arbitrary nesting.
+Regex cannot handle nested delimiters (parentheses within quotes within parentheses) correctly. The depth/parity state machine handles arbitrary nesting of asymmetric pairs.
 
-### Q: How does cross-chunk abbreviation detection work?
+### Q: How do decisions that span chunk boundaries work?
 
-We track "dangling dots" at chunk boundaries and look ahead in the next chunk for alphabetic characters. If found, we merge the boundary.
+Every decision is a pure function of a bounded window around the character. When the window crosses a chunk edge, the item is carried as *pending* in the chunk's state and resolved during the combine step, where the neighboring chunk's context is available — so the verdict is identical to the sequential scan's. This covers abbreviations like "U.S." split across chunks, sentence starters just past an edge, and apostrophes whose contraction-vs-quote status is decided by the next character.
 
 ### Q: Why a separate API layer?
 
-The API layer provides a stable public interface that shields users from internal implementation changes. This allows us to refactor and optimize internals without breaking existing code.
+The API layer shields users from internal changes: everything else is crate-private, so refactoring and optimizing internals is non-breaking by construction.
 
 ### Q: Can I use this in production?
 
-Yes! The library is designed for production use with:
-- Comprehensive error handling
-- Graceful degradation
-- Extensive testing
-- Performance monitoring hooks
+Yes, within its scope: rule-based segmentation of well-punctuated text, with deterministic output, comprehensive error handling, and extensive property-based testing. For heavily malformed text (no punctuation, all-lowercase), ML-based segmenters are the better tool.
 
 ## Implementation Status
 
-### Current Features (v0.1.1)
-- ✅ Core Delta-Stack Monoid algorithm
-- ✅ Parallel processing with rayon
-- ✅ English and Japanese language support via configurable rules
-- ✅ Unified API layer with clean public interface
-- ✅ CLI adapter with stdin/file/glob support
-- ✅ Python bindings with NLTK compatibility
-- ✅ Streaming support via configuration presets
-- ✅ Adaptive execution mode with automatic selection
-- ✅ Simplified execution model with enum-based modes
-- ✅ Consolidated processing pipeline
-- ✅ Cross-chunk boundary handling
-- ✅ UTF-8 safe chunking
-- ✅ Simple and flexible configuration API
-- ✅ Configurable language rules system with TOML-based configuration
+### Current Features (v0.2.0)
+
+- ✅ Δ-Stack Monoid core with deferred judgment and a property-tested sequential-equivalence guarantee
+- ✅ Parallel processing with rayon (parallel scan + parallel reduce)
+- ✅ English and Japanese bundled; external languages via TOML at runtime
+- ✅ Load-time validation that a configuration fits the judgment window
+- ✅ Unified API layer; CLI adapter (stdin/file/glob, JSON/text/markdown); Python bindings with NLTK-compatible API
+- ✅ Zero-copy chunking, allocation-free scan hot path
+- ✅ Streaming via configuration presets and the CLI/Python streaming modes
 
 ### Planned Features
+
 - 🚧 WASM adapter for browser support
 - 🚧 C API for other language bindings
-- 🚧 Additional language rules (German, French, Spanish) - easily addable via TOML configs
-- 🚧 Runtime plugin system for dynamic language rule loading
+- 🚧 Additional bundled languages (German, French, Spanish, …) via TOML configs
 - 🚧 SIMD optimizations for character scanning
-- 🚧 GPU acceleration for very large texts
 
 ## Contributing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup and guidelines.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for development setup and guidelines.
 
 Key areas for contribution:
-- Language rule implementations via TOML configurations (see [Adding Languages](../ADDING_LANGUAGES.md))
+- Language configurations (see [ADDING_LANGUAGES.md](ADDING_LANGUAGES.md))
 - Performance optimizations
 - Documentation improvements
-- Test coverage expansion
 - WASM adapter implementation
