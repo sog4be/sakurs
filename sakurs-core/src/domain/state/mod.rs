@@ -111,33 +111,6 @@ impl PartialState {
         self.chars_before(p) >= WINDOW_CHARS && self.chars_after(p) >= WINDOW_CHARS
     }
 
-    /// Rebases a right-hand candidate to the combined state's origin.
-    fn rebase(&self, c: &Candidate) -> Candidate {
-        Candidate {
-            local_offset: c.local_offset + self.chunk_len,
-            local_depths: self.rebase_depths(&c.local_depths),
-            local_parity: c.local_parity ^ self.parity,
-            flags: c.flags,
-        }
-    }
-
-    /// Rebases a right-hand pending candidate to the combined state's origin.
-    fn rebase_pending(&self, p: &PendingCandidate) -> PendingCandidate {
-        PendingCandidate {
-            local_offset: p.local_offset + self.chunk_len,
-            local_depths: self.rebase_depths(&p.local_depths),
-            local_parity: p.local_parity ^ self.parity,
-            kind: p.kind,
-        }
-    }
-
-    fn rebase_depths(&self, depths: &DepthVec) -> DepthVec {
-        let len = depths.len().max(self.deltas.len());
-        (0..len)
-            .map(|i| depths.get(i).copied().unwrap_or(0) + self.deltas.get(i).copied().unwrap_or(0))
-            .collect()
-    }
-
     /// The monoid operation: state of `text(self) ++ text(other)`.
     ///
     /// Pending items whose ±k window becomes available are resolved here, on
@@ -148,26 +121,25 @@ impl PartialState {
     /// candidates because a confirmed enclosure retroactively shifts the
     /// depth/parity of everything positioned after it.
     pub(crate) fn combine_with<J: Judge>(&self, other: &Self, judge: &J) -> Self {
-        let max_deltas = self.deltas.len().max(other.deltas.len());
-        let mut combined = Self {
-            boundaries: CandidateVec::new(),
-            pending: PendingVec::new(),
-            pending_enc: PendingEncVec::new(),
-            deltas: (0..max_deltas)
-                .map(|i| {
-                    self.deltas.get(i).copied().unwrap_or(0)
-                        + other.deltas.get(i).copied().unwrap_or(0)
-                })
-                .collect(),
-            parity: self.parity ^ other.parity,
-            head_ctx: ContextBuf::compose_head(&self.head_ctx, &other.head_ctx),
-            tail_ctx: ContextBuf::compose_tail(&self.tail_ctx, &other.tail_ctx),
-            chunk_len: self.chunk_len + other.chunk_len,
-        };
+        let mut acc = self.clone();
+        acc.absorb(other, judge);
+        acc
+    }
+
+    /// In-place [`Self::combine_with`]: `self` becomes the state of
+    /// `text(self) ++ text(other)`. The driver folds the chunk states with
+    /// this, so the accumulated candidates are never re-copied — one fold
+    /// over the whole text does O(total items) work.
+    pub(crate) fn absorb<J: Judge>(&mut self, other: &Self, judge: &J) {
+        // Rebasing `other`'s items needs the left-hand totals as they were
+        // before the merge.
+        let left_len = self.chunk_len;
+        let left_deltas = self.deltas.clone();
+        let left_parity = self.parity;
 
         // The joint context window covers the byte range
-        // [self.chunk_len - |tail|, self.chunk_len + |head_r|) of the combined
-        // span; every item resolvable at this combine falls inside it
+        // [left_len - |tail|, left_len + |head_r|) of the combined span;
+        // every item resolvable at this combine falls inside it
         // (docs/DELTA_STACK_ALGORITHM.md, "Window Availability").
         let mut joint = [0u8; 2 * CONTEXT_CHARS * 4];
         let lt = self.tail_ctx.as_str().as_bytes();
@@ -176,72 +148,85 @@ impl PartialState {
         joint[lt.len()..lt.len() + rh.len()].copy_from_slice(rh);
         let joint_str = std::str::from_utf8(&joint[..lt.len() + rh.len()])
             .expect("context buffers hold valid UTF-8");
-        let joint_start = self.chunk_len - self.tail_ctx.byte_len();
+        let joint_start = left_len - self.tail_ctx.byte_len();
+
+        // Merge totals, contexts, and length; window availability below must
+        // see the combined state.
+        if other.deltas.len() > self.deltas.len() {
+            self.deltas.resize(other.deltas.len(), 0);
+        }
+        for (i, d) in other.deltas.iter().enumerate() {
+            self.deltas[i] += d;
+        }
+        self.parity ^= other.parity;
+        self.head_ctx = ContextBuf::compose_head(&self.head_ctx, &other.head_ctx);
+        self.tail_ctx = ContextBuf::compose_tail(&self.tail_ctx, &other.tail_ctx);
+        self.chunk_len += other.chunk_len;
 
         // Pending enclosures first: confirmed ones shift everything after
         // them, so their toggles must be known before candidates are placed.
         let mut toggles = ToggleVec::new();
-        let left_enc = self.pending_enc.iter().copied();
+        let prior_enc = std::mem::take(&mut self.pending_enc);
         let right_enc = other.pending_enc.iter().map(|pe| PendingEnclosure {
-            local_offset: pe.local_offset + self.chunk_len,
+            local_offset: pe.local_offset + left_len,
             ..*pe
         });
-        for pe in left_enc.chain(right_enc) {
-            if combined.window_available(pe.local_offset) {
+        for pe in prior_enc.into_iter().chain(right_enc) {
+            if self.window_available(pe.local_offset) {
                 let (window, pos) = resolve_window(joint_str, joint_start, pe.local_offset);
                 if !judge.suppress_enclosure(window, pos, pe.ch) {
                     toggles.push((pe.local_offset, pe.slot));
                 }
             } else {
-                combined.pending_enc.push(pe);
+                self.pending_enc.push(pe);
             }
         }
         for &(_, slot) in &toggles {
-            apply_slot_to_totals(&mut combined.deltas, &mut combined.parity, slot);
+            apply_slot_to_totals(&mut self.deltas, &mut self.parity, slot);
         }
+        // The left-hand confirmed candidates never need the toggles: a
+        // left-side enclosure resolving here lacked right context until now,
+        // so it sits after every left-confirmed candidate (which had ≥ k
+        // characters following it), and right-side toggles lie at or beyond
+        // the seam entirely.
 
-        for c in &self.boundaries {
-            let mut c = c.clone();
-            adjust_for_toggles(
-                &mut c.local_depths,
-                &mut c.local_parity,
-                c.local_offset,
-                &toggles,
-            );
-            combined.boundaries.push(c);
-        }
+        // Right-hand confirmed candidates: rebase against the left snapshot,
+        // then apply the toggles positioned before them. Confirmed offsets
+        // grow strictly across the seam, so appending keeps the order.
         for c in &other.boundaries {
-            let mut c = self.rebase(c);
+            let mut c = rebase_candidate(c, left_len, &left_deltas, left_parity);
             adjust_for_toggles(
                 &mut c.local_depths,
                 &mut c.local_parity,
                 c.local_offset,
                 &toggles,
             );
-            combined.boundaries.push(c);
+            self.boundaries.push(c);
         }
 
-        let left_pending = self.pending.iter().cloned();
-        let right_pending = other.pending.iter().map(|p| self.rebase_pending(p));
-        for mut pc in left_pending.chain(right_pending) {
+        // Pending candidates: adjust, then resolve or keep. Newly confirmed
+        // ones sit near the seam and are merged into the sorted candidates.
+        let prior_pending = std::mem::take(&mut self.pending);
+        let right_pending = other
+            .pending
+            .iter()
+            .map(|p| rebase_pending_candidate(p, left_len, &left_deltas, left_parity));
+        for mut pc in prior_pending.into_iter().chain(right_pending) {
             adjust_for_toggles(
                 &mut pc.local_depths,
                 &mut pc.local_parity,
                 pc.local_offset,
                 &toggles,
             );
-            if combined.window_available(pc.local_offset) {
+            if self.window_available(pc.local_offset) {
                 let (window, pos) = resolve_window(joint_str, joint_start, pc.local_offset);
                 if let Judgment::Boundary(flags) = judge.judge(window, pos, pc.kind) {
-                    combined.boundaries.push(pc.confirm(flags));
+                    insert_sorted(&mut self.boundaries, pc.confirm(flags));
                 }
             } else {
-                combined.pending.push(pc);
+                self.pending.push(pc);
             }
         }
-
-        combined.boundaries.sort_unstable_by_key(|c| c.local_offset);
-        combined
     }
 
     /// Resolves the remaining pending items with the knowledge that no more
@@ -328,6 +313,50 @@ fn resolve_window(joint_str: &str, joint_start: usize, p: usize) -> (&str, usize
         "a window resolved at combine is never clipped (Window Availability)"
     );
     (window, pos)
+}
+
+/// Rebases a right-hand candidate to the combined state's origin, given the
+/// left-hand span's pre-merge totals.
+fn rebase_candidate(
+    c: &Candidate,
+    left_len: usize,
+    left_deltas: &DepthVec,
+    left_parity: u32,
+) -> Candidate {
+    Candidate {
+        local_offset: c.local_offset + left_len,
+        local_depths: rebase_depths(&c.local_depths, left_deltas),
+        local_parity: c.local_parity ^ left_parity,
+        flags: c.flags,
+    }
+}
+
+/// Rebases a right-hand pending candidate (see [`rebase_candidate`]).
+fn rebase_pending_candidate(
+    p: &PendingCandidate,
+    left_len: usize,
+    left_deltas: &DepthVec,
+    left_parity: u32,
+) -> PendingCandidate {
+    PendingCandidate {
+        local_offset: p.local_offset + left_len,
+        local_depths: rebase_depths(&p.local_depths, left_deltas),
+        local_parity: p.local_parity ^ left_parity,
+        kind: p.kind,
+    }
+}
+
+fn rebase_depths(depths: &DepthVec, left_deltas: &DepthVec) -> DepthVec {
+    let len = depths.len().max(left_deltas.len());
+    (0..len)
+        .map(|i| depths.get(i).copied().unwrap_or(0) + left_deltas.get(i).copied().unwrap_or(0))
+        .collect()
+}
+
+/// Inserts a candidate into an offset-sorted vector, keeping it sorted.
+fn insert_sorted(boundaries: &mut CandidateVec, c: Candidate) {
+    let pos = boundaries.partition_point(|b| b.local_offset < c.local_offset);
+    boundaries.insert(pos, c);
 }
 
 /// Applies a confirmed enclosure's effect to a state's depth/parity totals.

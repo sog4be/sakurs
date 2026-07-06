@@ -148,14 +148,12 @@ proptest! {
 
     /// Any mix of English sentence shapes must be chunk-invariant.
     ///
-    /// Still fails occasionally: English boundary decisions need lookahead
-    /// (next word after an abbreviation, decimal digits, ellipsis context),
-    /// and that lookahead is truncated when a candidate lands within a few
-    /// characters of a chunk edge. See
-    /// `chunking_regressions::abbreviation_decision_at_exact_chunk_edge` for
-    /// the deterministic pin of this class.
+    /// English boundary decisions need lookahead (next word after an
+    /// abbreviation, decimal digits, ellipsis context); candidates whose
+    /// lookahead crosses a chunk edge are carried as pending and judged when
+    /// the neighboring chunk's context is available, so the decision is
+    /// identical to the single-chunk run.
     #[test]
-    #[ignore = "known limitation: scan-time decisions lose lookahead at exact chunk edges (fix planned for v0.2.0)"]
     fn generated_english_is_chunk_invariant(
         indices in prop::collection::vec(0usize..EN_FRAGMENTS.len(), 3..40),
         chunk_size in prop::sample::select(vec![64usize, 128, 256, 512, 1024, 4096]),

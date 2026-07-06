@@ -66,26 +66,17 @@ fn split(
     // Convert to core Input type and get the text content
     let (core_input, text) = py_input.into_core_input_and_text(py, encoding)?;
 
-    // Build configuration and optionally custom language rules
-    let (mut config_builder, custom_rules) = if let Some(lang_config) = language_config {
+    // Build configuration and optionally a custom language config
+    let (mut config_builder, custom_language) = if let Some(lang_config) = language_config {
         // Use custom language configuration
         let core_config = lang_config.to_core_config(py)?;
 
-        // Create custom language rules from the config
-        use sakurs_core::domain::language::ConfigurableLanguageRules;
-        use std::sync::Arc;
-
-        let language_rules = ConfigurableLanguageRules::from_config(&core_config)
-            .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-        let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
-            Arc::new(language_rules);
-
-        // Use default language in config builder (will be overridden by custom rules)
+        // Use default language in config builder (overridden by the custom config)
         (
             Config::builder()
                 .language("en") // Default, will be overridden
                 .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
-            Some(language_rules_arc),
+            Some(core_config),
         )
     } else {
         // Use built-in language
@@ -143,9 +134,9 @@ fn split(
         .build()
         .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
 
-    // Create processor with custom rules if provided
-    let processor = if let Some(rules) = custom_rules {
-        SentenceProcessor::with_custom_rules(config, rules)
+    // Create processor with a custom language config if provided
+    let processor = if let Some(language) = custom_language {
+        SentenceProcessor::with_language_config(config, &language)
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?
     } else {
         SentenceProcessor::with_config(config)

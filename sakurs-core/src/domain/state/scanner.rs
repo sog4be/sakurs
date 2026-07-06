@@ -6,12 +6,10 @@
 //! windows, and items within [`WINDOW_CHARS`] of a chunk edge are recorded as
 //! pending. Per-character work is a table lookup plus depth/parity updates.
 
-use super::candidate::{
-    Candidate, EnclosureSlot, Judge, Judgment, PendingCandidate, PendingEnclosure, TerminatorKind,
+use super::{
+    window_around, Candidate, CompiledRules, ContextBuf, EnclosureSlot, Judge, Judgment,
+    PartialState, PendingCandidate, PendingEnclosure, TerminatorKind, WINDOW_CHARS,
 };
-use super::compiled::CompiledRules;
-use super::context::{window_around, ContextBuf, WINDOW_CHARS};
-use super::PartialState;
 use crate::domain::types::DepthVec;
 
 /// Scans one chunk into a partial state.
@@ -98,10 +96,8 @@ fn apply_slot(slot: EnclosureSlot, depths: &mut DepthVec, parity: &mut u32) {
 mod tests {
     use super::super::tests::{char_boundary_cuts, segments};
     use super::*;
-    use crate::domain::language::ConfigurableLanguageRules;
-    use crate::{DeltaStackProcessor, ExecutionMode, ProcessorConfig};
     use proptest::prelude::*;
-    use std::sync::{Arc, LazyLock};
+    use std::sync::LazyLock;
 
     static EN: LazyLock<CompiledRules> =
         LazyLock::new(|| CompiledRules::from_code("en").expect("en config compiles"));
@@ -119,48 +115,48 @@ mod tests {
             .collect()
     }
 
-    fn legacy_boundaries(text: &str, code: &str) -> Vec<usize> {
-        let rules = Arc::new(ConfigurableLanguageRules::from_code(code).unwrap());
-        let processor = DeltaStackProcessor::new(ProcessorConfig::default(), rules);
-        processor
-            .process(text, ExecutionMode::Sequential)
-            .unwrap()
-            .boundaries
-    }
-
-    /// Single-chunk v2 output must equal the legacy sequential pipeline —
-    /// the porting-fidelity check for `judge`/`suppress_enclosure`.
+    /// Pinned sequential outputs. The expected offsets were produced by the
+    /// legacy (v0.1.2) sequential pipeline and verified equal to this
+    /// implementation before the legacy path was removed — they pin the
+    /// ported rule semantics against regressions.
     #[test]
-    fn single_chunk_matches_legacy_pipeline() {
-        let en_texts = [
-            "Dr. Smith went to Washington. He arrived at 3.5 p.m. and left.",
-            "She said \"Hello world.\" Then (after a pause) she left! Really?!",
-            "Wait... what happened? The U.S. economy grew. That's John's book.",
-            "Don't stop. \"It's fine,\" he said. Lists use 1) markers.",
-            "Short. Even shorter! End",
+    fn single_chunk_output_is_pinned() {
+        let en_cases: [(&str, &[usize]); 5] = [
+            (
+                "Dr. Smith went to Washington. He arrived at 3.5 p.m. and left.",
+                &[29, 62],
+            ),
+            (
+                "She said \"Hello world.\" Then (after a pause) she left! Really?!",
+                &[54, 63],
+            ),
+            (
+                "Wait... what happened? The U.S. economy grew. That's John's book.",
+                &[22, 45, 65],
+            ),
+            (
+                "Don't stop. \"It's fine,\" he said. Lists use 1) markers.",
+                &[11, 33, 55],
+            ),
+            ("Short. Even shorter! End", &[6, 20]),
         ];
-        for text in en_texts {
+        for (text, expected) in en_cases {
             let state = scan_chunk(text, &EN).resolve_edges(&*EN);
-            assert_eq!(
-                v2_boundaries(&state),
-                legacy_boundaries(text, "en"),
-                "en mismatch for {text:?}"
-            );
+            assert_eq!(v2_boundaries(&state), expected, "en mismatch for {text:?}");
         }
 
-        let ja_texts = [
-            "彼は「こんにちは」と言った。今日は晴れ!明日は?",
-            "彼は『引用「入れ子」だ』と言った。終わり。",
-            "これはテストです。値は3.5です。すごい!?",
-            "「囲まれた文。」の外。",
+        let ja_cases: [(&str, &[usize]); 4] = [
+            (
+                "彼は「こんにちは」と言った。今日は晴れ!明日は?",
+                &[42, 58, 68],
+            ),
+            ("彼は『引用「入れ子」だ』と言った。終わり。", &[51, 63]),
+            ("これはテストです。値は3.5です。すごい!?", &[27, 45, 56]),
+            ("「囲まれた文。」の外。", &[33]),
         ];
-        for text in ja_texts {
+        for (text, expected) in ja_cases {
             let state = scan_chunk(text, &JA).resolve_edges(&*JA);
-            assert_eq!(
-                v2_boundaries(&state),
-                legacy_boundaries(text, "ja"),
-                "ja mismatch for {text:?}"
-            );
+            assert_eq!(v2_boundaries(&state), expected, "ja mismatch for {text:?}");
         }
     }
 
