@@ -51,6 +51,10 @@ harness = false
 name = "streaming_benchmark"
 harness = false
 
+[[bench]]
+name = "throughput_baseline"
+harness = false
+
 [[example]]
 name = "unified_api"
 
