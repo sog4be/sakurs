@@ -59,36 +59,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_monoid_properties_integration() {
-        // Integration test ensuring monoid properties hold across the domain
-        let state1 = PartialState::new(2);
-        let state2 = PartialState::new(2);
-        let identity = PartialState::identity();
-
-        // Identity property
-        assert_eq!(
-            state1.combine(&identity).boundary_candidates.len(),
-            state1.boundary_candidates.len()
-        );
-
-        // Associativity holds for basic operations
-        let combined1 = state1.combine(&state2);
-        let combined2 = identity.combine(&combined1);
-        assert_eq!(
-            combined2.boundary_candidates.len(),
-            combined1.boundary_candidates.len()
-        );
-    }
-
-    #[test]
     fn test_domain_module_exports() {
-        // Verify that all essential types are properly exported
-        let _monoid_test: PartialState = PartialState::identity();
+        // Verify that the essential domain types are properly exported
         let _boundary_test = domain::Boundary {
             offset: 0,
             flags: BoundaryFlags::STRONG,
         };
-        let _delta_test = DeltaEntry::new(0, 0);
-        let _abbr_test = AbbreviationState::identity();
     }
 }

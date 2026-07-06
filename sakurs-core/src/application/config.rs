@@ -16,14 +16,6 @@ pub struct ProcessorConfig {
 
     /// Maximum number of threads to use (None = use all available)
     pub max_threads: Option<usize>,
-
-    /// Size of overlap between chunks for cross-boundary detection.
-    ///
-    /// Note: since v0.1.2 the delta-stack pipeline always uses strictly
-    /// contiguous chunks, because overlapping chunks double-count enclosure
-    /// state and corrupt results. This setting no longer affects
-    /// `DeltaStackProcessor` and is slated for removal in v0.2.0.
-    pub overlap_size: usize,
 }
 
 impl Default for ProcessorConfig {
@@ -32,7 +24,6 @@ impl Default for ProcessorConfig {
             chunk_size: 256 * 1024,          // 256KB chunks
             parallel_threshold: 1024 * 1024, // 1MB threshold for parallel
             max_threads: None,               // Use all available cores
-            overlap_size: 256,               // 256 char overlap
         }
     }
 }
@@ -48,7 +39,6 @@ impl ProcessorConfig {
         Self {
             chunk_size: 8 * 1024,           // 8KB chunks
             parallel_threshold: usize::MAX, // Never use parallel
-            overlap_size: 64,               // Smaller overlap
             ..Default::default()
         }
     }
@@ -59,7 +49,6 @@ impl ProcessorConfig {
             chunk_size: 512 * 1024,         // 512KB chunks
             parallel_threshold: 512 * 1024, // 512KB threshold
             max_threads: None,              // Use all available cores
-            overlap_size: 512,              // Larger overlap
         }
     }
 
@@ -69,7 +58,6 @@ impl ProcessorConfig {
             chunk_size: 32 * 1024,          // 32KB chunks
             parallel_threshold: 256 * 1024, // 256KB threshold
             max_threads: Some(2),           // Limited parallelism
-            overlap_size: 128,              // Moderate overlap
         }
     }
 
@@ -78,12 +66,6 @@ impl ProcessorConfig {
         if self.chunk_size == 0 {
             return Err(ProcessingError::InvalidConfig {
                 reason: "Chunk size must be greater than 0".to_string(),
-            });
-        }
-
-        if self.overlap_size >= self.chunk_size {
-            return Err(ProcessingError::InvalidConfig {
-                reason: "Overlap size must be less than chunk size".to_string(),
             });
         }
 
@@ -193,12 +175,6 @@ impl ProcessorConfigBuilder {
     /// Sets the maximum number of threads
     pub fn max_threads(mut self, threads: Option<usize>) -> Self {
         self.config.max_threads = threads;
-        self
-    }
-
-    /// Sets the overlap size between chunks
-    pub fn overlap_size(mut self, size: usize) -> Self {
-        self.config.overlap_size = size;
         self
     }
 
@@ -316,14 +292,6 @@ mod tests {
         // Invalid chunk size
         let config = ProcessorConfig {
             chunk_size: 0,
-            ..Default::default()
-        };
-        assert!(config.validate().is_err());
-
-        // Invalid overlap size
-        let config = ProcessorConfig {
-            chunk_size: 1024,
-            overlap_size: 2048,
             ..Default::default()
         };
         assert!(config.validate().is_err());

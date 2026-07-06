@@ -93,7 +93,6 @@ impl SentenceProcessor {
             chunk_size: config.chunk_size,
             parallel_threshold: config.parallel_threshold,
             max_threads: config.threads,
-            overlap_size: config.overlap_size,
         })
     }
 }

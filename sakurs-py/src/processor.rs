@@ -101,9 +101,7 @@ impl PyProcessor {
 
         config_builder = config_builder.chunk_size(chunk_size_bytes);
 
-        config_builder = config_builder
-            .parallel_threshold(1024 * 1024) // 1MB
-            .overlap_size(256);
+        config_builder = config_builder.parallel_threshold(1024 * 1024); // 1MB
 
         let rust_config = config_builder
             .build()

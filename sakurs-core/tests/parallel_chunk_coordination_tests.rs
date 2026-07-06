@@ -22,8 +22,7 @@ fn test_parallel_chunk_offset_bug_simple() {
     let config = Config::builder()
         .language("en")
         .unwrap()
-        .chunk_size(200) // Small chunks to force chunking
-        .overlap_size(50) // Appropriate overlap for chunk size
+        .chunk_size(200) // Small chunks to force chunking // Appropriate overlap for chunk size
         .threads(Some(2)) // Force parallel
         .build()
         .unwrap();
@@ -124,8 +123,7 @@ fn test_sequential_vs_parallel_consistency_small_chunks() {
     let config_seq = Config::builder()
         .language("en")
         .unwrap()
-        .chunk_size(1024) // Small but valid chunks
-        .overlap_size(128) // Appropriate overlap for chunk size
+        .chunk_size(1024) // Small but valid chunks // Appropriate overlap for chunk size
         .threads(Some(1))
         .build()
         .unwrap();
@@ -134,8 +132,7 @@ fn test_sequential_vs_parallel_consistency_small_chunks() {
     let config_par = Config::builder()
         .language("en")
         .unwrap()
-        .chunk_size(1024) // Same small chunks
-        .overlap_size(128) // Appropriate overlap for chunk size
+        .chunk_size(1024) // Same small chunks // Appropriate overlap for chunk size
         .threads(Some(4))
         .build()
         .unwrap();
@@ -187,8 +184,7 @@ fn test_no_duplicate_boundaries_in_overlap_regions() {
     let config = Config::builder()
         .language("en")
         .unwrap()
-        .chunk_size(300) // Chunks will overlap at the sentence boundaries
-        .overlap_size(50) // Appropriate overlap for chunk size
+        .chunk_size(300) // Chunks will overlap at the sentence boundaries // Appropriate overlap for chunk size
         .threads(Some(3))
         .build()
         .unwrap();
@@ -229,8 +225,7 @@ fn test_parallel_chunk_offset_calculation() {
     let config = Config::builder()
         .language("en")
         .unwrap()
-        .chunk_size(512) // Small chunks to ensure multiple chunks
-        .overlap_size(50) // Appropriate overlap for chunk size
+        .chunk_size(512) // Small chunks to ensure multiple chunks // Appropriate overlap for chunk size
         .threads(Some(2))
         .build()
         .unwrap();

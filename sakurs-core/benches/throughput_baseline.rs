@@ -46,7 +46,6 @@ fn processor(chunk_size: usize) -> SentenceProcessor {
         .language("en")
         .expect("language config should load")
         .chunk_size(chunk_size)
-        .overlap_size(256.min(chunk_size / 2))
         .threads(Some(1))
         .parallel_threshold(0)
         .build()

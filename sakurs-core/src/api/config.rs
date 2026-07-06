@@ -10,9 +10,6 @@ pub mod defaults {
 
     /// Parallel processing threshold in bytes (1MB)
     pub const PARALLEL_THRESHOLD: usize = 1024 * 1024;
-
-    /// Overlap size between chunks in bytes
-    pub const OVERLAP_SIZE: usize = 256;
 }
 
 /// Processing configuration
@@ -22,7 +19,6 @@ pub struct Config {
     pub(crate) chunk_size: usize,         // in bytes
     pub(crate) parallel_threshold: usize, // minimum size for parallel processing
     pub(crate) threads: Option<usize>,    // None = all available threads
-    pub(crate) overlap_size: usize,       // overlap between chunks in bytes
 }
 
 impl Default for Config {
@@ -32,7 +28,6 @@ impl Default for Config {
             chunk_size: defaults::CHUNK_SIZE,
             parallel_threshold: defaults::PARALLEL_THRESHOLD,
             threads: None,
-            overlap_size: defaults::OVERLAP_SIZE,
         }
     }
 }
@@ -50,7 +45,6 @@ impl Config {
             chunk_size: 8 * 1024,           // 8KB chunks
             parallel_threshold: usize::MAX, // Never use parallel
             threads: None,
-            overlap_size: 64, // Smaller overlap
         }
     }
 
@@ -61,7 +55,6 @@ impl Config {
             chunk_size: 512 * 1024,         // 512KB chunks
             parallel_threshold: 512 * 1024, // 512KB threshold
             threads: None,                  // Use all available cores
-            overlap_size: 512,              // Larger overlap
         }
     }
 
@@ -72,7 +65,6 @@ impl Config {
             chunk_size: 32 * 1024,          // 32KB chunks
             parallel_threshold: 256 * 1024, // 256KB threshold
             threads: Some(2),               // Limited parallelism
-            overlap_size: 128,              // Moderate overlap
         }
     }
 
@@ -81,12 +73,6 @@ impl Config {
         if self.chunk_size == 0 {
             return Err(Error::Configuration(
                 "chunk_size must be greater than 0".into(),
-            ));
-        }
-
-        if self.overlap_size >= self.chunk_size {
-            return Err(Error::Configuration(
-                "overlap_size must be less than chunk_size".into(),
             ));
         }
 
@@ -109,7 +95,6 @@ pub struct ConfigBuilder {
     chunk_size: Option<usize>,
     parallel_threshold: Option<usize>,
     threads: Option<usize>,
-    overlap_size: Option<usize>,
 }
 
 impl ConfigBuilder {
@@ -142,12 +127,6 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set the overlap size between chunks in bytes
-    pub fn overlap_size(mut self, bytes: usize) -> Self {
-        self.overlap_size = Some(bytes);
-        self
-    }
-
     /// Build the configuration
     pub fn build(self) -> Result<Config, Error> {
         let mut config = Config::default();
@@ -168,10 +147,6 @@ impl ConfigBuilder {
             config.threads = self.threads;
         }
 
-        if let Some(overlap) = self.overlap_size {
-            config.overlap_size = overlap;
-        }
-
         config.validate()?;
         Ok(config)
     }
@@ -186,7 +161,6 @@ mod tests {
         let config = Config::default();
         assert_eq!(config.chunk_size, defaults::CHUNK_SIZE);
         assert_eq!(config.parallel_threshold, defaults::PARALLEL_THRESHOLD);
-        assert_eq!(config.overlap_size, defaults::OVERLAP_SIZE);
         assert!(config.threads.is_none());
         assert!(config.validate().is_ok());
     }
@@ -196,14 +170,6 @@ mod tests {
         // Invalid chunk size
         let config = Config {
             chunk_size: 0,
-            ..Default::default()
-        };
-        assert!(config.validate().is_err());
-
-        // Invalid overlap size
-        let config = Config {
-            chunk_size: 100,
-            overlap_size: 200,
             ..Default::default()
         };
         assert!(config.validate().is_err());
@@ -222,14 +188,12 @@ mod tests {
         let small = Config::small_text();
         assert_eq!(small.chunk_size, 8 * 1024);
         assert_eq!(small.parallel_threshold, usize::MAX);
-        assert_eq!(small.overlap_size, 64);
         assert!(small.validate().is_ok());
 
         // Large text preset
         let large = Config::large_text();
         assert_eq!(large.chunk_size, 512 * 1024);
         assert_eq!(large.parallel_threshold, 512 * 1024);
-        assert_eq!(large.overlap_size, 512);
         assert!(large.validate().is_ok());
 
         // Streaming preset
@@ -237,7 +201,6 @@ mod tests {
         assert_eq!(streaming.chunk_size, 32 * 1024);
         assert_eq!(streaming.parallel_threshold, 256 * 1024);
         assert_eq!(streaming.threads, Some(2));
-        assert_eq!(streaming.overlap_size, 128);
         assert!(streaming.validate().is_ok());
     }
 
@@ -246,14 +209,12 @@ mod tests {
         let config = Config::builder()
             .chunk_size(128 * 1024)
             .parallel_threshold(256 * 1024)
-            .overlap_size(512)
             .threads(Some(4))
             .build()
             .unwrap();
 
         assert_eq!(config.chunk_size, 128 * 1024);
         assert_eq!(config.parallel_threshold, 256 * 1024);
-        assert_eq!(config.overlap_size, 512);
         assert_eq!(config.threads, Some(4));
     }
 
@@ -262,33 +223,9 @@ mod tests {
         // Test chunk_size at minimum valid value
         let config = Config {
             chunk_size: 1,
-            overlap_size: 0,
             ..Default::default()
         };
         assert!(config.validate().is_ok());
-
-        // Test overlap_size at maximum valid value (chunk_size - 1)
-        let config = Config {
-            chunk_size: 100,
-            overlap_size: 99,
-            ..Default::default()
-        };
-        assert!(config.validate().is_ok());
-
-        // Test overlap_size equals chunk_size (invalid)
-        let config = Config {
-            chunk_size: 100,
-            overlap_size: 100,
-            ..Default::default()
-        };
-        let result = config.validate();
-        assert!(result.is_err());
-        match result {
-            Err(Error::Configuration(msg)) => {
-                assert!(msg.contains("overlap_size must be less than chunk_size"));
-            }
-            _ => panic!("Expected Configuration error"),
-        }
 
         // Test threads at minimum valid value
         let config = Config {
@@ -302,10 +239,6 @@ mod tests {
     fn test_config_builder_invalid_configurations() {
         // Test building with invalid chunk_size
         let result = Config::builder().chunk_size(0).build();
-        assert!(result.is_err());
-
-        // Test building with invalid overlap_size
-        let result = Config::builder().chunk_size(100).overlap_size(100).build();
         assert!(result.is_err());
 
         // Test building with invalid thread count
@@ -363,7 +296,6 @@ mod tests {
 
         assert_eq!(config.chunk_size, 64 * 1024);
         assert_eq!(config.parallel_threshold, defaults::PARALLEL_THRESHOLD);
-        assert_eq!(config.overlap_size, defaults::OVERLAP_SIZE);
         assert!(config.threads.is_none());
     }
 
@@ -382,7 +314,6 @@ mod tests {
         // Test with very large valid values
         let config = Config {
             chunk_size: usize::MAX / 2,
-            overlap_size: 1024,
             parallel_threshold: usize::MAX / 2,
             threads: Some(1024),
             ..Default::default()
