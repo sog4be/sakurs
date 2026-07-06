@@ -71,7 +71,7 @@ fn toy_scan<J: Judge>(text: &str, judge: &J) -> PartialState {
                 let depths: DepthVec = smallvec![depth];
                 // For the candidate the reference point is the offset after
                 // the terminator: `before + 1` characters precede it.
-                if before + 1 >= WINDOW_CHARS && after - 1 >= WINDOW_CHARS {
+                if before + 1 >= WINDOW_CHARS && after > WINDOW_CHARS {
                     let (window, pos) = window_around(text, offset, WINDOW_CHARS);
                     if let Judgment::Boundary(flags) = judge.judge(window, pos, kind) {
                         state.boundaries.push(Candidate {
@@ -121,11 +121,8 @@ fn window_hash(window: &str, pos: usize, salt: u64) -> u64 {
 
 impl Judge for HashJudge {
     fn judge(&self, window: &str, pos_in_window: usize, kind: TerminatorKind) -> Judgment {
-        let salt = match kind {
-            TerminatorKind::Char(c) => c as u64,
-            TerminatorKind::Pattern { len } => 0x100 + u64::from(len),
-            TerminatorKind::Ellipsis { len } => 0x200 + u64::from(len),
-        };
+        let TerminatorKind::Char(c) = kind;
+        let salt = c as u64;
         match window_hash(window, pos_in_window, salt) % 3 {
             0 => Judgment::NotBoundary,
             1 => Judgment::Boundary(BoundaryFlags::WEAK),

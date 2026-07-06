@@ -12,10 +12,9 @@
 use super::candidate::{EnclosureSlot, Judge, Judgment, TerminatorKind};
 use super::context::{fwd_chars, WINDOW_CHARS};
 use crate::domain::error::DomainError;
-use crate::domain::language::config::{get_language_config, LanguageConfig};
-use crate::domain::language::rules::AbbreviationTrie;
+use crate::domain::language::config::LanguageConfig;
 use crate::domain::types::BoundaryFlags;
-use regex::Regex;
+use regex::{Regex, RegexSet};
 use std::collections::{HashMap, HashSet};
 
 /// Standard context reach of the boundary sub-rules, in characters.
@@ -63,14 +62,11 @@ struct SuppressionPattern {
 /// Language rules compiled for the deferred-judgment pipeline.
 #[derive(Debug)]
 pub(crate) struct CompiledRules {
-    code: String,
     /// ASCII classification table; non-ASCII characters fall back to the map.
     ascii: [CharClass; 128],
     other: HashMap<char, CharClass>,
     /// Number of asymmetric enclosure types (delta slots).
     asym_count: usize,
-    /// Number of symmetric enclosure types (parity bits).
-    sym_count: usize,
 
     // Terminator rules
     terminator_chars: HashSet<char>,
@@ -83,7 +79,7 @@ pub(crate) struct CompiledRules {
     ellipsis_exceptions: Vec<(Regex, bool)>,
 
     // Abbreviation rules
-    abbreviations: AbbreviationTrie,
+    abbreviations: ReverseTrie,
 
     // Sentence starter rules
     starter_set: HashSet<String>,
@@ -92,7 +88,88 @@ pub(crate) struct CompiledRules {
 
     // Suppression rules
     suppression_patterns: Vec<SuppressionPattern>,
-    suppression_regexes: Vec<Regex>,
+    suppression_regexes: RegexSet,
+}
+
+/// Abbreviation matcher: a trie over *reversed*, lowercase-normalized
+/// abbreviation strings, walked backward from the period. One backward walk
+/// replaces a forward walk from every candidate start position; the accepted
+/// language is identical, because a forward match from `start` is exactly a
+/// backward walk reaching depth `end − start` on an accepting node.
+#[derive(Debug)]
+struct ReverseTrie {
+    /// Node arena; index 0 is the root.
+    nodes: Vec<TrieNode>,
+}
+
+#[derive(Debug, Default)]
+struct TrieNode {
+    /// Sorted `(char, node index)` pairs; abbreviation alphabets are tiny,
+    /// so binary search on a compact vector beats hashing.
+    children: Vec<(char, u32)>,
+    is_end: bool,
+}
+
+impl ReverseTrie {
+    fn new() -> Self {
+        Self {
+            nodes: vec![TrieNode::default()],
+        }
+    }
+
+    fn insert(&mut self, abbr: &str) {
+        let mut node = 0usize;
+        for ch in abbr.chars().rev() {
+            let ch = lowercase_char(ch);
+            node = match self.nodes[node]
+                .children
+                .binary_search_by_key(&ch, |&(c, _)| c)
+            {
+                Ok(i) => self.nodes[node].children[i].1 as usize,
+                Err(i) => {
+                    let idx = self.nodes.len();
+                    self.nodes.push(TrieNode::default());
+                    self.nodes[node].children.insert(i, (ch, idx as u32));
+                    idx
+                }
+            };
+        }
+        self.nodes[node].is_end = true;
+    }
+
+    /// Byte length of the longest abbreviation ending exactly at the
+    /// exclusive byte offset `end`, scanning back at most
+    /// [`ABBREVIATION_REACH`] characters.
+    fn longest_match_ending_at(&self, text: &str, end: usize) -> Option<usize> {
+        if self.nodes.len() == 1 {
+            return None;
+        }
+        let mut node = 0usize;
+        let mut best = None;
+        for (count, (start, ch)) in text[..end].char_indices().rev().enumerate() {
+            if count >= ABBREVIATION_REACH {
+                break;
+            }
+            let ch = lowercase_char(ch);
+            match self.nodes[node]
+                .children
+                .binary_search_by_key(&ch, |&(c, _)| c)
+            {
+                Ok(i) => node = self.nodes[node].children[i].1 as usize,
+                Err(_) => break,
+            }
+            if self.nodes[node].is_end {
+                best = Some(end - start);
+            }
+        }
+        best
+    }
+}
+
+/// Per-character lowercase normalization (first mapping character), matching
+/// how the abbreviation entries are normalized at build time.
+fn lowercase_char(ch: char) -> char {
+    ch.to_lowercase().next().unwrap_or(ch)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,8 +182,9 @@ enum EllipsisCondition {
 
 impl CompiledRules {
     /// Compiles the embedded configuration for a language code.
+    #[cfg(test)]
     pub(crate) fn from_code(code: &str) -> Result<Self, DomainError> {
-        Self::from_config(get_language_config(code)?)
+        Self::from_config(crate::domain::language::config::get_language_config(code)?)
     }
 
     /// Compiles a language configuration, rejecting it if any rule would need
@@ -219,15 +297,12 @@ impl CompiledRules {
                 DomainError::InvalidLanguageRules(format!("invalid ellipsis regex: {e}"))
             })?;
 
-        let suppression_regexes = config
-            .suppression
-            .regex_patterns
-            .iter()
-            .map(|p| Regex::new(&p.pattern))
-            .collect::<Result<Vec<_>, regex::Error>>()
-            .map_err(|e| {
-                DomainError::InvalidLanguageRules(format!("invalid suppression regex: {e}"))
-            })?;
+        // A single RegexSet pass replaces one is_match call per pattern on
+        // every suppressible enclosure character.
+        let suppression_regexes =
+            RegexSet::new(config.suppression.regex_patterns.iter().map(|p| &p.pattern)).map_err(
+                |e| DomainError::InvalidLanguageRules(format!("invalid suppression regex: {e}")),
+            )?;
 
         let (starter_set, starter_require_space, starter_min_len) =
             if let Some(ref starters) = config.sentence_starters {
@@ -249,11 +324,9 @@ impl CompiledRules {
             };
 
         Ok(Self {
-            code: config.metadata.code.clone(),
             ascii,
             other,
             asym_count,
-            sym_count,
             terminator_chars,
             terminator_patterns: config
                 .terminators
@@ -265,10 +338,16 @@ impl CompiledRules {
             ellipsis_patterns: config.ellipsis.patterns.clone(),
             ellipsis_context_rules,
             ellipsis_exceptions,
-            abbreviations: AbbreviationTrie::from_categories(
-                config.abbreviations.categories.clone(),
-                false, // case-insensitive, matching the legacy rules
-            ),
+            abbreviations: {
+                // Case-insensitive, matching the legacy rules.
+                let mut trie = ReverseTrie::new();
+                for words in config.abbreviations.categories.values() {
+                    for word in words {
+                        trie.insert(word);
+                    }
+                }
+                trie
+            },
             starter_set,
             starter_require_space,
             starter_min_len,
@@ -287,18 +366,9 @@ impl CompiledRules {
         })
     }
 
-    pub(crate) fn language_code(&self) -> &str {
-        &self.code
-    }
-
     /// Number of asymmetric enclosure types (size of the delta vector).
     pub(crate) fn asym_type_count(&self) -> usize {
         self.asym_count
-    }
-
-    /// Number of symmetric enclosure types (parity bits in use).
-    pub(crate) fn sym_type_count(&self) -> usize {
-        self.sym_count
     }
 
     /// Classifies one character for the scanner.
@@ -412,15 +482,15 @@ impl CompiledRules {
         if term_pos == 0 {
             return None;
         }
-        let m = self.abbreviations.find_at_position(w, term_pos - 1)?;
-        let abbr_start = term_pos - m.length;
+        let length = self.abbreviations.longest_match_ending_at(w, term_pos)?;
+        let abbr_start = term_pos - length;
         let has_word_boundary = abbr_start == 0
             || w[..abbr_start]
                 .chars()
                 .next_back()
                 .map(|c| !c.is_alphanumeric())
                 .unwrap_or(true);
-        has_word_boundary.then_some(m.length)
+        has_word_boundary.then_some(length)
     }
 
     /// Extracts the next word from the following context: skip whitespace,
@@ -486,16 +556,7 @@ impl Judge for CompiledRules {
     /// sub-rule reads exactly the context reach the legacy rules read, so a
     /// single-chunk v2 run reproduces the legacy sequential output.
     fn judge(&self, w: &str, pos_in_window: usize, kind: TerminatorKind) -> Judgment {
-        let ch = match kind {
-            TerminatorKind::Char(c) => c,
-            // The scanner only emits Char; other kinds re-derive the char.
-            TerminatorKind::Pattern { .. } | TerminatorKind::Ellipsis { .. } => {
-                match w[..pos_in_window].chars().next_back() {
-                    Some(c) => c,
-                    None => return Judgment::NotBoundary,
-                }
-            }
-        };
+        let TerminatorKind::Char(ch) = kind;
         let term_pos = pos_in_window - ch.len_utf8();
         let following = &w[pos_in_window..];
         let following10 = &following[..fwd_chars(following, 0, CONTEXT_REACH)];
@@ -622,14 +683,23 @@ impl Judge for CompiledRules {
         }
 
         if !self.suppression_regexes.is_empty() {
-            // The legacy regex window is the 3 characters on each side.
+            // The legacy regex window is the 3 characters on each side:
+            // at most 7 characters, so it fits a small stack buffer.
             let start = super::context::back_chars(preceding, preceding.len(), 3);
             let end = fwd_chars(following_after_ch, 0, 3);
-            let mut window = String::with_capacity(16);
-            window.push_str(&preceding[start..]);
-            window.push(ch);
-            window.push_str(&following_after_ch[..end]);
-            if self.suppression_regexes.iter().any(|r| r.is_match(&window)) {
+            let mut buf = [0u8; 32];
+            let mut len = 0;
+            for &b in &preceding.as_bytes()[start..] {
+                buf[len] = b;
+                len += 1;
+            }
+            len += ch.encode_utf8(&mut buf[len..]).len();
+            for &b in &following_after_ch.as_bytes()[..end] {
+                buf[len] = b;
+                len += 1;
+            }
+            let window = std::str::from_utf8(&buf[..len]).expect("window bytes are valid UTF-8");
+            if self.suppression_regexes.is_match(window) {
                 return true;
             }
         }
@@ -657,9 +727,8 @@ mod tests {
     #[test]
     fn bundled_configs_fit_the_window() {
         for code in crate::domain::language::config::list_available_languages() {
-            let rules = CompiledRules::from_code(code)
+            CompiledRules::from_code(code)
                 .unwrap_or_else(|e| panic!("config '{code}' must compile: {e}"));
-            assert!(!rules.language_code().is_empty());
         }
     }
 
@@ -712,6 +781,10 @@ mod tests {
         assert!(apostrophe.suppressible, "apostrophe has suppression rules");
 
         assert!(rules.asym_type_count() >= 3);
-        assert!(rules.sym_type_count() >= 2);
+        let quote = rules.classify('"').enclosure.unwrap();
+        match (apostrophe.slot, quote.slot) {
+            (EnclosureSlot::Sym { bit: a }, EnclosureSlot::Sym { bit: q }) => assert_ne!(a, q),
+            other => panic!("both quotes must be symmetric, got {other:?}"),
+        }
     }
 }
