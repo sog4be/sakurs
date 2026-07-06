@@ -1,9 +1,9 @@
 //! Regression tests for specific chunking bugs found in v0.1.1.
 //!
 //! Each test pins one concrete failure mode with a minimal reproduction.
-//! Tests that currently fail are marked `#[ignore]`; run them with
-//! `cargo test --test chunking_regressions -- --ignored` and remove the
-//! ignore attribute when the corresponding fix lands.
+//! Tests documenting known-but-unfixed limitations are marked `#[ignore]`;
+//! run them with `cargo test --test chunking_regressions -- --ignored` and
+//! remove the ignore attribute when the corresponding fix lands.
 
 use sakurs_core::{Config, Input, SentenceProcessor};
 
@@ -62,7 +62,6 @@ fn final_boundary_survives_chunking() {
 /// cross-chunk abbreviation state (dangling_dot / head_alpha) is computed in
 /// the scan phase but never consulted when boundaries are resolved.
 #[test]
-#[ignore = "known v0.1.1 bug: cross-chunk abbreviation state never reaches the reduce phase (fix planned for v0.2.0)"]
 fn abbreviation_split_across_chunks() {
     let text =
         "Dr. Smith arrived early. He met Prof. Brown at the U.S. embassy today. They talked.";
@@ -80,7 +79,6 @@ fn abbreviation_split_across_chunks() {
 /// so terminators inside the quote are accepted as boundaries (and boundaries
 /// after the quote can be lost).
 #[test]
-#[ignore = "known v0.1.1 bug: enclosure context lost at chunk boundaries (fix planned for v0.2.0)"]
 fn quotation_split_across_chunks() {
     let text = "He said \"Hello there. It is me.\" Then he left quickly. She smiled at him.";
     let expected = reference(text, "en");
@@ -91,6 +89,26 @@ fn quotation_split_across_chunks() {
             "boundaries diverged at chunk_size={chunk_size}"
         );
     }
+}
+
+/// Known limitation (planned fix: v0.2.0 scanner redesign): boundary
+/// decisions are made during the scan phase using chunk-local context. When
+/// the decision-relevant lookahead (here: the word after an abbreviation) is
+/// cut off exactly at the chunk edge, the decision can differ from the
+/// single-chunk run. The v0.2.0 redesign defers edge-adjacent decisions to
+/// the combine step, where both sides of the edge are available.
+#[test]
+#[ignore = "known limitation: scan-time decisions lose lookahead at exact chunk edges (fix planned for v0.2.0)"]
+fn abbreviation_decision_at_exact_chunk_edge() {
+    // Chunk size 3 puts the '.' of "Dr." exactly at the end of the first
+    // chunk, so the scanner decides without seeing "Smith".
+    let text = "Dr. Smith stayed home.";
+    let expected = reference(text, "en");
+    let got = boundaries(text, "en", 3, 0, 1);
+    assert_eq!(
+        got, expected,
+        "expected no boundary after the split \"Dr.\""
+    );
 }
 
 /// Bug: abbreviation lookup mixes byte offsets and character indices

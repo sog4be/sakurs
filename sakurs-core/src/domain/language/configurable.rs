@@ -400,6 +400,16 @@ impl LanguageRules for ConfigurableLanguageRules {
         self.enclosure_map.type_count()
     }
 
+    fn symmetric_enclosure_types(&self) -> Vec<bool> {
+        let mut mask = vec![false; self.enclosure_map.type_count()];
+        for pair in self.enclosure_map.pairs() {
+            if pair.type_id < mask.len() {
+                mask[pair.type_id] = pair.symmetric;
+            }
+        }
+        mask
+    }
+
     fn enclosure_suppressor(&self) -> Option<&dyn EnclosureSuppressor> {
         Some(&self.suppressor)
     }

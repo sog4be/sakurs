@@ -70,7 +70,6 @@ It was a sunny day and everyone was happy about the weather. ";
 /// Fails on v0.1.1: enclosure deltas in overlap regions are double-counted by
 /// the prefix sum, so entire chunks lose (or gain) boundaries.
 #[test]
-#[ignore = "known v0.1.1 bug: overlap delta double-counting suppresses boundaries (mitigation in v0.1.2, full fix in v0.2.0)"]
 fn quoted_english_is_chunk_invariant() {
     let unit = "He said \"Hello there my friend.\" Then (quite slowly) he left the room. \
 She replied \"I will see you tomorrow.\" The others (all of them) nodded in agreement. ";
@@ -93,7 +92,6 @@ She replied \"I will see you tomorrow.\" The others (all of them) nodded in agre
 /// default 256KB chunks this manifests as losing every boundary after the
 /// first chunk boundary on real-world sized documents.
 #[test]
-#[ignore = "known v0.1.1 bug: overlap delta double-counting suppresses boundaries (mitigation in v0.1.2, full fix in v0.2.0)"]
 fn japanese_brackets_are_chunk_invariant() {
     let unit = "彼は「こんにちは」と言った。彼女は『それは素晴らしい』と答えた。\
 今日はとても良い天気です。明日も晴れるでしょうか。皆で公園へ行きました。";
@@ -149,8 +147,15 @@ proptest! {
     #![proptest_config(ProptestConfig { cases: 24, ..ProptestConfig::default() })]
 
     /// Any mix of English sentence shapes must be chunk-invariant.
+    ///
+    /// Still fails occasionally: English boundary decisions need lookahead
+    /// (next word after an abbreviation, decimal digits, ellipsis context),
+    /// and that lookahead is truncated when a candidate lands within a few
+    /// characters of a chunk edge. See
+    /// `chunking_regressions::abbreviation_decision_at_exact_chunk_edge` for
+    /// the deterministic pin of this class.
     #[test]
-    #[ignore = "known v0.1.1 bug: scan-time decisions with chunk-truncated context violate chunk invariance (full fix in v0.2.0)"]
+    #[ignore = "known limitation: scan-time decisions lose lookahead at exact chunk edges (fix planned for v0.2.0)"]
     fn generated_english_is_chunk_invariant(
         indices in prop::collection::vec(0usize..EN_FRAGMENTS.len(), 3..40),
         chunk_size in prop::sample::select(vec![64usize, 128, 256, 512, 1024, 4096]),
@@ -170,7 +175,6 @@ proptest! {
 
     /// Any mix of Japanese sentence shapes must be chunk-invariant.
     #[test]
-    #[ignore = "known v0.1.1 bug: scan-time decisions with chunk-truncated context violate chunk invariance (full fix in v0.2.0)"]
     fn generated_japanese_is_chunk_invariant(
         indices in prop::collection::vec(0usize..JA_FRAGMENTS.len(), 3..40),
         chunk_size in prop::sample::select(vec![64usize, 128, 256, 512, 1024, 4096]),

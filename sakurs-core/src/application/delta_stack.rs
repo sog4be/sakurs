@@ -40,7 +40,11 @@ pub struct DeltaStackProcessor {
 impl DeltaStackProcessor {
     /// Creates a new DeltaStackProcessor with the given configuration
     pub fn new(config: ProcessorConfig, language_rules: Arc<dyn LanguageRules>) -> Self {
-        let chunk_manager = ChunkManager::new(config.chunk_size, config.overlap_size);
+        // Chunks must be strictly contiguous: overlapping chunks double-count
+        // enclosure deltas in the prefix sum, which corrupts boundary
+        // decisions for every chunk after the first overlap. The configured
+        // overlap_size is therefore intentionally not forwarded here.
+        let chunk_manager = ChunkManager::new(config.chunk_size, 0);
 
         Self {
             language_rules,
@@ -94,6 +98,13 @@ impl DeltaStackProcessor {
         chunks: &[TextChunk],
         thread_count: usize,
     ) -> ProcessingResult<Vec<PartialState>> {
+        // Line offset at the start of each chunk, carried across chunks so
+        // that line-start suppression rules don't mistake every chunk start
+        // for a line start.
+        let line_offsets: Vec<usize> = (0..chunks.len())
+            .map(|i| Self::line_offset_at_chunk_start(chunks, i))
+            .collect();
+
         if thread_count > 1 {
             // Parallel processing with custom thread pool
             let pool = rayon::ThreadPoolBuilder::new()
@@ -106,9 +117,13 @@ impl DeltaStackProcessor {
             pool.install(|| {
                 Ok(chunks
                     .par_iter()
-                    .map(|chunk| {
-                        self.parser
-                            .scan_chunk(&chunk.content, self.language_rules.as_ref())
+                    .zip(line_offsets.par_iter())
+                    .map(|(chunk, &line_offset)| {
+                        self.parser.scan_chunk_with_context(
+                            &chunk.content,
+                            self.language_rules.as_ref(),
+                            line_offset,
+                        )
                     })
                     .collect::<Vec<_>>())
             })
@@ -116,12 +131,34 @@ impl DeltaStackProcessor {
             // Sequential processing
             Ok(chunks
                 .iter()
-                .map(|chunk| {
-                    self.parser
-                        .scan_chunk(&chunk.content, self.language_rules.as_ref())
+                .zip(line_offsets.iter())
+                .map(|(chunk, &line_offset)| {
+                    self.parser.scan_chunk_with_context(
+                        &chunk.content,
+                        self.language_rules.as_ref(),
+                        line_offset,
+                    )
                 })
                 .collect())
         }
+    }
+
+    /// Number of characters between the last newline before the given chunk
+    /// and the chunk start. Line offsets are only ever compared against a
+    /// small threshold (currently 10) by suppression rules, so the backward
+    /// scan is capped and the returned value saturates at that cap.
+    fn line_offset_at_chunk_start(chunks: &[TextChunk], index: usize) -> usize {
+        const CAP: usize = 64;
+        let mut offset = 0usize;
+        for chunk in chunks[..index].iter().rev() {
+            for c in chunk.content.chars().rev() {
+                if c == '\n' || offset >= CAP {
+                    return offset;
+                }
+                offset += 1;
+            }
+        }
+        offset
     }
 
     /// Phase 2: Prefix - Compute chunk start states using prefix sums
@@ -162,6 +199,10 @@ impl DeltaStackProcessor {
             .zip(chunks.iter())
             .collect();
 
+        // Symmetric enclosure types are evaluated by parity in the reduce
+        // phase; compute the mask once for all chunks.
+        let symmetric_types = self.language_rules.symmetric_enclosure_types();
+
         // Process chunks to find boundaries
         let chunk_boundaries: Vec<Vec<Boundary>> = if thread_count > 1 {
             // Parallel reduction with custom thread pool
@@ -175,14 +216,18 @@ impl DeltaStackProcessor {
             pool.install(|| {
                 state_start_pairs
                     .par_iter()
-                    .map(|((state, start), chunk)| self.reduce_chunk(state, start, chunk))
+                    .map(|((state, start), chunk)| {
+                        self.reduce_chunk(state, start, chunk, &symmetric_types)
+                    })
                     .collect()
             })
         } else {
             // Sequential reduction
             state_start_pairs
                 .iter()
-                .map(|((state, start), chunk)| self.reduce_chunk(state, start, chunk))
+                .map(|((state, start), chunk)| {
+                    self.reduce_chunk(state, start, chunk, &symmetric_types)
+                })
                 .collect()
         };
 
@@ -196,12 +241,13 @@ impl DeltaStackProcessor {
         state: &PartialState,
         start: &ChunkStartState,
         chunk: &TextChunk,
+        symmetric_types: &[bool],
     ) -> Vec<Boundary> {
         // For single chunk, use reduce_single
         // For multiple chunks, we need proper indexing
-        if chunk.start_offset == 0 && !chunk.has_suffix_overlap {
-            // This is a single chunk or the only chunk
-            BoundaryReducer::reduce_single(state)
+        if chunk.total_chunks == 1 {
+            // This is the only chunk
+            BoundaryReducer::reduce_single_with_symmetry(state, symmetric_types)
         } else {
             // Multi-chunk - need to handle properly with correct offsets
             let states = vec![state.clone()];
@@ -211,7 +257,7 @@ impl DeltaStackProcessor {
             // offsets in (start_offset, end_offset]. Using an inclusive upper
             // bound keeps a boundary sitting exactly at the end of the text,
             // which the previous `< end_offset` filter dropped.
-            BoundaryReducer::reduce_all(&states, &starts)
+            BoundaryReducer::reduce_all_with_symmetry(&states, &starts, symmetric_types)
                 .into_iter()
                 .filter(|b| b.offset > chunk.start_offset && b.offset <= chunk.end_offset)
                 .collect()
