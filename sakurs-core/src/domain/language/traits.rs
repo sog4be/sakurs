@@ -145,6 +145,18 @@ pub trait LanguageRules: Send + Sync {
     /// Number of distinct enclosure types
     fn enclosure_type_count(&self) -> usize;
 
+    /// Returns true if the character can potentially terminate a sentence
+    /// and should be evaluated by [`Self::detect_sentence_boundary`].
+    ///
+    /// The default covers the common Latin and CJK terminators for backward
+    /// compatibility. Implementations backed by configuration should
+    /// override this so that every configured terminator, terminator
+    /// pattern, and ellipsis character is actually evaluated during
+    /// scanning.
+    fn is_potential_terminator(&self, ch: char) -> bool {
+        matches!(ch, '.' | '!' | '?' | '。' | '！' | '？')
+    }
+
     /// Reports which enclosure type IDs are symmetric (the same character
     /// opens and closes, e.g. straight quotes).
     ///

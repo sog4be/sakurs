@@ -185,7 +185,7 @@ impl TextParser {
             }
 
             // Check for potential sentence terminators (record as candidate regardless of depth)
-            if is_potential_terminator(ch) {
+            if language_rules.is_potential_terminator(ch) {
                 // Build context for language rules
                 let context =
                     build_boundary_context(text, position, ch, &chars, last_char, consecutive_dots);
@@ -257,11 +257,6 @@ impl Default for TextParser {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Checks if a character is a potential sentence terminator.
-fn is_potential_terminator(ch: char) -> bool {
-    matches!(ch, '.' | '!' | '?' | '。' | '！' | '？')
 }
 
 /// Builds a boundary context for language rule evaluation.

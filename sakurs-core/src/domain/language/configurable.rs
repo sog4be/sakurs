@@ -76,6 +76,12 @@ pub struct ConfigurableLanguageRules {
     sentence_starter_config: SentenceStarterConfig,
     /// Fast lookup set for sentence starters
     sentence_starter_set: HashSet<String>,
+
+    /// Every character that can begin a boundary decision: configured
+    /// terminator characters plus all characters used by terminator patterns
+    /// and ellipsis patterns. The scanner consults this set to decide which
+    /// characters to evaluate.
+    potential_terminators: Vec<char>,
 }
 
 impl ConfigurableLanguageRules {
@@ -210,6 +216,29 @@ impl ConfigurableLanguageRules {
             }
         };
 
+        // Collect every character that can begin a boundary decision, so the
+        // scanner evaluates exactly what the configuration defines instead of
+        // a hardcoded set.
+        let mut potential_terminators: Vec<char> = Vec::new();
+        let mut add = |ch: char| {
+            if !potential_terminators.contains(&ch) {
+                potential_terminators.push(ch);
+            }
+        };
+        for &ch in &config.terminators.chars {
+            add(ch);
+        }
+        for pattern in &config.terminators.patterns {
+            for ch in pattern.pattern.chars() {
+                add(ch);
+            }
+        }
+        for pattern in &config.ellipsis.patterns {
+            for ch in pattern.chars() {
+                add(ch);
+            }
+        }
+
         Ok(Self {
             code: config.metadata.code.clone(),
             name: config.metadata.name.clone(),
@@ -220,6 +249,7 @@ impl ConfigurableLanguageRules {
             suppressor,
             sentence_starter_config,
             sentence_starter_set,
+            potential_terminators,
         })
     }
 }
@@ -408,6 +438,10 @@ impl LanguageRules for ConfigurableLanguageRules {
             }
         }
         mask
+    }
+
+    fn is_potential_terminator(&self, ch: char) -> bool {
+        self.potential_terminators.contains(&ch)
     }
 
     fn enclosure_suppressor(&self) -> Option<&dyn EnclosureSuppressor> {
