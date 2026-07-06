@@ -145,9 +145,18 @@ impl EllipsisRules {
 
     /// Check exception patterns
     fn check_exceptions(&self, context: &BoundaryContext) -> Option<BoundaryDecision> {
-        // Create a window around the position for regex matching
-        let start = context.position.saturating_sub(20);
-        let end = (context.position + 20).min(context.text.len());
+        // Create a window around the position for regex matching. The ±20
+        // byte offsets can land inside a multi-byte character, so snap them
+        // to char boundaries before slicing (naive slicing panics on real
+        // text, e.g. an accented character 20 bytes before a period).
+        let mut start = context.position.saturating_sub(20);
+        while start > 0 && !context.text.is_char_boundary(start) {
+            start -= 1;
+        }
+        let mut end = (context.position + 20).min(context.text.len());
+        while end < context.text.len() && !context.text.is_char_boundary(end) {
+            end += 1;
+        }
         let window = &context.text[start..end];
 
         for exception in &self.exception_patterns {
