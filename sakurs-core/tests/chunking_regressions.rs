@@ -39,7 +39,6 @@ fn reference(text: &str, lang: &str) -> Vec<usize> {
 /// `DeltaStackProcessor::reduce_chunk` keeps only `offset < chunk.end_offset`,
 /// which excludes a boundary sitting at the very end of the last chunk.
 #[test]
-#[ignore = "known v0.1.1 bug: final boundary dropped by reduce filter `offset < end_offset` (fix planned for v0.1.2)"]
 fn final_boundary_survives_chunking() {
     let text = {
         let repeated = "This is a sentence. ".repeat(300); // ~6KB

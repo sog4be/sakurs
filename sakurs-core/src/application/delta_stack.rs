@@ -206,9 +206,14 @@ impl DeltaStackProcessor {
             // Multi-chunk - need to handle properly with correct offsets
             let states = vec![state.clone()];
             let starts = vec![start.clone()];
+            // Ownership rule (start, end]: a boundary offset is the position
+            // *after* its terminator, so a chunk's own content can only yield
+            // offsets in (start_offset, end_offset]. Using an inclusive upper
+            // bound keeps a boundary sitting exactly at the end of the text,
+            // which the previous `< end_offset` filter dropped.
             BoundaryReducer::reduce_all(&states, &starts)
                 .into_iter()
-                .filter(|b| b.offset >= chunk.start_offset && b.offset < chunk.end_offset)
+                .filter(|b| b.offset > chunk.start_offset && b.offset <= chunk.end_offset)
                 .collect()
         }
     }
