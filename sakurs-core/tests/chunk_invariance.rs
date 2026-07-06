@@ -5,10 +5,8 @@
 //! used: processing with any chunk size must produce exactly the same boundary
 //! set as processing the whole text as a single chunk.
 //!
-//! Several tests in this file currently fail and are marked `#[ignore]`: they
-//! document known chunking bugs in v0.1.1. Run them explicitly with
-//! `cargo test --test chunk_invariance -- --ignored` and remove the ignore
-//! attributes as fixes land.
+//! Every test here runs unconditionally: the deferred-judgment pipeline
+//! (v0.2.0) makes boundary decisions independent of where chunks are cut.
 
 use proptest::prelude::*;
 use sakurs_core::{Config, Input, SentenceProcessor};
