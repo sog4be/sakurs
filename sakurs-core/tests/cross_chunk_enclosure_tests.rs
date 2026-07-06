@@ -163,14 +163,13 @@ fn test_nested_quotes_across_chunks() {
 }
 
 #[test]
-#[ignore = "Chunking has UTF-8 boundary issue with Japanese text - tracked separately"]
 fn test_japanese_nested_quotes_across_chunks() {
     let text = generate_japanese_style_nested_quotes();
 
     let config = Config::builder()
-        .language("en") // Note: using English rules for now
+        .language("ja")
         .unwrap()
-        .chunk_size(2048) // Larger chunks to avoid UTF-8 boundary issues
+        .chunk_size(512) // Small chunks so cuts land inside the quoted spans
         .build()
         .unwrap();
 
@@ -178,7 +177,6 @@ fn test_japanese_nested_quotes_across_chunks() {
     let result = processor.process(Input::from_text(&text)).unwrap();
 
     // Verify proper handling of nested quotes
-    // This is a simplified check since we're using English rules
     let sentences = extract_sentences(&text, &result.boundaries);
     assert!(sentences.len() > 50, "Should detect sentences");
     assert!(
@@ -336,7 +334,6 @@ fn test_quote_at_exact_chunk_boundary() {
         .language("en")
         .unwrap()
         .chunk_size(chunk_size)
-        .overlap_size(chunk_size.min(256) / 4) // Set appropriate overlap for chunk size
         .build()
         .unwrap();
 

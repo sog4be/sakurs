@@ -1,7 +1,6 @@
 use sakurs_core::{Config, Input, SentenceProcessor};
 
 #[test]
-#[ignore = "TODO: Fix handling of very small chunk sizes (Issue #102)"]
 fn test_bracket_pattern_detection() {
     // Test the specific ". [" pattern that was causing issues
     let test_cases = vec![
@@ -22,8 +21,8 @@ fn test_bracket_pattern_detection() {
         ),
         (
             "Quote test. \"This is quoted.\" Another sentence.",
-            vec![11], // Boundary after "test." only; no period at end
-            "Quote pattern with no final period",
+            vec![11, 47], // After "test." and at the final period; the quoted period is inside the quotes
+            "Quote pattern",
         ),
     ];
 
@@ -46,7 +45,6 @@ fn test_bracket_pattern_detection() {
             .language("en")
             .unwrap()
             .chunk_size(20) // Very small chunks
-            .overlap_size(5) // Small overlap for small chunks
             .threads(Some(2)) // Parallel processing
             .build()
             .unwrap();
@@ -64,27 +62,25 @@ fn test_bracket_pattern_detection() {
 }
 
 #[test]
-#[ignore = "TODO: Fix handling of very small chunk sizes (Issue #102)"]
 fn test_ewt_pattern_with_various_chunk_sizes() {
     let text = "On the Syrian border . [ This killing ] was important. Another sentence here.";
     let expected_boundaries = vec![22, 54, 77]; // After ". [", after "important." and at end
 
     let chunk_sizes = vec![
-        ("10 bytes", 10, 2), // chunk_size, overlap_size
-        ("50 bytes", 50, 10),
-        ("100 bytes", 100, 20),
-        ("1KB", 1024, 256),
-        ("256KB", 256 * 1024, 256),
+        ("10 bytes", 10),
+        ("50 bytes", 50),
+        ("100 bytes", 100),
+        ("1KB", 1024),
+        ("256KB", 256 * 1024),
     ];
 
-    for (name, size, overlap) in chunk_sizes {
+    for (name, size) in chunk_sizes {
         println!("Testing with {} chunks", name);
 
         let config = Config::builder()
             .language("en")
             .unwrap()
             .chunk_size(size)
-            .overlap_size(overlap)
             .build()
             .unwrap();
 

@@ -248,10 +248,7 @@ pub fn create_large_file_iterator(
 
     // Configure for memory-efficient processing
     let chunk_size = (max_memory_mb * 1024 * 1024) / 4; // Reserve memory for processing
-    config_builder = config_builder
-        .chunk_size(chunk_size)
-        .overlap_size(overlap_size)
-        .threads(Some(1)); // Single thread for streaming
+    config_builder = config_builder.chunk_size(chunk_size).threads(Some(1)); // Single thread for streaming
 
     let config = config_builder
         .build()

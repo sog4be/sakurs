@@ -4,7 +4,7 @@ use rayon::prelude::*;
 
 use crate::{
     application::{
-        chunking::ChunkManager,
+        chunking::chunk_spans,
         config::{ProcessingError, ProcessingResult, ProcessorConfig},
     },
     domain::language::config::{get_language_config, LanguageConfig},
@@ -30,7 +30,7 @@ pub struct DeltaStackResult {
 /// 3. Reduce: candidates outside every enclosure become boundaries
 pub struct DeltaStackProcessor {
     rules: Arc<CompiledRules>,
-    chunk_manager: ChunkManager,
+    chunk_size: usize,
 }
 
 impl DeltaStackProcessor {
@@ -55,12 +55,9 @@ impl DeltaStackProcessor {
             CompiledRules::from_config(language).map_err(|e| ProcessingError::InvalidConfig {
                 reason: e.to_string(),
             })?;
-        // Chunks must be strictly contiguous: overlapping chunks would
-        // double-count depth deltas in the prefix fold.
-        let chunk_manager = ChunkManager::new(config.chunk_size, 0);
         Ok(Self {
             rules: Arc::new(rules),
-            chunk_manager,
+            chunk_size: config.chunk_size,
         })
     }
 
@@ -74,14 +71,7 @@ impl DeltaStackProcessor {
             });
         }
 
-        let chunks = self.chunk_manager.chunk_text(text)?;
-        if chunks.is_empty() {
-            return Ok(DeltaStackResult {
-                boundaries: Vec::new(),
-                chunk_count: 0,
-                thread_count: 1,
-            });
-        }
+        let chunks = chunk_spans(text, self.chunk_size);
         let chunk_count = chunks.len();
 
         // Phase 1: scan chunks into partial states (parallel when warranted).
@@ -97,13 +87,13 @@ impl DeltaStackProcessor {
             pool.install(|| {
                 chunks
                     .par_iter()
-                    .map(|chunk| scan_chunk(&chunk.content, rules))
+                    .map(|chunk| scan_chunk(chunk, rules))
                     .collect()
             })
         } else {
             chunks
                 .iter()
-                .map(|chunk| scan_chunk(&chunk.content, self.rules.as_ref()))
+                .map(|chunk| scan_chunk(chunk, self.rules.as_ref()))
                 .collect()
         };
 
