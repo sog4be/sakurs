@@ -14,9 +14,20 @@ mod processor;
 #[cfg(test)]
 mod tests;
 
+pub use crate::domain::language::config::LanguageConfig;
+
+/// The language configuration schema (the TOML file structure), for
+/// constructing configurations programmatically (used by the bindings).
+pub mod language_config {
+    pub use crate::domain::language::config::{
+        AbbreviationConfig, ContextRule, EllipsisConfig, EnclosureConfig, EnclosurePair,
+        ExceptionPattern, FastPattern, LanguageConfig, MetadataConfig, RegexPattern,
+        SentenceStarterConfig, SuppressionConfig, TerminatorConfig, TerminatorPattern,
+    };
+}
 pub use config::{Config, ConfigBuilder};
 pub use error::{Error, Result};
 pub use input::Input;
 pub use language::Language;
-pub use output::{Boundary, BoundaryContext, Output, ProcessingMetadata, ProcessingStats};
+pub use output::{Boundary, Output, ProcessingMetadata, ProcessingStats};
 pub use processor::SentenceProcessor;

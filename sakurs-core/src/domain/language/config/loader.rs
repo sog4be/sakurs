@@ -47,6 +47,7 @@ pub fn get_language_config(code: &str) -> Result<&'static LanguageConfig, Domain
         .ok_or_else(|| DomainError::UnsupportedLanguage(code.to_string()))
 }
 
+#[cfg(test)]
 pub fn list_available_languages() -> Vec<&'static str> {
     let configs = LANGUAGE_CONFIGS
         .get_or_init(|| load_embedded_configs().expect("Failed to load embedded language configs"));

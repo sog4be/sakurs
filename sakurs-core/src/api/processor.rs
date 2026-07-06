@@ -91,8 +91,6 @@ impl SentenceProcessor {
     fn build_processor_config(config: &Config) -> Result<ProcessorConfig, Error> {
         Ok(ProcessorConfig {
             chunk_size: config.chunk_size,
-            parallel_threshold: config.parallel_threshold,
-            max_threads: config.threads,
         })
     }
 }

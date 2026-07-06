@@ -1,9 +1,7 @@
 //! Regression tests for specific chunking bugs found in v0.1.1.
 //!
-//! Each test pins one concrete failure mode with a minimal reproduction.
-//! Tests documenting known-but-unfixed limitations are marked `#[ignore]`;
-//! run them with `cargo test --test chunking_regressions -- --ignored` and
-//! remove the ignore attribute when the corresponding fix lands.
+//! Each test pins one concrete failure mode with a minimal reproduction;
+//! the fixes landed in v0.1.2 and the v0.2.0 deferred-judgment pipeline.
 
 use sakurs_core::{Config, Input, SentenceProcessor};
 
