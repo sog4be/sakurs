@@ -100,7 +100,6 @@ fn quotation_split_across_chunks() {
 /// the abbreviation is no longer recognized. This is a sequential bug: it does
 /// not need chunking to trigger.
 #[test]
-#[ignore = "known v0.1.1 bug: byte/char index confusion in abbreviation lookup (fix planned for v0.1.2)"]
 fn abbreviation_after_multibyte_text_is_recognized() {
     // Pure-ASCII control: "Dr." followed by a non-sentence-starter must not
     // produce a boundary, so exactly one boundary (end of text) is expected.

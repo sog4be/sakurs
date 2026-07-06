@@ -329,16 +329,18 @@ impl LanguageRules for ConfigurableLanguageRules {
         // position is the position of the period, so we check at position - 1
         if position > 0 {
             if let Some(abbr_match) = self.abbreviation_trie.find_at_position(text, position - 1) {
-                // Check for word boundary at the start of the abbreviation
+                // Check for word boundary at the start of the abbreviation.
+                // Both `position` and `abbr_match.length` are byte offsets.
                 let abbr_start = position - abbr_match.length;
 
                 // Simple word boundary check: the character before the abbreviation should not be alphanumeric
                 let has_word_boundary = if abbr_start == 0 {
                     true // Start of text is a valid boundary
                 } else {
-                    // Check the character before the abbreviation
-                    text.chars()
-                        .nth(abbr_start.saturating_sub(1))
+                    // Check the character immediately before the abbreviation
+                    text[..abbr_start]
+                        .chars()
+                        .next_back()
                         .map(|ch| !ch.is_alphanumeric())
                         .unwrap_or(true)
                 };
