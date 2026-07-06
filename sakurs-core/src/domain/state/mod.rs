@@ -13,12 +13,16 @@
 //! in this module.
 
 mod candidate;
+mod compiled;
 mod context;
+mod scanner;
 
 pub(crate) use candidate::{
     Candidate, EnclosureSlot, Judge, Judgment, PendingCandidate, PendingEnclosure, TerminatorKind,
 };
+pub(crate) use compiled::CompiledRules;
 pub(crate) use context::{window_around, ContextBuf, CONTEXT_CHARS, WINDOW_CHARS};
+pub(crate) use scanner::scan_chunk;
 
 use crate::domain::types::DepthVec;
 use smallvec::SmallVec;

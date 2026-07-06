@@ -139,7 +139,7 @@ impl Judge for HashJudge {
 }
 
 /// Maps arbitrary indices to sorted cut positions on character boundaries.
-fn char_boundary_cuts(text: &str, ixs: &[prop::sample::Index]) -> Vec<usize> {
+pub(crate) fn char_boundary_cuts(text: &str, ixs: &[prop::sample::Index]) -> Vec<usize> {
     let mut cuts: Vec<usize> = ixs
         .iter()
         .map(|ix| {
@@ -154,7 +154,7 @@ fn char_boundary_cuts(text: &str, ixs: &[prop::sample::Index]) -> Vec<usize> {
     cuts
 }
 
-fn segments<'a>(text: &'a str, cuts: &[usize]) -> Vec<&'a str> {
+pub(crate) fn segments<'a>(text: &'a str, cuts: &[usize]) -> Vec<&'a str> {
     let mut segs = Vec::new();
     let mut prev = 0;
     for &c in cuts {
