@@ -315,17 +315,16 @@ fn build_enclosure_context<'a>(
         preceding_chars.push(ch);
     }
 
-    // Try to get more preceding characters from text
+    // Try to get more preceding characters from text, walking backwards only
+    // as far as needed (this runs for every enclosure character, so it must
+    // not scan back to the chunk start).
     if position > 0 {
-        let preceding_text = &text[..position];
-        let mut chars_before: Vec<char> = preceding_text.chars().collect();
-        chars_before.reverse();
-
         // Skip the first char if we already have it from last_char
         let skip = if last_char.is_some() { 1 } else { 0 };
 
-        for ch in chars_before
-            .into_iter()
+        for ch in text[..position]
+            .chars()
+            .rev()
             .skip(skip)
             .take(3 - preceding_chars.len())
         {
@@ -338,7 +337,11 @@ fn build_enclosure_context<'a>(
 
     // Calculate line offset (simple approximation). If no newline exists in
     // this chunk before the position, the line continues from the previous
-    // chunk, so add the carried-in offset at chunk start.
+    // chunk, so add the carried-in offset at chunk start. Consumers only
+    // compare the offset against a small threshold (currently 10), so the
+    // backward scan stops once the value is decidable instead of walking to
+    // the chunk start.
+    const LINE_OFFSET_DECIDABLE: usize = 11;
     let mut line_offset = 0;
     let mut saw_newline = false;
     for c in text[..position].chars().rev() {
@@ -347,8 +350,11 @@ fn build_enclosure_context<'a>(
             break;
         }
         line_offset += 1;
+        if line_offset >= LINE_OFFSET_DECIDABLE {
+            break;
+        }
     }
-    if !saw_newline {
+    if !saw_newline && line_offset < LINE_OFFSET_DECIDABLE {
         line_offset += line_offset_at_start;
     }
 

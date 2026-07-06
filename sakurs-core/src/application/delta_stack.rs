@@ -76,14 +76,27 @@ impl DeltaStackProcessor {
 
         let chunk_count = chunks.len();
 
-        // Determine execution strategy
+        // Determine execution strategy. One thread pool is built per call and
+        // shared by the scan and reduce phases (pool creation spawns OS
+        // threads and is far too expensive to repeat per phase).
         let thread_count = mode.determine_thread_count(text.len());
+        let pool = if thread_count > 1 {
+            Some(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(thread_count)
+                    .build()
+                    .map_err(|e| ProcessingError::InvalidConfig {
+                        reason: format!("Failed to create thread pool: {e}"),
+                    })?,
+            )
+        } else {
+            None
+        };
 
         // Execute the three phases
-        let partial_states = self.scan_phase(&chunks, thread_count)?;
+        let partial_states = self.scan_phase(&chunks, pool.as_ref());
         let chunk_starts = self.prefix_phase(&partial_states, &chunks)?;
-        let boundaries =
-            self.reduce_phase(&partial_states, &chunk_starts, &chunks, thread_count)?;
+        let boundaries = self.reduce_phase(&partial_states, &chunk_starts, &chunks, pool.as_ref());
 
         Ok(DeltaStackResult {
             boundaries,
@@ -96,8 +109,8 @@ impl DeltaStackProcessor {
     fn scan_phase(
         &self,
         chunks: &[TextChunk],
-        thread_count: usize,
-    ) -> ProcessingResult<Vec<PartialState>> {
+        pool: Option<&rayon::ThreadPool>,
+    ) -> Vec<PartialState> {
         // Line offset at the start of each chunk, carried across chunks so
         // that line-start suppression rules don't mistake every chunk start
         // for a line start.
@@ -105,41 +118,28 @@ impl DeltaStackProcessor {
             .map(|i| Self::line_offset_at_chunk_start(chunks, i))
             .collect();
 
-        if thread_count > 1 {
-            // Parallel processing with custom thread pool
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(thread_count)
-                .build()
-                .map_err(|e| ProcessingError::InvalidConfig {
-                    reason: format!("Failed to create thread pool: {e}"),
-                })?;
+        let scan = |chunk: &TextChunk, line_offset: usize| {
+            self.parser.scan_chunk_with_context(
+                &chunk.content,
+                self.language_rules.as_ref(),
+                line_offset,
+            )
+        };
 
+        if let Some(pool) = pool {
             pool.install(|| {
-                Ok(chunks
+                chunks
                     .par_iter()
                     .zip(line_offsets.par_iter())
-                    .map(|(chunk, &line_offset)| {
-                        self.parser.scan_chunk_with_context(
-                            &chunk.content,
-                            self.language_rules.as_ref(),
-                            line_offset,
-                        )
-                    })
-                    .collect::<Vec<_>>())
+                    .map(|(chunk, &line_offset)| scan(chunk, line_offset))
+                    .collect()
             })
         } else {
-            // Sequential processing
-            Ok(chunks
+            chunks
                 .iter()
                 .zip(line_offsets.iter())
-                .map(|(chunk, &line_offset)| {
-                    self.parser.scan_chunk_with_context(
-                        &chunk.content,
-                        self.language_rules.as_ref(),
-                        line_offset,
-                    )
-                })
-                .collect())
+                .map(|(chunk, &line_offset)| scan(chunk, line_offset))
+                .collect()
         }
     }
 
@@ -190,8 +190,8 @@ impl DeltaStackProcessor {
         partial_states: &[PartialState],
         chunk_starts: &[ChunkStartState],
         chunks: &[TextChunk],
-        thread_count: usize,
-    ) -> ProcessingResult<Vec<usize>> {
+        pool: Option<&rayon::ThreadPool>,
+    ) -> Vec<usize> {
         // Create pairs of (state, start) for processing
         let state_start_pairs: Vec<_> = partial_states
             .iter()
@@ -204,15 +204,7 @@ impl DeltaStackProcessor {
         let symmetric_types = self.language_rules.symmetric_enclosure_types();
 
         // Process chunks to find boundaries
-        let chunk_boundaries: Vec<Vec<Boundary>> = if thread_count > 1 {
-            // Parallel reduction with custom thread pool
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(thread_count)
-                .build()
-                .map_err(|e| ProcessingError::InvalidConfig {
-                    reason: format!("Failed to create thread pool: {e}"),
-                })?;
-
+        let chunk_boundaries: Vec<Vec<Boundary>> = if let Some(pool) = pool {
             pool.install(|| {
                 state_start_pairs
                     .par_iter()
@@ -232,7 +224,7 @@ impl DeltaStackProcessor {
         };
 
         // Merge boundaries from all chunks
-        Ok(self.merge_boundaries(chunk_boundaries))
+        self.merge_boundaries(chunk_boundaries)
     }
 
     /// Reduces a single chunk to find its boundaries
@@ -249,18 +241,20 @@ impl DeltaStackProcessor {
             // This is the only chunk
             BoundaryReducer::reduce_single_with_symmetry(state, symmetric_types)
         } else {
-            // Multi-chunk - need to handle properly with correct offsets
-            let states = vec![state.clone()];
-            let starts = vec![start.clone()];
+            // Multi-chunk - need to handle properly with correct offsets.
             // Ownership rule (start, end]: a boundary offset is the position
             // *after* its terminator, so a chunk's own content can only yield
             // offsets in (start_offset, end_offset]. Using an inclusive upper
             // bound keeps a boundary sitting exactly at the end of the text,
             // which the previous `< end_offset` filter dropped.
-            BoundaryReducer::reduce_all_with_symmetry(&states, &starts, symmetric_types)
-                .into_iter()
-                .filter(|b| b.offset > chunk.start_offset && b.offset <= chunk.end_offset)
-                .collect()
+            BoundaryReducer::evaluate_candidates_with_symmetry(
+                &state.boundary_candidates,
+                start,
+                symmetric_types,
+            )
+            .into_iter()
+            .filter(|b| b.offset > chunk.start_offset && b.offset <= chunk.end_offset)
+            .collect()
         }
     }
 
