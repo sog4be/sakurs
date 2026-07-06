@@ -294,3 +294,6 @@ lcov.info
 # UV (Python package manager)
 uv.lock
 .python-version
+
+# Claude Code personal overrides (per-developer, not shared)
+.claude/settings.local.json

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "このファイルを settings.local.json にコピーして個人用のオーバーライドを入れる。git 管理外。",
+  "permissions": {
+    "allow": [],
+    "deny": []
+  }
+}
