@@ -121,7 +121,7 @@ mod tests {
     /// ported rule semantics against regressions.
     #[test]
     fn single_chunk_output_is_pinned() {
-        let en_cases: [(&str, &[usize]); 5] = [
+        let en_cases: [(&str, &[usize]); 7] = [
             (
                 "Dr. Smith went to Washington. He arrived at 3.5 p.m. and left.",
                 &[29, 62],
@@ -149,7 +149,7 @@ mod tests {
             assert_eq!(v2_boundaries(&state), expected, "en mismatch for {text:?}");
         }
 
-        let ja_cases: [(&str, &[usize]); 4] = [
+        let ja_cases: [(&str, &[usize]); 5] = [
             (
                 "彼は「こんにちは」と言った。今日は晴れ!明日は?",
                 &[42, 58, 68],
