@@ -2,47 +2,76 @@
 //!
 //! The tests instantiate the state model with a *toy* scanner and a
 //! hash-based judge. The toy scanner honors the same contract as the real
-//! one (candidates ≥ k characters from both chunk edges are judged inline,
-//! the rest go to pending; head/tail context buffers cover 2k characters),
-//! and the hash judge is a pure function of the exact window content, so any
+//! one (items ≥ k characters from both chunk edges are decided inline, the
+//! rest go to pending; head/tail context buffers cover 2k characters), and
+//! the hash judge is a pure function of the exact window content, so any
 //! discrepancy in window reconstruction across chunkings flips verdicts and
 //! fails the equivalence assertions.
+//!
+//! Toy language: `.` `!` `?` terminate; `(`/`)` are an asymmetric enclosure
+//! (net index 0) with a *suppressible* closer; `"` is a suppressible
+//! symmetric enclosure (parity bit 0).
 
 use super::*;
-use crate::domain::types::{BoundaryFlags, DeltaEntry, DepthVec};
+use crate::domain::types::{BoundaryFlags, DepthVec};
 use proptest::prelude::*;
 use smallvec::smallvec;
 use std::cell::Cell;
 
-/// Toy scanner: `.` `!` `?` are terminators, `(`/`)` an asymmetric enclosure
-/// (type 0), `"` a symmetric enclosure (parity bit 0).
+const SYM_QUOTE: EnclosureSlot = EnclosureSlot::Sym { bit: 0 };
+const ASYM_CLOSE: EnclosureSlot = EnclosureSlot::Asym {
+    index: 0,
+    delta: -1,
+};
+
+/// Toy scanner following the real scanner's contract.
 fn toy_scan<J: Judge>(text: &str, judge: &J) -> PartialState {
     let mut state = PartialState::identity();
-    state.deltas.push(DeltaEntry::identity());
+    state.deltas.push(0);
     state.chunk_len = text.len();
     state.head_ctx = ContextBuf::head_of(text);
     state.tail_ctx = ContextBuf::tail_of(text);
 
     let total_chars = text.chars().count();
     let mut depth: i32 = 0;
-    let mut min_depth: i32 = 0;
     let mut parity: u32 = 0;
-    let mut chars_seen = 0usize;
+    let mut char_idx = 0usize;
 
     for (i, ch) in text.char_indices() {
-        chars_seen += 1;
+        // Characters strictly before / from (inclusive) this character —
+        // matching PartialState::chars_before / chars_after semantics.
+        let before = char_idx;
+        let after = total_chars - char_idx;
+        char_idx += 1;
+
         match ch {
-            '(' => depth += 1,
-            ')' => {
-                depth -= 1;
-                min_depth = min_depth.min(depth);
+            '(' => depth += 1, // not suppressible: counted unconditionally
+            ')' | '"' => {
+                // A suppressible enclosure character is decided inline when
+                // its ±k window is inside the chunk, and becomes a pending
+                // enclosure otherwise (its effect stays excluded until
+                // resolution).
+                let slot = if ch == ')' { ASYM_CLOSE } else { SYM_QUOTE };
+                if before >= WINDOW_CHARS && after >= WINDOW_CHARS {
+                    let (window, pos) = window_around(text, i, WINDOW_CHARS);
+                    if !judge.suppress_enclosure(window, pos, ch) {
+                        apply(slot, &mut depth, &mut parity);
+                    }
+                } else {
+                    state.pending_enc.push(PendingEnclosure {
+                        local_offset: i,
+                        ch,
+                        slot,
+                    });
+                }
             }
-            '"' => parity ^= 1,
             '.' | '!' | '?' => {
                 let offset = i + ch.len_utf8();
                 let kind = TerminatorKind::Char(ch);
                 let depths: DepthVec = smallvec![depth];
-                if chars_seen >= WINDOW_CHARS && total_chars - chars_seen >= WINDOW_CHARS {
+                // For the candidate the reference point is the offset after
+                // the terminator: `before + 1` characters precede it.
+                if before + 1 >= WINDOW_CHARS && after - 1 >= WINDOW_CHARS {
                     let (window, pos) = window_around(text, offset, WINDOW_CHARS);
                     if let Judgment::Boundary(flags) = judge.judge(window, pos, kind) {
                         state.boundaries.push(Candidate {
@@ -65,35 +94,47 @@ fn toy_scan<J: Judge>(text: &str, judge: &J) -> PartialState {
         }
     }
 
-    state.deltas[0] = DeltaEntry {
-        net: depth,
-        min: min_depth,
-    };
+    state.deltas[0] = depth;
     state.parity = parity;
     state
 }
 
-/// A pure judge whose verdict depends on every byte of the window, the
-/// candidate position, and the terminator kind — maximally sensitive to any
+fn apply(slot: EnclosureSlot, depth: &mut i32, parity: &mut u32) {
+    match slot {
+        EnclosureSlot::Asym { delta, .. } => *depth += i32::from(delta),
+        EnclosureSlot::Sym { bit } => *parity ^= 1 << bit,
+    }
+}
+
+/// A pure judge whose verdicts depend on every byte of the window, the
+/// position, and the item identity — maximally sensitive to any
 /// window-reconstruction error.
 struct HashJudge;
 
+fn window_hash(window: &str, pos: usize, salt: u64) -> u64 {
+    let mut h: u64 = salt;
+    for &b in window.as_bytes() {
+        h = h.wrapping_mul(1_099_511_628_211).wrapping_add(u64::from(b));
+    }
+    h ^ (pos as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)
+}
+
 impl Judge for HashJudge {
     fn judge(&self, window: &str, pos_in_window: usize, kind: TerminatorKind) -> Judgment {
-        let mut h: u64 = match kind {
+        let salt = match kind {
             TerminatorKind::Char(c) => c as u64,
             TerminatorKind::Pattern { len } => 0x100 + u64::from(len),
             TerminatorKind::Ellipsis { len } => 0x200 + u64::from(len),
         };
-        for &b in window.as_bytes() {
-            h = h.wrapping_mul(1_099_511_628_211).wrapping_add(u64::from(b));
-        }
-        h ^= (pos_in_window as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
-        match h % 3 {
+        match window_hash(window, pos_in_window, salt) % 3 {
             0 => Judgment::NotBoundary,
             1 => Judgment::Boundary(BoundaryFlags::WEAK),
             _ => Judgment::Boundary(BoundaryFlags::STRONG),
         }
+    }
+
+    fn suppress_enclosure(&self, window: &str, pos_in_window: usize, ch: char) -> bool {
+        window_hash(window, pos_in_window, 0x300 + ch as u64) % 2 == 0
     }
 }
 
@@ -206,6 +247,10 @@ impl Judge for ExpectWindow<'_> {
         self.hits.set(self.hits.get() + 1);
         Judgment::Boundary(BoundaryFlags::STRONG)
     }
+
+    fn suppress_enclosure(&self, _window: &str, _pos_in_window: usize, _ch: char) -> bool {
+        panic!("no suppressible characters in this test's input")
+    }
 }
 
 #[test]
@@ -246,25 +291,75 @@ fn resolve_edges_clips_the_window_at_text_bounds() {
     assert_eq!(resolved.boundaries[0].local_offset, 3);
 }
 
+/// Deterministic judge for the enclosure-resolution unit tests: `"` is a
+/// contraction (suppressed) iff both immediate neighbors are alphabetic;
+/// `)` is never suppressed; every candidate is a strong boundary.
+struct ScriptJudge;
+
+impl Judge for ScriptJudge {
+    fn judge(&self, _window: &str, _pos_in_window: usize, _kind: TerminatorKind) -> Judgment {
+        Judgment::Boundary(BoundaryFlags::STRONG)
+    }
+
+    fn suppress_enclosure(&self, window: &str, pos_in_window: usize, ch: char) -> bool {
+        if ch != '"' {
+            return false;
+        }
+        let before = window[..pos_in_window].chars().next_back();
+        let after = window[pos_in_window..].chars().nth(1);
+        matches!((before, after), (Some(b), Some(a)) if b.is_alphabetic() && a.is_alphabetic())
+    }
+}
+
 #[test]
-fn combine_rebases_offsets_depths_and_parity() {
-    let judge = HashJudge;
-    // Left chunk opens a paren and a quote: net depth +1, parity 1.
+fn resolved_enclosure_toggles_later_candidates() {
+    // `"` after `(`: not a contraction, so it is a real quote whose parity
+    // toggle applies to the candidate after it once resolved at the edges.
+    let judge = ScriptJudge;
     let left = toy_scan("(\"", &judge);
-    assert_eq!(left.deltas[0].net, 1);
-    assert_eq!(left.parity, 1);
+    assert_eq!(
+        left.deltas[0], 1,
+        "the unsuppressible '(' counts immediately"
+    );
+    assert_eq!(left.parity, 0, "the pending '\"' stays excluded");
+    assert_eq!(left.pending_enc.len(), 1);
 
-    // Right chunk has one candidate at depth 0 / parity 0 locally.
-    let right = toy_scan("xy.", &judge);
-    assert_eq!(right.pending.len(), 1);
-
-    let combined = left.combine_with(&right, &judge);
-    // Short text: the candidate stays pending, rebased to the combined origin.
+    let combined = left.combine_with(&toy_scan("xy.", &judge), &judge);
+    assert_eq!(combined.pending_enc.len(), 1, "still no context to decide");
     assert_eq!(combined.pending.len(), 1);
-    let pc = &combined.pending[0];
-    assert_eq!(pc.local_offset, 2 + 3);
-    assert_eq!(pc.local_depths[0], 1, "depth rebased by left's net");
-    assert_eq!(pc.local_parity, 1, "parity rebased by left's parity");
+    assert_eq!(combined.pending[0].local_offset, 5);
+    assert_eq!(
+        combined.pending[0].local_depths[0], 1,
+        "depth rebased by left's net"
+    );
+
+    let resolved = combined.resolve_edges(&judge);
+    assert_eq!(
+        resolved.parity, 1,
+        "the resolved quote toggles the state parity"
+    );
+    assert_eq!(resolved.deltas[0], 1);
+    assert_eq!(resolved.boundaries.len(), 1);
+    let b = &resolved.boundaries[0];
+    assert_eq!(b.local_offset, 5);
+    assert_eq!(b.local_depths[0], 1);
+    assert_eq!(
+        b.local_parity, 1,
+        "candidate parity includes the resolved toggle"
+    );
+    assert!(resolved.pending_enc.is_empty());
+}
+
+#[test]
+fn suppressed_enclosure_leaves_no_trace() {
+    // `"` between alphabetic characters is a contraction under ScriptJudge:
+    // resolving it must not toggle parity anywhere.
+    let judge = ScriptJudge;
+    let resolved = toy_scan("ab\"cd.", &judge).resolve_edges(&judge);
+    assert_eq!(resolved.parity, 0);
+    assert_eq!(resolved.boundaries.len(), 1);
+    assert_eq!(resolved.boundaries[0].local_parity, 0);
+    assert!(resolved.pending_enc.is_empty());
 }
 
 #[test]

@@ -1,9 +1,10 @@
 //! Partial-state model for the Δ-Stack Monoid algorithm.
 //!
 //! A [`PartialState`] represents a scanned text span as
-//! `⟨B, P, Δ, π, H, T⟩` (see `docs/DELTA_STACK_ALGORITHM.md`): confirmed
+//! `⟨B, P, E, Δ, π, H, T⟩` (see `docs/DELTA_STACK_ALGORITHM.md`): confirmed
 //! boundary candidates, pending candidates awaiting cross-chunk context,
-//! `(net, min)` deltas for asymmetric enclosures, a parity bitset for
+//! pending enclosure characters whose suppression decision needs cross-chunk
+//! context, net depth deltas for asymmetric enclosures, a parity bitset for
 //! symmetric enclosures, and head/tail context buffers of `2k` characters.
 //!
 //! [`PartialState::combine_with`] is the monoid operation, parameterized by a
@@ -14,10 +15,12 @@
 mod candidate;
 mod context;
 
-pub(crate) use candidate::{Candidate, Judge, Judgment, PendingCandidate, TerminatorKind};
+pub(crate) use candidate::{
+    Candidate, EnclosureSlot, Judge, Judgment, PendingCandidate, PendingEnclosure, TerminatorKind,
+};
 pub(crate) use context::{window_around, ContextBuf, CONTEXT_CHARS, WINDOW_CHARS};
 
-use crate::domain::types::{DeltaEntry, DeltaVec};
+use crate::domain::types::DepthVec;
 use smallvec::SmallVec;
 
 /// Candidates per state; spills to the heap for large chunks.
@@ -27,6 +30,14 @@ pub(crate) type CandidateVec = SmallVec<[Candidate; 8]>;
 /// `k` characters of a chunk edge in practice.
 pub(crate) type PendingVec = SmallVec<[PendingCandidate; 4]>;
 
+/// Pending enclosures per state; only suppressible enclosure characters near
+/// a chunk edge become pending.
+pub(crate) type PendingEncVec = SmallVec<[PendingEnclosure; 2]>;
+
+/// Resolved enclosure toggles collected during one combine, in combined-state
+/// coordinates.
+type ToggleVec = SmallVec<[(usize, EnclosureSlot); 4]>;
+
 /// Parsing state of a text span under the Δ-Stack Monoid algorithm.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PartialState {
@@ -35,8 +46,13 @@ pub(crate) struct PartialState {
     /// Unjudged candidates within `k` characters of a state edge (P), sorted
     /// by offset.
     pub pending: PendingVec,
-    /// `(net, min)` per asymmetric enclosure type (Δ).
-    pub deltas: DeltaVec,
+    /// Suppression-undecided enclosure characters within `k` characters of a
+    /// state edge (E), sorted by offset. Their depth/parity effect is
+    /// excluded from `deltas`/`parity` and from every candidate until
+    /// resolved.
+    pub pending_enc: PendingEncVec,
+    /// Net depth change per asymmetric enclosure type (Δ).
+    pub deltas: DepthVec,
     /// Toggle parity per symmetric enclosure type (π).
     pub parity: u32,
     /// First `min(2k, |span|)` characters of the span (H).
@@ -53,7 +69,8 @@ impl PartialState {
         Self {
             boundaries: CandidateVec::new(),
             pending: PendingVec::new(),
-            deltas: DeltaVec::new(),
+            pending_enc: PendingEncVec::new(),
+            deltas: DepthVec::new(),
             parity: 0,
             head_ctx: ContextBuf::empty(),
             tail_ctx: ContextBuf::empty(),
@@ -61,7 +78,7 @@ impl PartialState {
         }
     }
 
-    /// Characters available before byte offset `p`, saturating at
+    /// Characters available strictly before byte offset `p`, saturating at
     /// [`CONTEXT_CHARS`]. Exact whenever the true count is below the
     /// saturation point, which is all the `< WINDOW_CHARS` comparisons need.
     fn chars_before(&self, p: usize) -> usize {
@@ -73,8 +90,8 @@ impl PartialState {
         }
     }
 
-    /// Characters available after byte offset `p`, saturating at
-    /// [`CONTEXT_CHARS`] (see [`Self::chars_before`]).
+    /// Characters available from byte offset `p` (inclusive) to the span end,
+    /// saturating at [`CONTEXT_CHARS`] (see [`Self::chars_before`]).
     fn chars_after(&self, p: usize) -> usize {
         let tail_start = self.chunk_len - self.tail_ctx.byte_len();
         if p >= tail_start {
@@ -82,6 +99,12 @@ impl PartialState {
         } else {
             CONTEXT_CHARS
         }
+    }
+
+    /// True when the ±k window around `p` lies fully inside the span, i.e.
+    /// the pending item at `p` can be resolved.
+    fn window_available(&self, p: usize) -> bool {
+        self.chars_before(p) >= WINDOW_CHARS && self.chars_after(p) >= WINDOW_CHARS
     }
 
     /// Rebases a right-hand candidate to the combined state's origin.
@@ -104,52 +127,43 @@ impl PartialState {
         }
     }
 
-    fn rebase_depths(
-        &self,
-        depths: &crate::domain::types::DepthVec,
-    ) -> crate::domain::types::DepthVec {
+    fn rebase_depths(&self, depths: &DepthVec) -> DepthVec {
         let len = depths.len().max(self.deltas.len());
         (0..len)
-            .map(|i| depths.get(i).copied().unwrap_or(0) + self.deltas.get(i).map_or(0, |e| e.net))
+            .map(|i| depths.get(i).copied().unwrap_or(0) + self.deltas.get(i).copied().unwrap_or(0))
             .collect()
     }
 
     /// The monoid operation: state of `text(self) ++ text(other)`.
     ///
-    /// Pending candidates whose ±k window becomes available are judged here,
-    /// on a window reconstructed from `self.tail_ctx ++ other.head_ctx`; the
+    /// Pending items whose ±k window becomes available are resolved here, on
+    /// a window reconstructed from `self.tail_ctx ++ other.head_ctx`; the
     /// window's content equals the corresponding substring of the original
     /// text regardless of combine order, so any pure `judge` yields the same
-    /// verdicts for every parenthesization.
+    /// verdicts for every parenthesization. Enclosures resolve before
+    /// candidates because a confirmed enclosure retroactively shifts the
+    /// depth/parity of everything positioned after it.
     pub(crate) fn combine_with<J: Judge>(&self, other: &Self, judge: &J) -> Self {
-        // Δ: classical (net, min) merge, padding missing types with identity.
         let max_deltas = self.deltas.len().max(other.deltas.len());
-        let identity = DeltaEntry::identity();
-        let mut deltas = DeltaVec::with_capacity(max_deltas);
-        for i in 0..max_deltas {
-            let l = self.deltas.get(i).unwrap_or(&identity);
-            let r = other.deltas.get(i).unwrap_or(&identity);
-            deltas.push(l.combine(r));
-        }
-
         let mut combined = Self {
             boundaries: CandidateVec::new(),
             pending: PendingVec::new(),
-            deltas,
+            pending_enc: PendingEncVec::new(),
+            deltas: (0..max_deltas)
+                .map(|i| {
+                    self.deltas.get(i).copied().unwrap_or(0)
+                        + other.deltas.get(i).copied().unwrap_or(0)
+                })
+                .collect(),
             parity: self.parity ^ other.parity,
             head_ctx: ContextBuf::compose_head(&self.head_ctx, &other.head_ctx),
             tail_ctx: ContextBuf::compose_tail(&self.tail_ctx, &other.tail_ctx),
             chunk_len: self.chunk_len + other.chunk_len,
         };
 
-        combined.boundaries.extend(self.boundaries.iter().cloned());
-        combined
-            .boundaries
-            .extend(other.boundaries.iter().map(|c| self.rebase(c)));
-
         // The joint context window covers the byte range
         // [self.chunk_len - |tail|, self.chunk_len + |head_r|) of the combined
-        // span; every candidate resolvable at this combine falls inside it
+        // span; every item resolvable at this combine falls inside it
         // (docs/DELTA_STACK_ALGORITHM.md, "Window Availability").
         let mut joint = [0u8; 2 * CONTEXT_CHARS * 4];
         let lt = self.tail_ctx.as_str().as_bytes();
@@ -160,21 +174,60 @@ impl PartialState {
             .expect("context buffers hold valid UTF-8");
         let joint_start = self.chunk_len - self.tail_ctx.byte_len();
 
+        // Pending enclosures first: confirmed ones shift everything after
+        // them, so their toggles must be known before candidates are placed.
+        let mut toggles = ToggleVec::new();
+        let left_enc = self.pending_enc.iter().copied();
+        let right_enc = other.pending_enc.iter().map(|pe| PendingEnclosure {
+            local_offset: pe.local_offset + self.chunk_len,
+            ..*pe
+        });
+        for pe in left_enc.chain(right_enc) {
+            if combined.window_available(pe.local_offset) {
+                let (window, pos) = resolve_window(joint_str, joint_start, pe.local_offset);
+                if !judge.suppress_enclosure(window, pos, pe.ch) {
+                    toggles.push((pe.local_offset, pe.slot));
+                }
+            } else {
+                combined.pending_enc.push(pe);
+            }
+        }
+        for &(_, slot) in &toggles {
+            apply_slot_to_totals(&mut combined.deltas, &mut combined.parity, slot);
+        }
+
+        for c in &self.boundaries {
+            let mut c = c.clone();
+            adjust_for_toggles(
+                &mut c.local_depths,
+                &mut c.local_parity,
+                c.local_offset,
+                &toggles,
+            );
+            combined.boundaries.push(c);
+        }
+        for c in &other.boundaries {
+            let mut c = self.rebase(c);
+            adjust_for_toggles(
+                &mut c.local_depths,
+                &mut c.local_parity,
+                c.local_offset,
+                &toggles,
+            );
+            combined.boundaries.push(c);
+        }
+
         let left_pending = self.pending.iter().cloned();
         let right_pending = other.pending.iter().map(|p| self.rebase_pending(p));
-        for pc in left_pending.chain(right_pending) {
-            let p = pc.local_offset;
-            if combined.chars_before(p) >= WINDOW_CHARS && combined.chars_after(p) >= WINDOW_CHARS {
-                debug_assert!(
-                    p >= joint_start && p <= joint_start + joint_str.len(),
-                    "resolvable pending candidate must lie inside the joint window"
-                );
-                let (window, pos) = window_around(joint_str, p - joint_start, WINDOW_CHARS);
-                debug_assert_eq!(
-                    window.chars().count(),
-                    2 * WINDOW_CHARS,
-                    "a window resolved at combine is never clipped (Window Availability)"
-                );
+        for mut pc in left_pending.chain(right_pending) {
+            adjust_for_toggles(
+                &mut pc.local_depths,
+                &mut pc.local_parity,
+                pc.local_offset,
+                &toggles,
+            );
+            if combined.window_available(pc.local_offset) {
+                let (window, pos) = resolve_window(joint_str, joint_start, pc.local_offset);
                 if let Judgment::Boundary(flags) = judge.judge(window, pos, pc.kind) {
                     combined.boundaries.push(pc.confirm(flags));
                 }
@@ -187,19 +240,58 @@ impl PartialState {
         combined
     }
 
-    /// Judges the remaining pending candidates with the knowledge that no
-    /// more text is coming: missing left context resolves against the start
-    /// of text, missing right context against the end (the window is clipped
+    /// Resolves the remaining pending items with the knowledge that no more
+    /// text is coming: missing left context resolves against the start of
+    /// text, missing right context against the end (the window is clipped
     /// instead of completed). Called once by the driver after the final
-    /// combine; sits outside the monoid.
+    /// combine; sits outside the monoid. Enclosures resolve before
+    /// candidates, as in combine.
     pub(crate) fn resolve_edges<J: Judge>(mut self, judge: &J) -> Self {
+        let pending_enc = std::mem::take(&mut self.pending_enc);
+        let mut toggles = ToggleVec::new();
+        for pe in pending_enc {
+            let p = pe.local_offset;
+            // Pick the buffer whose coverage contains the clipped window:
+            // items lacking left context sit within k characters of the text
+            // start (window ⊆ head buffer), all others lack right context and
+            // sit within k characters of the end (⊆ tail buffer).
+            let (buf, buf_start) = if self.chars_before(p) < WINDOW_CHARS {
+                (self.head_ctx.as_str(), 0)
+            } else {
+                let tail_start = self.chunk_len - self.tail_ctx.byte_len();
+                debug_assert!(p >= tail_start, "pending enclosure outside both buffers");
+                (self.tail_ctx.as_str(), tail_start)
+            };
+            let (window, pos) = window_around(buf, p - buf_start, WINDOW_CHARS);
+            if !judge.suppress_enclosure(window, pos, pe.ch) {
+                toggles.push((p, pe.slot));
+            }
+        }
+        if !toggles.is_empty() {
+            for &(_, slot) in &toggles {
+                apply_slot_to_totals(&mut self.deltas, &mut self.parity, slot);
+            }
+            for c in &mut self.boundaries {
+                adjust_for_toggles(
+                    &mut c.local_depths,
+                    &mut c.local_parity,
+                    c.local_offset,
+                    &toggles,
+                );
+            }
+            for pc in &mut self.pending {
+                adjust_for_toggles(
+                    &mut pc.local_depths,
+                    &mut pc.local_parity,
+                    pc.local_offset,
+                    &toggles,
+                );
+            }
+        }
+
         let pending = std::mem::take(&mut self.pending);
         for pc in pending {
             let p = pc.local_offset;
-            // Pick the buffer whose coverage contains the candidate's clipped
-            // window: candidates lacking left context sit within k characters
-            // of the text start (window ⊆ head buffer), all others lack right
-            // context and sit within k characters of the end (⊆ tail buffer).
             let (buf, buf_start) = if self.chars_before(p) < WINDOW_CHARS {
                 (self.head_ctx.as_str(), 0)
             } else {
@@ -214,6 +306,61 @@ impl PartialState {
         }
         self.boundaries.sort_unstable_by_key(|c| c.local_offset);
         self
+    }
+}
+
+/// The ±k window of a pending item resolved at a combine, drawn from the
+/// joint `tail ++ head` context (byte range starts at `joint_start` in
+/// combined coordinates).
+fn resolve_window(joint_str: &str, joint_start: usize, p: usize) -> (&str, usize) {
+    debug_assert!(
+        p >= joint_start && p <= joint_start + joint_str.len(),
+        "resolvable pending item must lie inside the joint window"
+    );
+    let (window, pos) = window_around(joint_str, p - joint_start, WINDOW_CHARS);
+    debug_assert_eq!(
+        window.chars().count(),
+        2 * WINDOW_CHARS,
+        "a window resolved at combine is never clipped (Window Availability)"
+    );
+    (window, pos)
+}
+
+/// Applies a confirmed enclosure's effect to a state's depth/parity totals.
+fn apply_slot_to_totals(deltas: &mut DepthVec, parity: &mut u32, slot: EnclosureSlot) {
+    match slot {
+        EnclosureSlot::Asym { index, delta } => {
+            let i = index as usize;
+            if deltas.len() <= i {
+                deltas.resize(i + 1, 0);
+            }
+            deltas[i] += i32::from(delta);
+        }
+        EnclosureSlot::Sym { bit } => *parity ^= 1 << bit,
+    }
+}
+
+/// Applies every confirmed enclosure positioned before `offset` to one
+/// candidate's depth/parity.
+fn adjust_for_toggles(
+    depths: &mut DepthVec,
+    parity: &mut u32,
+    offset: usize,
+    toggles: &[(usize, EnclosureSlot)],
+) {
+    for &(q, slot) in toggles {
+        if q < offset {
+            match slot {
+                EnclosureSlot::Asym { index, delta } => {
+                    let i = index as usize;
+                    if depths.len() <= i {
+                        depths.resize(i + 1, 0);
+                    }
+                    depths[i] += i32::from(delta);
+                }
+                EnclosureSlot::Sym { bit } => *parity ^= 1 << bit,
+            }
+        }
     }
 }
 
