@@ -151,16 +151,12 @@ fn test_configurable_performance() {
     let result = processor.process(Input::from_text(&large_text)).unwrap();
     let duration = start.elapsed();
 
-    // Sanity target only (not a benchmark): well under 100ms since the
-    // v0.2.0 performance work.
+    // Informational only: wall-clock assertions flake on slow or
+    // coverage-instrumented CI runners, so timing is logged, not gated
+    // (benchmarks live in benches/).
     eprintln!(
         "Performance test: {} sentences in {:?}",
         result.boundaries.len(),
-        duration
-    );
-    assert!(
-        duration.as_millis() < 100,
-        "Processing took {:?}, expected < 100ms",
         duration
     );
     // 7 boundaries per repeated unit: "What!?" and "Really?" are separate
