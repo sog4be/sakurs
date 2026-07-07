@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-07
+
 ### Added
 
 - **Sequential equivalence is now guaranteed**: processing with any chunk size and thread count produces exactly the same boundaries as processing the whole text sequentially. Boundary decisions and enclosure-suppression decisions whose context crosses a chunk edge are deferred and resolved with the neighboring chunk's context (the "pending" mechanism of the deferred-judgment pipeline), closing the known v0.1.2 limitation at chunk edges. The guarantee is enforced by chunk-invariance property tests that run without ignores
@@ -177,4 +179,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Safe handling of untrusted text input with bounded memory usage
 - UTF-8 validation at chunk boundaries
 
+[0.2.0]: https://github.com/sog4be/sakurs/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sog4be/sakurs/releases/tag/v0.1.0
