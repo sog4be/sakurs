@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   | `Config.overlap_size` / `ConfigBuilder::overlap_size` | removed (a no-op since v0.1.2) |
 
 - **Breaking**: the `LanguageRules` trait and its implementations (`ConfigurableLanguageRules`, rule modules, enclosure suppressors) are removed; TOML language configurations compiled by the core are the single way to define languages. The TOML schema itself is unchanged
-- `Config.parallel_threshold` is retained for compatibility but does not influence execution (this was already the case in v0.1.x); thread selection is driven by `Config.threads` and text size
+- **Breaking**: `Config.parallel_threshold` / `ConfigBuilder::parallel_threshold` are removed — they did not influence execution in v0.1.x either; thread selection is driven by `Config.threads` and text size
 - The CLI `validate` command now also compiles the configuration, catching rule-level problems (invalid regexes, rules whose context needs exceed the algorithm's judgment window) rather than only schema errors
 
 ### Fixed

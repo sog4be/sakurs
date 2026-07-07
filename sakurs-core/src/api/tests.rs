@@ -78,7 +78,6 @@ mod api_tests {
         let default_config = Config::default();
         assert_eq!(default_config.language, Language::English);
         assert_eq!(default_config.chunk_size, 256 * 1024); // 256KB
-        assert_eq!(default_config.parallel_threshold, 1024 * 1024); // 1MB
         assert_eq!(default_config.threads, None); // All available threads
     }
 

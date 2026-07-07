@@ -47,7 +47,6 @@ fn processor(chunk_size: usize) -> SentenceProcessor {
         .expect("language config should load")
         .chunk_size(chunk_size)
         .threads(Some(1))
-        .parallel_threshold(0)
         .build()
         .expect("config should validate");
     SentenceProcessor::with_config(config).expect("processor should build")

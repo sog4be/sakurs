@@ -7,18 +7,14 @@ use std::str::FromStr;
 pub mod defaults {
     /// Default chunk size in bytes (256KB)
     pub const CHUNK_SIZE: usize = 256 * 1024;
-
-    /// Parallel processing threshold in bytes (1MB)
-    pub const PARALLEL_THRESHOLD: usize = 1024 * 1024;
 }
 
 /// Processing configuration
 #[derive(Debug, Clone)]
 pub struct Config {
     pub(crate) language: Language,
-    pub(crate) chunk_size: usize,         // in bytes
-    pub(crate) parallel_threshold: usize, // minimum size for parallel processing
-    pub(crate) threads: Option<usize>,    // None = all available threads
+    pub(crate) chunk_size: usize,      // in bytes
+    pub(crate) threads: Option<usize>, // None = all available threads
 }
 
 impl Default for Config {
@@ -26,7 +22,6 @@ impl Default for Config {
         Self {
             language: Language::default(),
             chunk_size: defaults::CHUNK_SIZE,
-            parallel_threshold: defaults::PARALLEL_THRESHOLD,
             threads: None,
         }
     }
@@ -42,8 +37,7 @@ impl Config {
     pub fn small_text() -> Self {
         Self {
             language: Language::default(),
-            chunk_size: 8 * 1024,           // 8KB chunks
-            parallel_threshold: usize::MAX, // Never use parallel
+            chunk_size: 8 * 1024, // 8KB chunks
             threads: None,
         }
     }
@@ -52,9 +46,8 @@ impl Config {
     pub fn large_text() -> Self {
         Self {
             language: Language::default(),
-            chunk_size: 512 * 1024,         // 512KB chunks
-            parallel_threshold: 512 * 1024, // 512KB threshold
-            threads: None,                  // Use all available cores
+            chunk_size: 512 * 1024, // 512KB chunks
+            threads: None,          // Use all available cores
         }
     }
 
@@ -62,9 +55,8 @@ impl Config {
     pub fn streaming() -> Self {
         Self {
             language: Language::default(),
-            chunk_size: 32 * 1024,          // 32KB chunks
-            parallel_threshold: 256 * 1024, // 256KB threshold
-            threads: Some(2),               // Limited parallelism
+            chunk_size: 32 * 1024, // 32KB chunks
+            threads: Some(2),      // Limited parallelism
         }
     }
 
@@ -93,7 +85,6 @@ impl Config {
 pub struct ConfigBuilder {
     language: Option<String>,
     chunk_size: Option<usize>,
-    parallel_threshold: Option<usize>,
     threads: Option<usize>,
 }
 
@@ -121,12 +112,6 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set the parallel processing threshold in bytes
-    pub fn parallel_threshold(mut self, bytes: usize) -> Self {
-        self.parallel_threshold = Some(bytes);
-        self
-    }
-
     /// Build the configuration
     pub fn build(self) -> Result<Config, Error> {
         let mut config = Config::default();
@@ -137,10 +122,6 @@ impl ConfigBuilder {
 
         if let Some(size) = self.chunk_size {
             config.chunk_size = size;
-        }
-
-        if let Some(threshold) = self.parallel_threshold {
-            config.parallel_threshold = threshold;
         }
 
         if self.threads.is_some() {
@@ -160,7 +141,6 @@ mod tests {
     fn test_default_config() {
         let config = Config::default();
         assert_eq!(config.chunk_size, defaults::CHUNK_SIZE);
-        assert_eq!(config.parallel_threshold, defaults::PARALLEL_THRESHOLD);
         assert!(config.threads.is_none());
         assert!(config.validate().is_ok());
     }
@@ -187,19 +167,16 @@ mod tests {
         // Small text preset
         let small = Config::small_text();
         assert_eq!(small.chunk_size, 8 * 1024);
-        assert_eq!(small.parallel_threshold, usize::MAX);
         assert!(small.validate().is_ok());
 
         // Large text preset
         let large = Config::large_text();
         assert_eq!(large.chunk_size, 512 * 1024);
-        assert_eq!(large.parallel_threshold, 512 * 1024);
         assert!(large.validate().is_ok());
 
         // Streaming preset
         let streaming = Config::streaming();
         assert_eq!(streaming.chunk_size, 32 * 1024);
-        assert_eq!(streaming.parallel_threshold, 256 * 1024);
         assert_eq!(streaming.threads, Some(2));
         assert!(streaming.validate().is_ok());
     }
@@ -208,13 +185,11 @@ mod tests {
     fn test_config_builder_with_new_fields() {
         let config = Config::builder()
             .chunk_size(128 * 1024)
-            .parallel_threshold(256 * 1024)
             .threads(Some(4))
             .build()
             .unwrap();
 
         assert_eq!(config.chunk_size, 128 * 1024);
-        assert_eq!(config.parallel_threshold, 256 * 1024);
         assert_eq!(config.threads, Some(4));
     }
 
@@ -295,7 +270,6 @@ mod tests {
         let config = Config::builder().chunk_size(64 * 1024).build().unwrap();
 
         assert_eq!(config.chunk_size, 64 * 1024);
-        assert_eq!(config.parallel_threshold, defaults::PARALLEL_THRESHOLD);
         assert!(config.threads.is_none());
     }
 
@@ -314,7 +288,6 @@ mod tests {
         // Test with very large valid values
         let config = Config {
             chunk_size: usize::MAX / 2,
-            parallel_threshold: usize::MAX / 2,
             threads: Some(1024),
             ..Default::default()
         };

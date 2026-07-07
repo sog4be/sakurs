@@ -11,7 +11,6 @@ fn boundaries(text: &str, lang: &str, chunk_size: usize, threads: usize) -> Vec<
         .expect("language config should load")
         .chunk_size(chunk_size)
         .threads(Some(threads))
-        .parallel_threshold(0)
         .build()
         .expect("config should validate");
     let processor = SentenceProcessor::with_config(config).expect("processor should build");

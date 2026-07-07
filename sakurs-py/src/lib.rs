@@ -107,10 +107,7 @@ fn split(
         "parallel" => {
             // Use provided threads or let it default to all available
             config_builder = config_builder.threads(threads);
-            // If parallel flag is set, ensure we use lower threshold
-            if parallel {
-                config_builder = config_builder.parallel_threshold(0);
-            }
+            let _ = parallel; // historical flag; thread count drives parallelism
         }
         "adaptive" => {
             // Let the system decide based on text size
