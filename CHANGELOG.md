@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Sequential equivalence is now guaranteed**: processing with any chunk size and thread count produces exactly the same boundaries as processing the whole text sequentially. Boundary decisions and enclosure-suppression decisions whose context crosses a chunk edge are deferred and resolved with the neighboring chunk's context (the "pending" mechanism of the deferred-judgment pipeline), closing the known v0.1.2 limitation at chunk edges. The guarantee is enforced by chunk-invariance property tests that run without ignores
+- `SentenceProcessor::with_language_config(config, &LanguageConfig)` creates a processor from a custom language configuration, and `LanguageConfig::from_file(path, code_override)` loads one from an external TOML file
+- `sakurs_core::api::language_config` exposes the TOML configuration schema types for constructing configurations programmatically
+
+### Changed
+
+- **Breaking**: the public Rust API is now the `api` module re-exported at the crate root: `SentenceProcessor`, `Config`/`ConfigBuilder`, `Input`, `Output`, `Boundary`, `Language`, `LanguageConfig`, `ProcessingMetadata`, `ProcessingStats`. The `application` and `domain` modules are private; `pub use domain::*` and the legacy root exports are gone. Migration:
+
+  | v0.1.x | v0.2.0 |
+  |---|---|
+  | `SentenceProcessor::with_custom_rules(cfg, Arc<dyn LanguageRules>)` | `SentenceProcessor::with_language_config(cfg, &LanguageConfig)` |
+  | `ConfigurableLanguageRules::from_file(path, code)` | `LanguageConfig::from_file(path, code)` |
+  | `DeltaStackProcessor` / `ExecutionMode` / `ProcessorConfig` | use `SentenceProcessor` + `Config` (`threads`, `chunk_size`) |
+  | `domain::language::config::LanguageConfig` | `sakurs_core::LanguageConfig` |
+  | `Boundary.confidence` (always `1.0`) / `Boundary.context` (always `None`) | removed; `Boundary` is `{ offset, char_offset }` |
+  | `ProcessingMetadata.memory_peak` (always `0`) | removed |
+  | `Config.overlap_size` / `ConfigBuilder::overlap_size` | removed (a no-op since v0.1.2) |
+
+- **Breaking**: the `LanguageRules` trait and its implementations (`ConfigurableLanguageRules`, rule modules, enclosure suppressors) are removed; TOML language configurations compiled by the core are the single way to define languages. The TOML schema itself is unchanged
+- `Config.parallel_threshold` is retained for compatibility but does not influence execution (this was already the case in v0.1.x); thread selection is driven by `Config.threads` and text size
+- The CLI `validate` command now also compiles the configuration, catching rule-level problems (invalid regexes, rules whose context needs exceed the algorithm's judgment window) rather than only schema errors
+
+### Fixed
+
+- Boundary decisions no longer change at exact chunk edges (abbreviation lookahead, sentence starters, ellipsis context, decimals) — the class of failures pinned by the formerly-ignored `chunk_invariance` and `chunking_regressions` tests
+- Enclosure suppression (e.g. apostrophes in contractions) is no longer guessed from truncated context at chunk edges, which previously corrupted quotation parity for the rest of the chunk
+- Very small chunk sizes produce correct boundaries (Issue #102)
+- Multi-character terminator patterns with multibyte characters (e.g. Japanese `！？`) are matched byte-correctly
+- Ellipsis characters (`…`) now produce boundaries: in v0.1.x a byte-arithmetic quirk prevented single-character ellipsis patterns from ever completing, so `…`/`……` never ended a sentence. Each maximal ellipsis run now yields at most one boundary at its end, subject to the configured context rules (dot runs like `....` behave exactly as before). On 吾輩は猫である this adds 137 boundaries after `……` runs while every v0.1.2 boundary is preserved; English output on War and Peace is byte-identical to v0.1.2
+
+### Performance
+
+- Plain English, single thread: 12.3 → **252 MB/s** (~20×) at the core layer, 225 MB/s through the public API (measured on 50MB, Apple M2 Max); quote-heavy and abbreviation-heavy text reach ~70 MB/s on 1MB criterion benchmarks (from 7.4 / 3.1)
+- Near-linear multithread scaling: 1.44 GB/s at 8 threads (71% efficiency) at the core layer; the parallel scan is followed by an O(chunks) prefix fold over aggregates and an embarrassingly parallel reduce
+- Throughput no longer degrades as chunk size grows; chunking is zero-copy (borrowed slices), the scanner does constant work per character, abbreviation matching is a single backward trie walk, and suppression regexes run as one `RegexSet` pass over a stack buffer
+
 ## [0.1.2] - 2026-07-06
 
 ### Fixed

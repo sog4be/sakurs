@@ -15,20 +15,29 @@ pub struct ValidateArgs {
 impl ValidateArgs {
     /// Execute the validate command
     pub fn execute(&self) -> Result<()> {
-        use sakurs_core::domain::language::ConfigurableLanguageRules;
-        use sakurs_core::LanguageRules;
+        use sakurs_core::{Config, LanguageConfig, SentenceProcessor};
 
         println!(
             "Validating language configuration: {}",
             self.language_config.display()
         );
 
-        // Try to load and validate the configuration
-        match ConfigurableLanguageRules::from_file(&self.language_config, None) {
-            Ok(rules) => {
+        // Load and schema-validate the configuration, then compile it the
+        // same way processing would (this catches rule-level problems such
+        // as invalid regexes or rules exceeding the judgment window).
+        let load = || -> std::result::Result<LanguageConfig, String> {
+            let config = LanguageConfig::from_file(&self.language_config, None)
+                .map_err(|e| e.to_string())?;
+            SentenceProcessor::with_language_config(Config::default(), &config)
+                .map_err(|e| e.to_string())?;
+            Ok(config)
+        };
+
+        match load() {
+            Ok(config) => {
                 println!("✓ Configuration is valid!");
-                println!("  Language code: {}", rules.language_code());
-                println!("  Language name: {}", rules.language_name());
+                println!("  Language code: {}", config.metadata.code);
+                println!("  Language name: {}", config.metadata.name);
                 Ok(())
             }
             Err(e) => {

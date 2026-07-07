@@ -18,21 +18,6 @@ pub struct Boundary {
     pub offset: usize,
     /// Character offset in the original text
     pub char_offset: usize,
-    /// Confidence score (0.0 to 1.0)
-    pub confidence: f32,
-    /// Optional context for debugging
-    pub context: Option<BoundaryContext>,
-}
-
-/// Context information for a boundary (for debugging)
-#[derive(Debug, Clone)]
-pub struct BoundaryContext {
-    /// Text before the boundary
-    pub before: String,
-    /// Text after the boundary
-    pub after: String,
-    /// Reason for the boundary
-    pub reason: String,
 }
 
 /// Metadata about the processing
@@ -44,8 +29,6 @@ pub struct ProcessingMetadata {
     pub strategy_used: String,
     /// Number of chunks processed
     pub chunks_processed: usize,
-    /// Peak memory usage in bytes
-    pub memory_peak: usize,
     /// Additional statistics
     pub stats: ProcessingStats,
 }
@@ -70,8 +53,9 @@ impl Output {
         text: &str,
         duration: Duration,
     ) -> Self {
-        // Calculate character offsets for each byte boundary
-        let char_boundaries = Self::calculate_char_offsets(text, &result.boundaries);
+        // Calculate character offsets for each byte boundary (and the total
+        // character count, avoiding a second full pass over the text)
+        let (char_boundaries, total_chars) = Self::calculate_char_offsets(text, &result.boundaries);
 
         let boundaries = result
             .boundaries
@@ -80,14 +64,12 @@ impl Output {
             .map(|(offset, char_offset)| Boundary {
                 offset,
                 char_offset,
-                confidence: 1.0, // DeltaStack algorithm has high confidence
-                context: None,
             })
             .collect::<Vec<_>>();
 
         let sentence_count = boundaries.len();
         let avg_sentence_length = if sentence_count > 0 {
-            text.chars().count() as f32 / sentence_count as f32
+            total_chars as f32 / sentence_count as f32
         } else {
             0.0
         };
@@ -105,10 +87,9 @@ impl Output {
                 duration,
                 strategy_used,
                 chunks_processed: result.chunk_count,
-                memory_peak: 0, // Future: memory tracking integration
                 stats: ProcessingStats {
                     bytes_processed: text.len(),
-                    chars_processed: text.chars().count(),
+                    chars_processed: total_chars,
                     sentence_count,
                     avg_sentence_length,
                 },
@@ -118,30 +99,22 @@ impl Output {
 
     /// Calculate character offsets from byte offsets.
     ///
-    /// `byte_offsets` must be sorted ascending (guaranteed by the boundary
-    /// merge step), which allows a single merged pass instead of a linear
-    /// search per character.
-    fn calculate_char_offsets(text: &str, byte_offsets: &[usize]) -> Vec<usize> {
+    /// `byte_offsets` must be sorted ascending and lie on character
+    /// boundaries (guaranteed by the boundary merge step). Counting each
+    /// inter-boundary segment with the standard library's optimized
+    /// word-at-a-time counter is much faster than a char-by-char walk.
+    /// Returns the character offset for each byte offset plus the total
+    /// character count.
+    fn calculate_char_offsets(text: &str, byte_offsets: &[usize]) -> (Vec<usize>, usize) {
         let mut char_offsets = Vec::with_capacity(byte_offsets.len());
-        let mut offsets = byte_offsets.iter().copied().peekable();
-        let mut char_count = 0;
-        let mut byte_count = 0;
-
-        for ch in text.chars() {
-            while offsets.peek() == Some(&byte_count) {
-                char_offsets.push(char_count);
-                offsets.next();
-            }
-            byte_count += ch.len_utf8();
-            char_count += 1;
+        let mut chars = 0usize;
+        let mut prev = 0usize;
+        for &off in byte_offsets {
+            chars += text[prev..off].chars().count();
+            char_offsets.push(chars);
+            prev = off;
         }
-
-        // Handle any remaining offsets at the end of the text
-        while offsets.peek() == Some(&byte_count) {
-            char_offsets.push(char_count);
-            offsets.next();
-        }
-
-        char_offsets
+        let total = chars + text[prev..].chars().count();
+        (char_offsets, total)
     }
 }

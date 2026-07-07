@@ -4,16 +4,15 @@ use rayon::prelude::*;
 
 use crate::{
     application::{
-        chunking::{ChunkManager, TextChunk},
+        chunking::chunk_spans,
         config::{ProcessingError, ProcessingResult, ProcessorConfig},
-        parser::TextParser,
     },
-    domain::{
-        prefix_sum::{ChunkStartState, PrefixSumComputer},
-        reduce::BoundaryReducer,
-        types::{Boundary, DeltaEntry, DeltaVec, PartialState},
+    domain::language::config::{get_language_config, LanguageConfig},
+    domain::state::{
+        adjust_for_toggles, rebase_candidate, scan_chunk, Candidate, CandidateVec, CompiledRules,
+        PartialState, ToggleVec,
     },
-    LanguageRules,
+    domain::types::DepthVec,
 };
 
 use super::execution_mode::ExecutionMode;
@@ -27,35 +26,47 @@ pub struct DeltaStackResult {
 
 /// Core implementation of the Δ-Stack Monoid algorithm
 ///
-/// This struct encapsulates the three-phase sentence boundary detection algorithm:
-/// 1. Scan phase: Process chunks in parallel to compute partial states
-/// 2. Prefix phase: Compute prefix sums to determine chunk start states
-/// 3. Reduce phase: Combine partial results with start states to find boundaries
+/// Runs the three phases described in `docs/DELTA_STACK_ALGORITHM.md`:
+/// 1. Scan: chunks are scanned in parallel into partial states
+/// 2. Prefix: the states are folded left-to-right, accumulating depth/parity
+///    and resolving pending items from neighboring context, then the text
+///    edges are resolved
+/// 3. Reduce: candidates outside every enclosure become boundaries
 pub struct DeltaStackProcessor {
-    language_rules: Arc<dyn LanguageRules>,
-    chunk_manager: ChunkManager,
-    parser: TextParser,
+    rules: Arc<CompiledRules>,
+    chunk_size: usize,
 }
 
 impl DeltaStackProcessor {
-    /// Creates a new DeltaStackProcessor with the given configuration
-    pub fn new(config: ProcessorConfig, language_rules: Arc<dyn LanguageRules>) -> Self {
-        // Chunks must be strictly contiguous: overlapping chunks double-count
-        // enclosure deltas in the prefix sum, which corrupts boundary
-        // decisions for every chunk after the first overlap. The configured
-        // overlap_size is therefore intentionally not forwarded here.
-        let chunk_manager = ChunkManager::new(config.chunk_size, 0);
+    /// Creates a processor for an embedded language code (e.g. "en", "ja").
+    pub fn from_language_code(
+        config: ProcessorConfig,
+        code: &str,
+    ) -> Result<Self, ProcessingError> {
+        let language = get_language_config(code).map_err(|e| ProcessingError::InvalidConfig {
+            reason: e.to_string(),
+        })?;
+        Self::from_language_config(config, language)
+    }
 
-        Self {
-            language_rules,
-            chunk_manager,
-            parser: TextParser::new(),
-        }
+    /// Creates a processor from a language configuration (embedded or
+    /// loaded from an external TOML file).
+    pub fn from_language_config(
+        config: ProcessorConfig,
+        language: &LanguageConfig,
+    ) -> Result<Self, ProcessingError> {
+        let rules =
+            CompiledRules::from_config(language).map_err(|e| ProcessingError::InvalidConfig {
+                reason: e.to_string(),
+            })?;
+        Ok(Self {
+            rules: Arc::new(rules),
+            chunk_size: config.chunk_size,
+        })
     }
 
     /// Main processing method that executes the Δ-Stack Monoid algorithm
     pub fn process(&self, text: &str, mode: ExecutionMode) -> ProcessingResult<DeltaStackResult> {
-        // Early return for empty text
         if text.is_empty() {
             return Ok(DeltaStackResult {
                 boundaries: Vec::new(),
@@ -64,21 +75,9 @@ impl DeltaStackProcessor {
             });
         }
 
-        // Phase 0: Chunk the text
-        let chunks = self.chunk_manager.chunk_text(text)?;
-        if chunks.is_empty() {
-            return Ok(DeltaStackResult {
-                boundaries: Vec::new(),
-                chunk_count: 0,
-                thread_count: 1,
-            });
-        }
-
+        let chunks = chunk_spans(text, self.chunk_size);
         let chunk_count = chunks.len();
 
-        // Determine execution strategy. One thread pool is built per call and
-        // shared by the scan and reduce phases (pool creation spawns OS
-        // threads and is far too expensive to repeat per phase).
         let thread_count = mode.determine_thread_count(text.len());
         let pool = if thread_count > 1 {
             Some(
@@ -92,11 +91,105 @@ impl DeltaStackProcessor {
         } else {
             None
         };
+        let rules = self.rules.as_ref();
 
-        // Execute the three phases
-        let partial_states = self.scan_phase(&chunks, pool.as_ref());
-        let chunk_starts = self.prefix_phase(&partial_states, &chunks)?;
-        let boundaries = self.reduce_phase(&partial_states, &chunk_starts, &chunks, pool.as_ref());
+        // Phase 1: scan chunks into partial states (parallel when warranted).
+        let mut states: Vec<PartialState> = if let Some(pool) = &pool {
+            pool.install(|| {
+                chunks
+                    .par_iter()
+                    .map(|chunk| scan_chunk(chunk, rules))
+                    .collect()
+            })
+        } else {
+            chunks
+                .iter()
+                .map(|chunk| scan_chunk(chunk, rules))
+                .collect()
+        };
+
+        // Phase 2: prefix fold over aggregates. The confirmed candidates are
+        // taken out of the states first, so the sequential fold only touches
+        // per-chunk totals, context buffers, and pending items; the bulk is
+        // rebased and filtered in parallel below. Seam-resolved candidates
+        // surface in the accumulator and are collected as extras; resolved
+        // enclosure toggles are routed to every chunk whose prefix was
+        // recorded before the toggle was known (later chunks receive them
+        // through the cumulative prefix itself).
+        let mut bulk: Vec<CandidateVec> = Vec::with_capacity(chunk_count);
+        let mut chunk_starts: Vec<usize> = Vec::with_capacity(chunk_count);
+        let mut prefix: Vec<(DepthVec, u32)> = Vec::with_capacity(chunk_count);
+        let mut toggles_by_chunk: Vec<ToggleVec> = vec![ToggleVec::new(); chunk_count];
+        let mut acc = PartialState::identity();
+        for (i, state) in states.iter_mut().enumerate() {
+            bulk.push(std::mem::take(&mut state.boundaries));
+            chunk_starts.push(acc.chunk_len);
+            prefix.push((acc.deltas.clone(), acc.parity));
+            let toggles = acc.absorb(state, rules);
+            assign_toggles(&mut toggles_by_chunk, &chunk_starts, toggles, i);
+        }
+        // Seam-resolved candidates stay in the accumulator through edge
+        // resolution: that is where boundary-of-text enclosure toggles are
+        // applied to them (a toggle resolved at a later step always sits
+        // after every earlier-confirmed candidate, but BOF/EOF toggles do
+        // not).
+        let (mut acc, edge_toggles) = acc.resolve_edges_full(rules);
+        assign_toggles(
+            &mut toggles_by_chunk,
+            &chunk_starts,
+            edge_toggles,
+            chunk_count - 1,
+        );
+        let extras: Vec<Candidate> = acc.boundaries.drain(..).collect();
+
+        // Phase 3: reduce — rebase each chunk's candidates to text-global
+        // coordinates, apply the toggles positioned before them, and keep
+        // candidates outside every enclosure: clamped depth for asymmetric
+        // types, even parity for symmetric types. Embarrassingly parallel.
+        let reduce_chunk = |i: usize| -> Vec<usize> {
+            let (deltas, parity) = &prefix[i];
+            let toggles = &toggles_by_chunk[i];
+            bulk[i]
+                .iter()
+                .filter_map(|c| {
+                    let mut c = rebase_candidate(c, chunk_starts[i], deltas, *parity);
+                    adjust_for_toggles(
+                        &mut c.local_depths,
+                        &mut c.local_parity,
+                        c.local_offset,
+                        toggles,
+                    );
+                    is_boundary(&c).then_some(c.local_offset)
+                })
+                .collect()
+        };
+        let per_chunk: Vec<Vec<usize>> = if let Some(pool) = &pool {
+            pool.install(|| (0..chunk_count).into_par_iter().map(reduce_chunk).collect())
+        } else {
+            (0..chunk_count).map(reduce_chunk).collect()
+        };
+
+        // Merge: per-chunk results are globally ordered by construction; the
+        // few seam/edge extras are merged in by offset.
+        let mut extra_offsets: Vec<usize> = extras
+            .iter()
+            .filter(|c| is_boundary(c))
+            .map(|c| c.local_offset)
+            .collect();
+        extra_offsets.sort_unstable();
+        let total: usize = per_chunk.iter().map(Vec::len).sum::<usize>() + extra_offsets.len();
+        let mut boundaries = Vec::with_capacity(total);
+        let mut extras_iter = extra_offsets.into_iter().peekable();
+        for chunk_offsets in per_chunk {
+            for off in chunk_offsets {
+                while extras_iter.peek().is_some_and(|&e| e < off) {
+                    boundaries.push(extras_iter.next().unwrap());
+                }
+                boundaries.push(off);
+            }
+        }
+        boundaries.extend(extras_iter);
+        boundaries.dedup();
 
         Ok(DeltaStackResult {
             boundaries,
@@ -104,187 +197,37 @@ impl DeltaStackProcessor {
             thread_count,
         })
     }
+}
 
-    /// Phase 1: Scan - Process chunks to compute partial states
-    fn scan_phase(
-        &self,
-        chunks: &[TextChunk],
-        pool: Option<&rayon::ThreadPool>,
-    ) -> Vec<PartialState> {
-        // Line offset at the start of each chunk, carried across chunks so
-        // that line-start suppression rules don't mistake every chunk start
-        // for a line start.
-        let line_offsets: Vec<usize> = (0..chunks.len())
-            .map(|i| Self::line_offset_at_chunk_start(chunks, i))
-            .collect();
+/// A candidate is a sentence boundary iff it sits outside every enclosure.
+fn is_boundary(c: &Candidate) -> bool {
+    c.local_parity == 0 && c.local_depths.iter().all(|&d| d <= 0)
+}
 
-        let scan = |chunk: &TextChunk, line_offset: usize| {
-            self.parser.scan_chunk_with_context(
-                &chunk.content,
-                self.language_rules.as_ref(),
-                line_offset,
-            )
-        };
-
-        if let Some(pool) = pool {
-            pool.install(|| {
-                chunks
-                    .par_iter()
-                    .zip(line_offsets.par_iter())
-                    .map(|(chunk, &line_offset)| scan(chunk, line_offset))
-                    .collect()
-            })
-        } else {
-            chunks
-                .iter()
-                .zip(line_offsets.iter())
-                .map(|(chunk, &line_offset)| scan(chunk, line_offset))
-                .collect()
+/// Routes resolved enclosure toggles to the chunks whose recorded prefix
+/// predates them: from the chunk containing the toggle through chunk `upto`
+/// (the step at which it resolved). Later chunks see the toggle through the
+/// cumulative prefix instead.
+fn assign_toggles(
+    by_chunk: &mut [ToggleVec],
+    chunk_starts: &[usize],
+    toggles: ToggleVec,
+    upto: usize,
+) {
+    for (q, slot) in toggles {
+        let from = chunk_starts[..=upto].partition_point(|&s| s <= q) - 1;
+        for list in &mut by_chunk[from..=upto] {
+            list.push((q, slot));
         }
-    }
-
-    /// Number of characters between the last newline before the given chunk
-    /// and the chunk start. Line offsets are only ever compared against a
-    /// small threshold (currently 10) by suppression rules, so the backward
-    /// scan is capped and the returned value saturates at that cap.
-    fn line_offset_at_chunk_start(chunks: &[TextChunk], index: usize) -> usize {
-        const CAP: usize = 64;
-        let mut offset = 0usize;
-        for chunk in chunks[..index].iter().rev() {
-            for c in chunk.content.chars().rev() {
-                if c == '\n' || offset >= CAP {
-                    return offset;
-                }
-                offset += 1;
-            }
-        }
-        offset
-    }
-
-    /// Phase 2: Prefix - Compute chunk start states using prefix sums
-    fn prefix_phase(
-        &self,
-        partial_states: &[PartialState],
-        chunks: &[TextChunk],
-    ) -> ProcessingResult<Vec<ChunkStartState>> {
-        if partial_states.len() > 1 {
-            Ok(PrefixSumComputer::compute_prefix_sum_with_overlap(
-                partial_states,
-                chunks,
-            ))
-        } else {
-            // Single chunk - create default start state
-            Ok(vec![ChunkStartState {
-                cumulative_deltas: DeltaVec::from_vec(vec![
-                    DeltaEntry { net: 0, min: 0 };
-                    partial_states[0].deltas.len()
-                ]),
-                global_offset: 0,
-            }])
-        }
-    }
-
-    /// Phase 3: Reduce - Combine partial results with start states to find boundaries
-    fn reduce_phase(
-        &self,
-        partial_states: &[PartialState],
-        chunk_starts: &[ChunkStartState],
-        chunks: &[TextChunk],
-        pool: Option<&rayon::ThreadPool>,
-    ) -> Vec<usize> {
-        // Create pairs of (state, start) for processing
-        let state_start_pairs: Vec<_> = partial_states
-            .iter()
-            .zip(chunk_starts.iter())
-            .zip(chunks.iter())
-            .collect();
-
-        // Symmetric enclosure types are evaluated by parity in the reduce
-        // phase; compute the mask once for all chunks.
-        let symmetric_types = self.language_rules.symmetric_enclosure_types();
-
-        // Process chunks to find boundaries
-        let chunk_boundaries: Vec<Vec<Boundary>> = if let Some(pool) = pool {
-            pool.install(|| {
-                state_start_pairs
-                    .par_iter()
-                    .map(|((state, start), chunk)| {
-                        self.reduce_chunk(state, start, chunk, &symmetric_types)
-                    })
-                    .collect()
-            })
-        } else {
-            // Sequential reduction
-            state_start_pairs
-                .iter()
-                .map(|((state, start), chunk)| {
-                    self.reduce_chunk(state, start, chunk, &symmetric_types)
-                })
-                .collect()
-        };
-
-        // Merge boundaries from all chunks
-        self.merge_boundaries(chunk_boundaries)
-    }
-
-    /// Reduces a single chunk to find its boundaries
-    fn reduce_chunk(
-        &self,
-        state: &PartialState,
-        start: &ChunkStartState,
-        chunk: &TextChunk,
-        symmetric_types: &[bool],
-    ) -> Vec<Boundary> {
-        // For single chunk, use reduce_single
-        // For multiple chunks, we need proper indexing
-        if chunk.total_chunks == 1 {
-            // This is the only chunk
-            BoundaryReducer::reduce_single_with_symmetry(state, symmetric_types)
-        } else {
-            // Multi-chunk - need to handle properly with correct offsets.
-            // Ownership rule (start, end]: a boundary offset is the position
-            // *after* its terminator, so a chunk's own content can only yield
-            // offsets in (start_offset, end_offset]. Using an inclusive upper
-            // bound keeps a boundary sitting exactly at the end of the text,
-            // which the previous `< end_offset` filter dropped.
-            BoundaryReducer::evaluate_candidates_with_symmetry(
-                &state.boundary_candidates,
-                start,
-                symmetric_types,
-            )
-            .into_iter()
-            .filter(|b| b.offset > chunk.start_offset && b.offset <= chunk.end_offset)
-            .collect()
-        }
-    }
-
-    /// Merges boundaries from multiple chunks into a single sorted list
-    fn merge_boundaries(&self, chunk_boundaries: Vec<Vec<Boundary>>) -> Vec<usize> {
-        let mut all_boundaries = Vec::new();
-
-        for boundaries in chunk_boundaries {
-            for boundary in boundaries {
-                all_boundaries.push(boundary.offset);
-            }
-        }
-
-        // Sort and deduplicate
-        all_boundaries.sort_unstable();
-        all_boundaries.dedup();
-
-        all_boundaries
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::language::ConfigurableLanguageRules;
 
     fn create_test_processor() -> DeltaStackProcessor {
-        let config = ProcessorConfig::default();
-        let rules = Arc::new(ConfigurableLanguageRules::from_code("en").unwrap());
-        DeltaStackProcessor::new(config, rules)
+        DeltaStackProcessor::from_language_code(ProcessorConfig::default(), "en").unwrap()
     }
 
     #[test]
@@ -321,5 +264,11 @@ mod tests {
         assert_eq!(seq_result.chunk_count, par_result.chunk_count);
         assert_eq!(seq_result.thread_count, 1);
         assert_eq!(par_result.thread_count, 2);
+    }
+
+    #[test]
+    fn test_unknown_language_code() {
+        let err = DeltaStackProcessor::from_language_code(ProcessorConfig::default(), "zz");
+        assert!(err.is_err());
     }
 }

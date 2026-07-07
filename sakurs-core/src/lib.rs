@@ -7,21 +7,13 @@
 //!
 //! # Stability Notice
 //!
-//! This crate is pre-1.0. The API is not yet stable and may change
-//! significantly in future releases (a breaking rework of the public
-//! surface is planned for v0.2.0). Use with caution in production code.
-//!
-//! We recommend pinning to exact versions in your Cargo.toml:
+//! This crate is pre-1.0. The 0.2 series is the first pass at a stable
+//! public surface: the API is intentionally small (the [`api`] module,
+//! re-exported at the crate root) so that internal improvements no longer
+//! require breaking changes. Pin a minor version in your Cargo.toml:
 //! ```toml
-//! sakurs-core = "=0.1.2"
+//! sakurs-core = "0.2"
 //! ```
-//!
-//! # Architecture
-//!
-//! The crate follows a hexagonal architecture pattern:
-//! - **Domain layer**: Pure mathematical algorithms and monoid operations
-//! - **Application layer**: Orchestration and parallel processing logic
-//! - **Adapter layer**: Interfaces for different use cases (CLI, Python, etc.)
 //!
 //! # Example
 //!
@@ -37,58 +29,13 @@
 //!
 //! // Check boundaries
 //! assert!(!result.boundaries.is_empty());
-//! // Note: SentenceProcessor may detect different boundary counts than expected
 //! ```
 
 pub mod api;
-pub mod application;
-pub mod domain;
+pub(crate) mod application;
+pub(crate) mod domain;
 
-// New unified API (recommended)
 pub use api::{
-    Boundary, Config, ConfigBuilder, Error as ApiError, Input, Language, Output,
+    Boundary, Config, ConfigBuilder, Error as ApiError, Input, Language, LanguageConfig, Output,
     ProcessingMetadata, ProcessingStats, SentenceProcessor,
 };
-
-// Legacy exports (for backward compatibility)
-pub use application::{DeltaStackProcessor, DeltaStackResult, ExecutionMode, ProcessorConfig};
-pub use domain::*;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_monoid_properties_integration() {
-        // Integration test ensuring monoid properties hold across the domain
-        let state1 = PartialState::new(2);
-        let state2 = PartialState::new(2);
-        let identity = PartialState::identity();
-
-        // Identity property
-        assert_eq!(
-            state1.combine(&identity).boundary_candidates.len(),
-            state1.boundary_candidates.len()
-        );
-
-        // Associativity holds for basic operations
-        let combined1 = state1.combine(&state2);
-        let combined2 = identity.combine(&combined1);
-        assert_eq!(
-            combined2.boundary_candidates.len(),
-            combined1.boundary_candidates.len()
-        );
-    }
-
-    #[test]
-    fn test_domain_module_exports() {
-        // Verify that all essential types are properly exported
-        let _monoid_test: PartialState = PartialState::identity();
-        let _boundary_test = domain::Boundary {
-            offset: 0,
-            flags: BoundaryFlags::STRONG,
-        };
-        let _delta_test = DeltaEntry::new(0, 0);
-        let _abbr_test = AbbreviationState::identity();
-    }
-}

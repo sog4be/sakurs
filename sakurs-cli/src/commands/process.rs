@@ -271,13 +271,12 @@ impl ProcessArgs {
                 language_code,
             } => {
                 // Load external configuration
-                use sakurs_core::domain::language::ConfigurableLanguageRules;
-                use std::sync::Arc;
+                use sakurs_core::LanguageConfig;
 
-                let rules = ConfigurableLanguageRules::from_file(&path, language_code.as_deref())
-                    .map_err(|e| {
-                    anyhow::anyhow!("Failed to load external language config: {}", e)
-                })?;
+                let language =
+                    LanguageConfig::from_file(&path, language_code.as_deref()).map_err(|e| {
+                        anyhow::anyhow!("Failed to load external language config: {}", e)
+                    })?;
 
                 // Build configuration
                 let builder = Config::builder();
@@ -287,8 +286,8 @@ impl ProcessArgs {
                     .build()
                     .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?;
 
-                // Create processor with custom rules
-                SentenceProcessor::with_custom_rules(config, Arc::new(rules))
+                // Create processor with the custom language configuration
+                SentenceProcessor::with_language_config(config, &language)
                     .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))
             }
         }

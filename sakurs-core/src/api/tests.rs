@@ -44,10 +44,6 @@ mod api_tests {
         let config_result = Config::builder().chunk_size(0).build();
         assert!(config_result.is_err());
 
-        // Invalid overlap size
-        let config_result = Config::builder().chunk_size(100).overlap_size(100).build();
-        assert!(config_result.is_err());
-
         // Invalid thread count
         let config_result = Config::builder().threads(Some(0)).build();
         assert!(config_result.is_err());
@@ -83,7 +79,6 @@ mod api_tests {
         assert_eq!(default_config.language, Language::English);
         assert_eq!(default_config.chunk_size, 256 * 1024); // 256KB
         assert_eq!(default_config.parallel_threshold, 1024 * 1024); // 1MB
-        assert_eq!(default_config.overlap_size, 256); // 256 bytes
         assert_eq!(default_config.threads, None); // All available threads
     }
 
@@ -182,11 +177,7 @@ mod api_tests {
     #[test]
     fn test_process_with_extreme_config_values() {
         // Test with minimum chunk size
-        let config = Config::builder()
-            .chunk_size(1)
-            .overlap_size(0)
-            .build()
-            .unwrap();
+        let config = Config::builder().chunk_size(1).build().unwrap();
         let processor = SentenceProcessor::with_config(config).unwrap();
         let result = processor.process(Input::from_text("Test."));
         assert!(result.is_ok());

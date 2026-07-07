@@ -5,27 +5,18 @@
 //! used: processing with any chunk size must produce exactly the same boundary
 //! set as processing the whole text as a single chunk.
 //!
-//! Several tests in this file currently fail and are marked `#[ignore]`: they
-//! document known chunking bugs in v0.1.1. Run them explicitly with
-//! `cargo test --test chunk_invariance -- --ignored` and remove the ignore
-//! attributes as fixes land.
+//! Every test here runs unconditionally: the deferred-judgment pipeline
+//! (v0.2.0) makes boundary decisions independent of where chunks are cut.
 
 use proptest::prelude::*;
 use sakurs_core::{Config, Input, SentenceProcessor};
 
 /// Returns boundary byte offsets for the given configuration.
-fn boundaries(
-    text: &str,
-    lang: &str,
-    chunk_size: usize,
-    overlap: usize,
-    threads: usize,
-) -> Vec<usize> {
+fn boundaries(text: &str, lang: &str, chunk_size: usize, threads: usize) -> Vec<usize> {
     let config = Config::builder()
         .language(lang)
         .expect("language config should load")
         .chunk_size(chunk_size)
-        .overlap_size(overlap.min(chunk_size.saturating_sub(1)))
         .threads(Some(threads))
         .parallel_threshold(0)
         .build()
@@ -39,7 +30,7 @@ fn boundaries(
 
 /// Reference result: the whole text processed as a single chunk on one thread.
 fn reference(text: &str, lang: &str) -> Vec<usize> {
-    boundaries(text, lang, text.len() + 1024, 256, 1)
+    boundaries(text, lang, text.len() + 1024, 1)
 }
 
 // ---------------------------------------------------------------------------
@@ -57,7 +48,7 @@ It was a sunny day and everyone was happy about the weather. ";
     assert!(!expected.is_empty());
     for chunk_size in [1024, 2048, 4096, 8192] {
         for threads in [1, 2, 4] {
-            let got = boundaries(&text, "en", chunk_size, 256.min(chunk_size / 2), threads);
+            let got = boundaries(&text, "en", chunk_size, threads);
             assert_eq!(
                 got, expected,
                 "boundaries diverged at chunk_size={chunk_size}, threads={threads}"
@@ -78,7 +69,7 @@ She replied \"I will see you tomorrow.\" The others (all of them) nodded in agre
     assert!(!expected.is_empty());
     for chunk_size in [1024, 2048, 4096, 8192] {
         for threads in [1, 2] {
-            let got = boundaries(&text, "en", chunk_size, 256.min(chunk_size / 2), threads);
+            let got = boundaries(&text, "en", chunk_size, threads);
             assert_eq!(
                 got, expected,
                 "boundaries diverged at chunk_size={chunk_size}, threads={threads}"
@@ -100,7 +91,7 @@ fn japanese_brackets_are_chunk_invariant() {
     assert!(!expected.is_empty());
     for chunk_size in [1024, 2048, 4096, 8192] {
         for threads in [1, 2] {
-            let got = boundaries(&text, "ja", chunk_size, 256.min(chunk_size / 2), threads);
+            let got = boundaries(&text, "ja", chunk_size, threads);
             assert_eq!(
                 got, expected,
                 "boundaries diverged at chunk_size={chunk_size}, threads={threads}"
@@ -148,28 +139,25 @@ proptest! {
 
     /// Any mix of English sentence shapes must be chunk-invariant.
     ///
-    /// Still fails occasionally: English boundary decisions need lookahead
-    /// (next word after an abbreviation, decimal digits, ellipsis context),
-    /// and that lookahead is truncated when a candidate lands within a few
-    /// characters of a chunk edge. See
-    /// `chunking_regressions::abbreviation_decision_at_exact_chunk_edge` for
-    /// the deterministic pin of this class.
+    /// English boundary decisions need lookahead (next word after an
+    /// abbreviation, decimal digits, ellipsis context); candidates whose
+    /// lookahead crosses a chunk edge are carried as pending and judged when
+    /// the neighboring chunk's context is available, so the decision is
+    /// identical to the single-chunk run.
     #[test]
-    #[ignore = "known limitation: scan-time decisions lose lookahead at exact chunk edges (fix planned for v0.2.0)"]
     fn generated_english_is_chunk_invariant(
         indices in prop::collection::vec(0usize..EN_FRAGMENTS.len(), 3..40),
         chunk_size in prop::sample::select(vec![64usize, 128, 256, 512, 1024, 4096]),
-        overlap in prop::sample::select(vec![0usize, 16, 64, 256]),
         threads in prop::sample::select(vec![1usize, 2, 4]),
         trim_trailing in any::<bool>(),
     ) {
         let text = build_text(EN_FRAGMENTS, &indices, trim_trailing);
         let expected = reference(&text, "en");
-        let got = boundaries(&text, "en", chunk_size, overlap, threads);
+        let got = boundaries(&text, "en", chunk_size, threads);
         prop_assert_eq!(
             got, expected,
-            "boundaries diverged: chunk_size={}, overlap={}, threads={}, text={:?}",
-            chunk_size, overlap, threads, text
+            "boundaries diverged: chunk_size={}, threads={}, text={:?}",
+            chunk_size, threads, text
         );
     }
 
@@ -178,17 +166,16 @@ proptest! {
     fn generated_japanese_is_chunk_invariant(
         indices in prop::collection::vec(0usize..JA_FRAGMENTS.len(), 3..40),
         chunk_size in prop::sample::select(vec![64usize, 128, 256, 512, 1024, 4096]),
-        overlap in prop::sample::select(vec![0usize, 16, 64, 256]),
         threads in prop::sample::select(vec![1usize, 2, 4]),
         trim_trailing in any::<bool>(),
     ) {
         let text = build_text(JA_FRAGMENTS, &indices, trim_trailing);
         let expected = reference(&text, "ja");
-        let got = boundaries(&text, "ja", chunk_size, overlap, threads);
+        let got = boundaries(&text, "ja", chunk_size, threads);
         prop_assert_eq!(
             got, expected,
-            "boundaries diverged: chunk_size={}, overlap={}, threads={}, text={:?}",
-            chunk_size, overlap, threads, text
+            "boundaries diverged: chunk_size={}, threads={}, text={:?}",
+            chunk_size, threads, text
         );
     }
 }

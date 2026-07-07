@@ -1,12 +1,11 @@
 //! Main sentence processor implementation
 
 use std::io::Read;
-use std::sync::Arc;
 use std::time::Instant;
 
 use crate::api::{Config, Error, Input, Language, Output};
 use crate::application::{DeltaStackProcessor, ExecutionMode, ProcessorConfig};
-use crate::domain::language::{ConfigurableLanguageRules, LanguageRules};
+use crate::domain::language::config::LanguageConfig;
 
 /// Unified sentence processor with clean API
 pub struct SentenceProcessor {
@@ -22,20 +21,21 @@ impl SentenceProcessor {
 
     /// Create a processor with custom configuration
     pub fn with_config(config: Config) -> Result<Self, Error> {
-        let language_rules = Self::create_language_rules(&config.language);
         let processor_config = Self::build_processor_config(&config)?;
-        let processor = DeltaStackProcessor::new(processor_config, language_rules);
+        let code = match config.language {
+            Language::English => "en",
+            Language::Japanese => "ja",
+        };
+        let processor = DeltaStackProcessor::from_language_code(processor_config, code)?;
 
         Ok(Self { processor, config })
     }
 
-    /// Create a processor with custom language rules
-    pub fn with_custom_rules(
-        config: Config,
-        language_rules: Arc<dyn LanguageRules>,
-    ) -> Result<Self, Error> {
+    /// Create a processor with a custom language configuration (e.g. loaded
+    /// from an external TOML file via [`LanguageConfig::from_file`])
+    pub fn with_language_config(config: Config, language: &LanguageConfig) -> Result<Self, Error> {
         let processor_config = Self::build_processor_config(&config)?;
-        let processor = DeltaStackProcessor::new(processor_config, language_rules);
+        let processor = DeltaStackProcessor::from_language_config(processor_config, language)?;
 
         Ok(Self { processor, config })
     }
@@ -44,20 +44,6 @@ impl SentenceProcessor {
     pub fn with_language(lang_code: impl Into<String>) -> Result<Self, Error> {
         let config = Config::builder().language(lang_code)?.build()?;
         Self::with_config(config)
-    }
-
-    /// Create language rules based on the language
-    fn create_language_rules(language: &Language) -> Arc<dyn LanguageRules> {
-        match language {
-            Language::English => Arc::new(
-                ConfigurableLanguageRules::from_code("en")
-                    .expect("English configuration should be embedded"),
-            ),
-            Language::Japanese => Arc::new(
-                ConfigurableLanguageRules::from_code("ja")
-                    .expect("Japanese configuration should be embedded"),
-            ),
-        }
     }
 
     /// Process input and return sentence boundaries
@@ -105,9 +91,6 @@ impl SentenceProcessor {
     fn build_processor_config(config: &Config) -> Result<ProcessorConfig, Error> {
         Ok(ProcessorConfig {
             chunk_size: config.chunk_size,
-            parallel_threshold: config.parallel_threshold,
-            max_threads: config.threads,
-            overlap_size: config.overlap_size,
         })
     }
 }

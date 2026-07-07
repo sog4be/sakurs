@@ -45,21 +45,12 @@ impl PyProcessor {
             256 * 1024 // Default 256KB (256 * 1024 bytes)
         };
 
-        // Build Rust configuration and optionally custom language rules
-        let (mut config_builder, language_display, is_custom, custom_rules) =
+        // Build Rust configuration and optionally a custom language config
+        let (mut config_builder, language_display, is_custom, custom_language) =
             if let Some(lang_config) = language_config {
                 // Use custom language configuration
                 let core_config = lang_config.to_core_config(py)?;
                 let display_name = format!("custom({})", lang_config.metadata.code);
-
-                // Create custom language rules from the config
-                use sakurs_core::domain::language::ConfigurableLanguageRules;
-                use std::sync::Arc;
-
-                let language_rules = ConfigurableLanguageRules::from_config(&core_config)
-                    .map_err(|e| InternalError::ConfigurationError(e.to_string()))?;
-                let language_rules_arc: Arc<dyn sakurs_core::domain::language::LanguageRules> =
-                    Arc::new(language_rules);
 
                 (
                     Config::builder()
@@ -67,7 +58,7 @@ impl PyProcessor {
                         .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
                     display_name,
                     true,
-                    Some(language_rules_arc),
+                    Some(core_config),
                 )
             } else {
                 // Use built-in language
@@ -110,17 +101,15 @@ impl PyProcessor {
 
         config_builder = config_builder.chunk_size(chunk_size_bytes);
 
-        config_builder = config_builder
-            .parallel_threshold(1024 * 1024) // 1MB
-            .overlap_size(256);
+        config_builder = config_builder.parallel_threshold(1024 * 1024); // 1MB
 
         let rust_config = config_builder
             .build()
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
 
-        // Create processor with custom rules if provided
-        let processor = if let Some(rules) = custom_rules {
-            SentenceProcessor::with_custom_rules(rust_config, rules)
+        // Create processor with a custom language config if provided
+        let processor = if let Some(language) = custom_language {
+            SentenceProcessor::with_language_config(rust_config, &language)
                 .map_err(|e| InternalError::ProcessingError(e.to_string()))?
         } else {
             SentenceProcessor::with_config(rust_config)

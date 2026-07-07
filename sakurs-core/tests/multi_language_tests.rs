@@ -101,7 +101,6 @@ fn test_technical_abbreviations_multiple_languages() {
 }
 
 #[test]
-#[ignore = "TODO: Update expected values for new configurable language rules"]
 fn test_currency_and_numbers() {
     let processor = SentenceProcessor::new();
 
@@ -109,9 +108,9 @@ fn test_currency_and_numbers() {
     let text = "The price is high in the US. In Europe it is different. In Japan it varies. That is expensive!";
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // The API detects 3 boundaries (after "different.", "varies.", and "expensive!")
-    // "US." doesn't create a boundary (abbreviation handling)
-    assert_eq!(result.boundaries.len(), 3);
+    // Four boundaries: after "US." (not in the abbreviation list, unlike
+    // "U.S."), "different.", "varies.", and "expensive!".
+    assert_eq!(result.boundaries.len(), 4);
 }
 
 #[test]

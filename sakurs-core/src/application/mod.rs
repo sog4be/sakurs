@@ -26,13 +26,11 @@
 //! let result = processor.process(Input::from_text(text)).unwrap();
 //! ```
 
-pub mod chunking;
+pub(crate) mod chunking;
 pub mod config;
 pub mod delta_stack;
 pub mod execution_mode;
-pub mod parser;
 
-pub use chunking::{ChunkManager, TextChunk};
-pub use config::{ProcessingError, ProcessingMetrics, ProcessorConfig};
+pub use config::ProcessorConfig;
 pub use delta_stack::{DeltaStackProcessor, DeltaStackResult};
 pub use execution_mode::ExecutionMode;

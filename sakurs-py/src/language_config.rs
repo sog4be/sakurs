@@ -2,7 +2,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyType};
-use sakurs_core::domain::language::config::{
+use sakurs_core::api::language_config::{
     AbbreviationConfig as CoreAbbreviationConfig, ContextRule as CoreContextRule,
     EllipsisConfig as CoreEllipsisConfig, EnclosureConfig as CoreEnclosureConfig,
     EnclosurePair as CoreEnclosurePair, ExceptionPattern as CoreExceptionPattern,

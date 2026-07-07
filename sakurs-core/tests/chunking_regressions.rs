@@ -1,24 +1,15 @@
 //! Regression tests for specific chunking bugs found in v0.1.1.
 //!
-//! Each test pins one concrete failure mode with a minimal reproduction.
-//! Tests documenting known-but-unfixed limitations are marked `#[ignore]`;
-//! run them with `cargo test --test chunking_regressions -- --ignored` and
-//! remove the ignore attribute when the corresponding fix lands.
+//! Each test pins one concrete failure mode with a minimal reproduction;
+//! the fixes landed in v0.1.2 and the v0.2.0 deferred-judgment pipeline.
 
 use sakurs_core::{Config, Input, SentenceProcessor};
 
-fn boundaries(
-    text: &str,
-    lang: &str,
-    chunk_size: usize,
-    overlap: usize,
-    threads: usize,
-) -> Vec<usize> {
+fn boundaries(text: &str, lang: &str, chunk_size: usize, threads: usize) -> Vec<usize> {
     let config = Config::builder()
         .language(lang)
         .expect("language config should load")
         .chunk_size(chunk_size)
-        .overlap_size(overlap.min(chunk_size.saturating_sub(1)))
         .threads(Some(threads))
         .parallel_threshold(0)
         .build()
@@ -31,7 +22,7 @@ fn boundaries(
 }
 
 fn reference(text: &str, lang: &str) -> Vec<usize> {
-    boundaries(text, lang, text.len() + 1024, 256, 1)
+    boundaries(text, lang, text.len() + 1024, 1)
 }
 
 /// Bug: when the text ends exactly at a terminator, the final boundary is
@@ -44,13 +35,13 @@ fn final_boundary_survives_chunking() {
         let repeated = "This is a sentence. ".repeat(300); // ~6KB
         repeated.trim_end().to_string() // ends with '.'
     };
-    let single = boundaries(&text, "en", text.len() + 1024, 256, 1);
+    let single = boundaries(&text, "en", text.len() + 1024, 1);
     assert!(
         single.contains(&text.len()),
         "single-chunk run must report the final boundary"
     );
 
-    let chunked = boundaries(&text, "en", 1024, 128, 1);
+    let chunked = boundaries(&text, "en", 1024, 1);
     assert!(
         chunked.contains(&text.len()),
         "multi-chunk run dropped the boundary at the end of the text"
@@ -67,7 +58,7 @@ fn abbreviation_split_across_chunks() {
         "Dr. Smith arrived early. He met Prof. Brown at the U.S. embassy today. They talked.";
     let expected = reference(text, "en");
     for chunk_size in [20, 30, 40, 50, 60] {
-        let got = boundaries(text, "en", chunk_size, chunk_size / 4, 2);
+        let got = boundaries(text, "en", chunk_size, 2);
         assert_eq!(
             got, expected,
             "boundaries diverged at chunk_size={chunk_size}"
@@ -83,7 +74,7 @@ fn quotation_split_across_chunks() {
     let text = "He said \"Hello there. It is me.\" Then he left quickly. She smiled at him.";
     let expected = reference(text, "en");
     for chunk_size in [20, 30, 40, 50] {
-        let got = boundaries(text, "en", chunk_size, chunk_size / 4, 2);
+        let got = boundaries(text, "en", chunk_size, 2);
         assert_eq!(
             got, expected,
             "boundaries diverged at chunk_size={chunk_size}"
@@ -91,20 +82,17 @@ fn quotation_split_across_chunks() {
     }
 }
 
-/// Known limitation (planned fix: v0.2.0 scanner redesign): boundary
-/// decisions are made during the scan phase using chunk-local context. When
-/// the decision-relevant lookahead (here: the word after an abbreviation) is
-/// cut off exactly at the chunk edge, the decision can differ from the
-/// single-chunk run. The v0.2.0 redesign defers edge-adjacent decisions to
-/// the combine step, where both sides of the edge are available.
+/// Boundary decisions whose lookahead (here: the word after an abbreviation)
+/// is cut off exactly at a chunk edge are deferred as pending candidates and
+/// judged at combine time with both sides of the edge available, so they
+/// match the single-chunk run.
 #[test]
-#[ignore = "known limitation: scan-time decisions lose lookahead at exact chunk edges (fix planned for v0.2.0)"]
 fn abbreviation_decision_at_exact_chunk_edge() {
     // Chunk size 3 puts the '.' of "Dr." exactly at the end of the first
     // chunk, so the scanner decides without seeing "Smith".
     let text = "Dr. Smith stayed home.";
     let expected = reference(text, "en");
-    let got = boundaries(text, "en", 3, 0, 1);
+    let got = boundaries(text, "en", 3, 1);
     assert_eq!(
         got, expected,
         "expected no boundary after the split \"Dr.\""

@@ -4,7 +4,6 @@ use sakurs_core::{Config, Input, SentenceProcessor};
 use std::io::Cursor;
 
 #[test]
-#[ignore = "TODO: Update expected values for new configurable language rules"]
 fn test_complete_english_processing_pipeline() {
     let config = Config::builder().language("en").unwrap().build().unwrap();
 
@@ -41,7 +40,6 @@ fn test_complete_japanese_processing_pipeline() {
 }
 
 #[test]
-#[ignore = "TODO: Update expected values for new configurable language rules"]
 fn test_mixed_language_content() {
     let config = Config::builder().language("en").unwrap().build().unwrap();
 
@@ -51,12 +49,12 @@ fn test_mixed_language_content() {
     let text = r#"Mr. Tanaka (田中) works at Toyota. He said "こんにちは" to everyone. That means "hello" in Japanese!"#;
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // Mixed language content with quotes returns 0 boundaries
-    // The API doesn't detect boundaries when quotes are involved
+    // Three boundaries: after "Toyota.", "everyone.", and "Japanese!" —
+    // the quoted spans (ASCII and Japanese quotes) do not leak boundaries.
     assert_eq!(
         result.boundaries.len(),
-        0,
-        "Expected 0 boundaries for mixed language with quotes"
+        3,
+        "Expected 3 boundaries for mixed language with quotes"
     );
 }
 
@@ -227,14 +225,14 @@ fn test_processing_stats() {
 }
 
 #[test]
-fn test_confidence_scores() {
+fn test_boundaries_are_ordered() {
     let processor = SentenceProcessor::new();
 
     let text = "Strong boundary. Weak boundary maybe? Another!";
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // All boundaries should have confidence scores
-    for boundary in &result.boundaries {
-        assert!(boundary.confidence >= 0.0 && boundary.confidence <= 1.0);
-    }
+    let offsets: Vec<usize> = result.boundaries.iter().map(|b| b.offset).collect();
+    let mut sorted = offsets.clone();
+    sorted.sort_unstable();
+    assert_eq!(offsets, sorted);
 }

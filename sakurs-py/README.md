@@ -276,14 +276,7 @@ Language configuration for custom rules.
    processor = sakurs.SentenceSplitter(language="en", streaming=True, stream_chunk_mb=5)
    ```
 
-4. **Adjust chunk size for document characteristics**:
-   ```python
-   # For texts with many short sentences
-   sentences = sakurs.split(text, chunk_kb=64)
-   
-   # For texts with long sentences
-   sentences = sakurs.split(text, chunk_kb=512)
-   ```
+4. **Leave the chunk size alone**: results are identical for every chunk size by design, and throughput is flat across a wide range — the 256KB default is right for almost all workloads.
 
 ## Benchmarks
 

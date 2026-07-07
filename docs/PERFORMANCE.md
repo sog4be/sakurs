@@ -1,277 +1,100 @@
-# Performance Tuning Guide
+# Performance Guide
 
 ## Table of Contents
 
-- [Known Issues (v0.1.1)](#known-issues-v011)
-- [Automatic Performance Tuning](#automatic-performance-tuning)
-- [Manual Thread Control](#manual-thread-control)
-- [Chunk Size Tuning](#chunk-size-tuning)
-  - [Chunk Size Guidelines](#chunk-size-guidelines)
-  - [Combining Thread Count and Chunk Size](#combining-thread-count-and-chunk-size)
-- [Performance Profiles](#performance-profiles)
-  - [Small Files (< 256KB)](#small-files--256kb)
-  - [Medium Files (256KB - 10MB)](#medium-files-256kb---10mb)
-  - [Large Files (> 10MB)](#large-files--10mb)
-- [Understanding Thread Count Selection](#understanding-thread-count-selection)
+- [Measured Performance](#measured-performance)
+- [Determinism](#determinism)
+- [Thread Control](#thread-control)
+- [Chunk Size](#chunk-size)
+- [Memory](#memory)
 - [Benchmarking](#benchmarking)
-- [When to Override Automatic Selection](#when-to-override-automatic-selection)
-- [Memory Considerations](#memory-considerations)
-- [Streaming Mode](#streaming-mode)
-- [Performance Tips](#performance-tips)
 - [Profiling](#profiling)
-- [Common Performance Patterns](#common-performance-patterns)
-  - [Fast Processing (News Articles, Logs)](#fast-processing-news-articles-logs)
-  - [Balanced Processing (Books, Documents)](#balanced-processing-books-documents)
-  - [Heavy Processing (Large Corpora)](#heavy-processing-large-corpora)
 
-## Known Issues (v0.1.1)
+## Measured Performance
 
-> **This section documents measured v0.1.1 behavior.** It contradicts some of
-> the tuning advice below; the advice is kept as-is because it describes the
-> intended design, which the v0.2.0 rework restores. Numbers were measured on
-> Apple Silicon (release build, 1MB synthetic English text) and are
-> reproducible with `cargo bench --bench throughput_baseline` plus the tests
-> referenced below.
->
-> **Status update (v0.1.2 development):** the correctness issues below are
-> fixed except for one narrow class (decisions whose lookahead is cut
-> exactly at a chunk edge, e.g. an abbreviation split as `Dr.`|`Smith` —
-> pinned by the ignored `abbreviation_decision_at_exact_chunk_edge` test and
-> planned for the v0.2.0 scanner redesign). Throughput improved 30–110×
-> (plain 0.18 → 12.4 MB/s, quote-heavy 0.07 → 7.8 MB/s, abbreviation-heavy
-> 0.09 → 3.3 MB/s at default settings, threads=1); the remaining
-> chunk-size-proportional cost is the full-chunk copy into
-> `BoundaryContext::text` per terminator, also scheduled for v0.2.0.
+Numbers below were measured at v0.2.0 on Apple Silicon (M2 Max), release builds. Absolute throughput varies by machine; the shapes (scaling, insensitivity to chunk size) are properties of the algorithm.
 
-### Throughput is far below design targets, and larger chunks are *slower*
+Single thread, 1MB synthetic English (criterion, `cargo bench --bench throughput_baseline`):
 
-Several per-terminator and per-enclosure code paths currently perform
-O(chunk_size) work (full-chunk copies and UTF-8 re-decodes), so total cost
-grows with chunk size instead of shrinking:
+| Text profile | Throughput |
+|---|---|
+| plain prose | ~190 MB/s |
+| quote-heavy | ~72 MB/s |
+| abbreviation-heavy | ~69 MB/s |
 
-| Configuration (threads=1) | plain prose | quote-heavy | abbreviation-heavy |
-|---|---|---|---|
-| naive 1-pass scan (reference) | 400 MB/s | 894 MB/s | 875 MB/s |
-| chunk=16KB | 0.57 MB/s | 0.83 MB/s | 0.44 MB/s |
-| chunk=64KB | 0.42 MB/s | 0.26 MB/s | 0.25 MB/s |
-| chunk=256KB (default) | 0.18 MB/s | 0.07 MB/s | 0.09 MB/s |
-| chunk=1MB (single chunk) | 0.05 MB/s | 0.02 MB/s | 0.02 MB/s |
+Quote- and abbreviation-heavy text costs more because every suppressible enclosure character runs the suppression oracle and every period runs the abbreviation matcher; both are bounded-window, allocation-free operations.
 
-Until this is fixed, prefer *smaller* `--chunk-kb` values for throughput —
-but see the correctness caveat below before doing so.
+Multithread scaling, 50MB plain English through the core pipeline:
 
-### Chunked results can diverge from sequential results
+| Threads | Throughput | Efficiency |
+|---|---|---|
+| 1 | 252 MB/s | 100% |
+| 2 | 489 MB/s | 97% |
+| 4 | 929 MB/s | 92% |
+| 8 | 1.44 GB/s | 71% |
 
-Boundary decisions are finalized during the scan phase using context that is
-truncated at chunk edges, and overlapping chunk regions double-count
-enclosure state. Measured consequences (512KB synthetic corpora, compared
-against a single-chunk reference):
+Through the public `SentenceProcessor` API, which additionally computes a character offset for every boundary, the same measurement gives 225 MB/s single-threaded and 1.11 GB/s at 8 threads: the character-offset pass is sequential and becomes visible once the parallel phases are fast.
 
-- Japanese text with 「」/『』: with default 256KB chunks, ~50% of boundaries
-  are lost (everything after the first chunk boundary).
-- Quote-heavy English: 87% of boundaries lost at 64KB chunks; a handful of
-  spurious boundaries at 256KB chunks.
-- Text ending exactly at a terminator loses its final boundary in
-  multi-chunk mode.
+The scan phase parallelizes over chunks; the prefix fold touches only per-chunk aggregates and pending items (O(chunks)); the reduce phase is embarrassingly parallel. Throughput is flat across chunk sizes because per-character work is constant — no code path does O(chunk) work per terminator.
 
-These failures are pinned by `sakurs-core/tests/chunk_invariance.rs` and
-`sakurs-core/tests/chunking_regressions.rs` (marked `#[ignore]` until fixed;
-run with `cargo test -- --ignored`). Fixes are planned for v0.1.2
-(contiguity, final boundary, abbreviation index bugs) and v0.2.0 (full
-chunk-invariance via the scanner redesign).
+## Determinism
 
-## Automatic Performance Tuning
+Output is bit-identical across chunk sizes, thread counts, and runs: boundary decisions are pure functions of a bounded text window, and decisions whose window crosses a chunk edge are deferred and resolved with the neighboring chunk's context. There is no model, no randomness, and no execution-order dependence. This is enforced by chunk-invariance property tests.
 
-Sakurs automatically optimizes performance based on:
-- Input text size
-- Available CPU cores
-- System resources
+## Thread Control
 
-For most use cases, the default automatic mode provides optimal performance.
-
-## Manual Thread Control
-
-Use the `--threads` option when you need explicit control:
+By default (`Adaptive`), the thread count is chosen from the text size (one thread per ~256KB, capped at available cores), so small inputs stay single-threaded and large inputs use the machine.
 
 ```bash
-# Force sequential processing
-sakurs process -i input.txt --threads 1
-
-# Use 4 threads regardless of file size
-sakurs process -i input.txt --threads 4
-
-# Use all available cores
-sakurs process -i input.txt --threads $(nproc)
+# CLI
+sakurs process -i large.txt --threads 8
+sakurs process -i small.txt --threads 1
 ```
 
-## Chunk Size Tuning
+```rust
+// Rust API
+let config = Config::builder().language("en")?.threads(Some(8)).build()?;
+```
 
-The chunk size determines how text is split for parallel processing. The default is 256KB, which works well for most cases.
+```python
+# Python API
+sakurs.split(text, execution_mode="parallel", threads=8)
+```
 
-Use the `--chunk-kb` option to customize:
+Efficiency is highest when the text is large enough to give every thread multiple chunks; below ~1MB the parallel setup cost usually outweighs the gain, which is what the adaptive default encodes.
+
+## Chunk Size
+
+The default chunk size is 256KB and there is rarely a reason to change it. Correctness never depends on it (see [Determinism](#determinism)), and throughput is flat across a wide range; the only effects are second-order: chunks should be small enough that `threads` chunks exist (parallelism) and large enough that per-chunk fixed costs stay negligible (roughly ≥64KB).
 
 ```bash
-# Small chunks for files with many short sentences
-sakurs process -i short_sentences.txt --chunk-kb 64
-
-# Large chunks for files with long sentences or few boundaries
-sakurs process -i long_text.txt --chunk-kb 512
-
-# Very large chunks for maximum throughput on large files
-sakurs process -i huge_file.txt --chunk-kb 1024
+sakurs process -i huge.txt --chunk-kb 512 --threads 16
 ```
 
-### Chunk Size Guidelines
+## Memory
 
-- **64-128KB**: Good for texts with many short sentences
-- **256KB** (default): Balanced for most use cases
-- **512KB-1MB**: Better for large files with fewer sentence boundaries
-- **>1MB**: Maximum throughput but may reduce parallelism benefits
-
-### Combining Thread Count and Chunk Size
-
-For optimal performance on large files, tune both parameters:
-
-```bash
-# Maximum performance for very large files
-sakurs process -i huge.txt --threads 8 --chunk-kb 1024
-
-# Balanced approach for medium files
-sakurs process -i medium.txt --threads 4 --chunk-kb 256
-```
-
-## Performance Profiles
-
-### Small Files (< 256KB)
-- Automatically uses sequential processing
-- Overhead of parallelization exceeds benefits
-- No action needed
-
-### Medium Files (256KB - 10MB)
-- Automatically uses 2-4 threads
-- Balanced performance and resource usage
-- Consider `--threads 2` for consistent behavior
-
-### Large Files (> 10MB)
-- Automatically scales to available cores
-- Maximum parallelization benefit
-- Use `--parallel` flag to force parallel mode
-
-## Understanding Thread Count Selection
-
-The automatic thread calculation follows this formula:
-```
-threads = min(text_size / 256KB, available_CPU_cores)
-```
-
-Examples:
-- 100KB file on 8-core machine → 1 thread (sequential)
-- 1MB file on 8-core machine → 4 threads
-- 10MB file on 4-core machine → 4 threads (CPU limited)
-- 10MB file on 16-core machine → 40 threads → capped at 16
+Processing holds the input text plus O(threads) scan states and the collected boundaries. Per-chunk state is small (context buffers of ≤256 bytes, per-enclosure-type counters, pending items); candidate storage is proportional to the number of sentences. There is no per-character allocation on the hot path.
 
 ## Benchmarking
 
-Compare different configurations:
-
 ```bash
-# Benchmark sequential vs parallel
-time sakurs process -i large.txt --threads 1 -o /dev/null
-time sakurs process -i large.txt --parallel -o /dev/null
+# Criterion micro-benchmarks (text profiles × chunk sizes)
+cargo bench --bench throughput_baseline
 
-# Find optimal thread count
-for t in 1 2 4 8; do
-    echo "Threads: $t"
-    time sakurs process -i large.txt --threads $t -o /dev/null
-done
+# Save and compare baselines around a change
+cargo bench --bench throughput_baseline -- --save-baseline before
+cargo bench --bench throughput_baseline -- --baseline before
 ```
 
-## When to Override Automatic Selection
-
-1. **Batch Processing**: Use consistent thread count across files
-   ```bash
-   find . -name "*.txt" -exec sakurs process -i {} --threads 4 \;
-   ```
-
-2. **Resource-Constrained Systems**: Limit threads on shared servers
-   ```bash
-   sakurs process -i large.txt --threads 2  # Leave cores for other processes
-   ```
-
-3. **Debugging**: Force sequential for easier troubleshooting
-   ```bash
-   sakurs process -i problematic.txt --threads 1 -vv
-   ```
-
-4. **CI/CD Pipelines**: Predictable resource usage
-   ```bash
-   sakurs process -i docs.txt --threads "${CI_MAX_THREADS:-2}"
-   ```
-
-## Memory Considerations
-
-Each thread requires memory for:
-- Text chunk processing (~256KB per thread)
-- State tracking overhead
-- Output buffer
-
-Approximate memory usage:
-```
-memory = base_memory + (threads * chunk_overhead)
-```
-
-For memory-constrained systems, reduce thread count:
-```bash
-# Limit to 2 threads on low-memory systems
-sakurs process -i large.txt --threads 2
-```
-
-## Streaming Mode
-
-For very large files or continuous streams, use streaming mode:
-```bash
-# Process in chunks with limited memory usage
-sakurs process -i huge.txt --stream
-
-# Custom chunk size for streaming
-sakurs process -i huge.txt --stream --stream-chunk-mb 50
-```
-
-## Performance Tips
-
-1. **SSD vs HDD**: Parallel processing benefits more from SSDs
-2. **File Format**: Plain text processes faster than complex encodings
-3. **Output Format**: Text output is fastest, JSON adds ~10% overhead
-4. **Language**: English processing is slightly faster than Japanese
+Benchmarks are not CI-gated (machine variance makes hard thresholds flaky); compare saved baselines locally instead.
 
 ## Profiling
 
-To understand performance bottlenecks:
-
 ```bash
-# Use verbose mode to see timing information
-sakurs process -i large.txt -vv
+# Timing summary from the CLI
+sakurs process -i file.txt -v
 
-# Profile with system tools
-time -v sakurs process -i large.txt --threads 4
-```
-
-## Common Performance Patterns
-
-### Fast Processing (News Articles, Logs)
-```bash
-# Many small files - limit parallelism overhead
-find . -name "*.log" | xargs -P 4 -I {} sakurs process -i {} --threads 1
-```
-
-### Balanced Processing (Books, Documents)
-```bash
-# Let auto-detection handle it
-sakurs process -i book.txt
-```
-
-### Heavy Processing (Large Corpora)
-```bash
-# Maximum parallelism with progress tracking
-sakurs process -i corpus.txt --parallel -v
+# Flame graph of the core
+cargo install flamegraph
+cargo flamegraph --bench throughput_baseline
 ```
