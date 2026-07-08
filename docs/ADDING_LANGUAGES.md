@@ -1,6 +1,8 @@
 # Adding New Languages to Sakurs
 
-This guide explains how to add support for new languages to Sakurs using the configurable language rules system.
+This guide explains how to add support for new languages to Sakurs. A language is a TOML
+configuration file, compiled at load time into the algorithm's decision oracles — no Rust code
+is required for most use cases.
 
 ## Table of Contents
 
@@ -15,7 +17,9 @@ This guide explains how to add support for new languages to Sakurs using the con
   - [Ellipsis](#ellipsis-optional)
   - [Enclosures](#enclosures-optional)
   - [Suppression](#suppression-optional)
+  - [Sentence Starters](#sentence-starters-optional)
   - [Abbreviations](#abbreviations-optional)
+- [The Judgment Window](#the-judgment-window)
 - [Registering Your Language](#registering-your-language)
 - [Testing Your Configuration](#testing-your-configuration)
   - [Testing External Configurations](#testing-external-configurations)
@@ -48,7 +52,9 @@ You have two options for adding language support:
 
 1. Generate a configuration template: `sakurs generate-config --language-code {code} --output {file}.toml`
 2. Edit the configuration file to define your language rules
-3. Validate it: `sakurs validate --language-config {file}.toml`
+3. Validate it: `sakurs validate --language-config {file}.toml` — this compiles the configuration,
+   catching rule-level problems (invalid regexes, rules whose context need exceeds
+   [the judgment window](#the-judgment-window)) as well as schema errors
 4. Use it: `sakurs process -i text.txt --language-config {file}.toml`
 
 ### Option 2: Built-in Configuration (For Contributing)
@@ -99,8 +105,8 @@ pairs = [
     { open = "(", close = ")" },
     { open = "[", close = "]" },
     { open = "{", close = "}" },
-    { open = "„", close = """, comment = "German quotes" },
-    { open = "‚", close = "'", comment = "German single quotes" },
+    { open = "„", close = "“" },  # German-style low/high double quotes
+    { open = "‚", close = "‘" },  # German-style low/high single quotes
     { open = '"', close = '"', symmetric = true }
 ]
 
@@ -112,6 +118,20 @@ fast_patterns = [
     # List items at line start
     { char = ")", line_start = true, before = "alnum" }
 ]
+
+# Regex-based suppression for patterns fast_patterns can't express - optional
+regex_patterns = [
+    { pattern = "\\d+'", description = "Feet measurement like 6'" }
+]
+
+# Sentence starters - optional, helps the abbreviation/ellipsis rules decide
+# whether a capitalized word right after them begins a new sentence
+[sentence_starters]
+require_following_space = true  # "Der Mann" matches but "Deutschland" does not
+min_word_length = 1
+
+pronouns = ["Ich", "Du", "Er", "Sie", "Es", "Wir", "Ihr"]
+articles = ["Der", "Die", "Das", "Ein", "Eine"]
 
 # Abbreviations - highly recommended
 [abbreviations]
@@ -142,17 +162,40 @@ Controls how ellipsis patterns are handled:
 ### Enclosures (Optional)
 Defines paired delimiters that should not contain sentence boundaries:
 - `open`/`close`: The delimiter characters
-- `symmetric`: Set to true for quotes that use the same character
-- `comment`: Optional description
+- `symmetric`: Set to true for quotes that use the same character (tracked as parity rather
+  than depth — see [DELTA_STACK_ALGORITHM.md](DELTA_STACK_ALGORITHM.md#5-parity-π))
 
 ### Suppression (Optional)
-High-performance pattern matching for common suppressions:
-- `char`: The character to match
-- `before`/`after`: Character class (`alpha`, `alnum`, `whitespace`, or specific char)
-- `line_start`: Only match at line beginning
+Excludes recognizable non-enclosure uses of a character from depth/parity tracking:
+- `fast_patterns`: single-character-context matching, evaluated inline during the scan
+  - `char`: The character to match
+  - `before`/`after`: Character class (`alpha`, `alnum`, `whitespace`, or specific char)
+  - `line_start`: Only match at line beginning
+- `regex_patterns`: a small window around the character is matched against `pattern`
+  (a `RegexSet` at runtime) when `fast_patterns` can't express the case; `description` is
+  documentation only
+
+### Sentence Starters (Optional)
+Words that can begin a new sentence right after a terminator, used to help decide ambiguous
+cases (e.g. an abbreviation followed by a capitalized word):
+- Any key other than the three below is a free-form category holding a word list (see
+  `pronouns`/`articles` in the example above)
+- `require_following_space`: only match when the word is followed by whitespace
+- `min_word_length`: ignore words shorter than this
 
 ### Abbreviations (Optional)
 Lists of known abbreviations that don't end sentences. Group them logically for maintainability.
+
+## The Judgment Window
+
+Every rule's context need — the longest abbreviation, sentence starter, ellipsis exception
+window, or suppression pattern reach — must fit within the algorithm's judgment window `k`
+(the bundled configurations use `k = 32` characters). This is what keeps chunked/parallel
+processing identical to a sequential scan (see
+[DELTA_STACK_ALGORITHM.md](DELTA_STACK_ALGORITHM.md#the-judgment-window-k)). Loading a
+configuration computes its required window and rejects it — at `sakurs validate` time or at
+`LanguageConfig::from_file`/processor construction time — if the requirement exceeds `k`, so an
+oversized rule fails loudly instead of silently breaking sequential equivalence.
 
 ## Registering Your Language
 
@@ -179,7 +222,8 @@ sakurs generate-config --language-code test --output test-lang.toml
 
 # Edit the configuration...
 
-# Validate syntax and structure
+# Validate: compiles the configuration, catching both schema errors and
+# rule-level problems (invalid regexes, rules exceeding the judgment window)
 sakurs validate --language-config test-lang.toml
 
 # Test with sample text
@@ -261,6 +305,8 @@ See `english.toml` or `japanese.toml` for comprehensive examples.
 - Check TOML syntax with a validator
 - Ensure file path in loader.rs is correct
 - Verify the language code matches between file and loader
+- Check whether a rule's context need exceeds [the judgment window](#the-judgment-window) —
+  `sakurs validate` reports which rule and how much it needs to shrink
 
 ### Incorrect sentence detection
 - Add missing abbreviations
