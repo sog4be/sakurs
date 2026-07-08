@@ -60,9 +60,14 @@ One of the easiest ways to contribute is by adding support for new languages:
    make ci-check
    
    # Or run individual checks
-   cargo test --all-features --workspace
+   cargo test --all-features --workspace --exclude sakurs-py
    cargo fmt --all -- --check
    cargo clippy --all-features --workspace -- -D warnings
+
+   # sakurs-py is a PyO3 extension module and can't run via `cargo test`;
+   # CI checks it separately:
+   cargo check -p sakurs-py --all-features
+   cargo clippy -p sakurs-py --all-features -- -D warnings
    ```
 
 4. **Commit your changes**:
