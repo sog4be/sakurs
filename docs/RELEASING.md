@@ -33,7 +33,9 @@ Before starting a release:
    intended for direct use due to unstable APIs.
 
 4. **Check GitHub Secrets**:
-   - `CARGO_REGISTRY_TOKEN` must be set
+   - `CARGO_REGISTRY_TOKEN` must be set. crates.io tokens expire after about a year — if
+     `publish-core`/`publish-cli` fail with an authentication error, this is the first thing
+     to check, regardless of how long ago the workflow last worked.
 
 5. **Configure PyPI OIDC** (first release only):
    - Go to PyPI project settings
@@ -41,6 +43,12 @@ Before starting a release:
    - Repository: `sog4be/sakurs`
    - Workflow: `.github/workflows/release.yml`
    - Environment: `pypi`
+
+   This one-time setup is separate from the `upload-pypi` job's `environment: pypi` gate —
+   that gate requires a maintainer to manually approve the deployment in the Actions UI on
+   **every** release run (Settings → Environments → `pypi`, or the "Review deployments"
+   prompt on the workflow run page). Expect the release workflow to pause at `upload-pypi`
+   until approved.
 
 ## Release Steps
 
@@ -124,8 +132,10 @@ The GitHub Actions workflow will automatically:
 2. Run tests (formatting, clippy, and unit tests)
 3. Publish `sakurs-core` to crates.io (as dependency)
 4. Publish `sakurs-cli` to crates.io (user-facing tool)
-5. Build Python wheels for multiple platforms
-6. Upload wheels to PyPI as `sakurs`
+5. Build Python wheels for Linux x86_64, Windows x64, and both macOS architectures — the
+   macOS x86_64 wheel is cross-compiled on an `macos-14` (ARM) runner, since GitHub retired
+   Intel macOS runners (`macos-13`); there is no separate Intel runner in the matrix
+6. Upload wheels to PyPI as `sakurs` (**pauses for manual environment approval**, see above)
 7. Create a GitHub release with changelog
 
 Monitor the progress at: https://github.com/sog4be/sakurs/actions
@@ -149,13 +159,17 @@ After successful release:
 
 ### crates.io Publishing Fails
 
-- **Authentication error**: Verify `CARGO_REGISTRY_TOKEN` is set correctly
+- **Authentication error**: Verify `CARGO_REGISTRY_TOKEN` is set correctly and hasn't expired
+  (crates.io tokens expire after about a year — this is the most likely cause if the workflow
+  worked on the previous release) and rotate it in repo Settings → Secrets if needed
 - **Version exists**: Version was already published, bump version number
 - **Dependencies**: Ensure all path dependencies are removed
 - **sakurs-core not found**: If sakurs-cli fails, ensure sakurs-core was published first
 
 ### PyPI Publishing Fails
 
+- **Workflow appears stuck at `upload-pypi`**: this is expected — the `pypi` environment
+  requires manual approval on every run; approve the deployment in the Actions UI
 - **OIDC error**: Check trusted publisher configuration
 - **Version exists**: Version already published, PyPI doesn't allow overwrites
 - **Wheel building**: Check maturin and PyO3 compatibility
