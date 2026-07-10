@@ -94,11 +94,16 @@ academic = [
 ]
 
 business = [
-    "Inc", "Corp", "Ltd", "LLC", "Co", "L.P", "L.L.C", "P.C", "N.A"
+    "Inc", "Corp", "Ltd", "LLC", "Co", "co", "L.P", "L.L.C", "P.C", "N.A"
 ]
 
+# Lowercase only, deliberately: uppercase A.M./P.M. followed by a capitalized
+# word ends the sentence ("He left at 6 P.M. Mr. Smith then went home."),
+# while lowercase a.m./p.m. keeps it open — the casing is the only signal
+# that distinguishes the two readings (pragmatic_segmenter draws the same
+# line). Abbreviation matching is case-sensitive.
 time = [
-    "a.m", "p.m", "A.M", "P.M"
+    "a.m", "p.m"
 ]
 
 # Matching requires a word boundary before the entry ("amt." never matches
@@ -107,7 +112,8 @@ time = [
 geographic = [
     "U.S", "U.K", "U.S.A", "U.K", "E.U", "U.N", "D.C",
     # Note: Added back St with specific common usage pattern to avoid false matches
-    "St", "Ave", "Blvd", "Pkwy", "Mt",
+    # ("st" also appears lowercase in street addresses: "on 5th st. near")
+    "St", "st", "Ave", "Blvd", "Pkwy", "Mt",
     # Candidates, unused so far: "Rd", "Dr", "Ct", "Ln", "Sq", "Pl", "Ft", "Is", "Pt"
 ]
 

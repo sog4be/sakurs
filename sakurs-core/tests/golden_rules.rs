@@ -140,7 +140,6 @@ fn run_golden_rules(language: &str, data: &str, pinned_failures: &[u32]) {
 /// Baseline at harness introduction (v0.2.0 rules): 25/52 passing.
 const ENGLISH_PINNED_FAILURES: &[u32] = &[
     4,  // one-letter initials (Jonas E. Smith)
-    18, // a.m./P.M. followed by capitalized non-starter
     22, // email addresses
     23, // web addresses
     31, // list: 1.) without item-final period
