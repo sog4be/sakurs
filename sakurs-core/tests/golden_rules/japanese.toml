@@ -1,0 +1,42 @@
+# Golden Rules Set (Japanese)
+#
+# Source: pragmatic_segmenter by Kevin S. Dias, MIT License
+#   https://github.com/diasks2/pragmatic_segmenter (README.md, "Golden Rules (Japanese)")
+# Retrieved: 2026-07-10. Rule ids and texts follow the upstream numbering verbatim.
+#
+# Rules whose expected output is not an exact substring of the input (i.e. they
+# require text normalization, not just boundary detection) are marked with
+# `requires_text_modification = true`. sakurs returns exact substrings by design,
+# so these cannot pass; they stay in the set for score comparability with
+# published GRS results.
+
+[[rules]]
+id = 1
+name = "Simple period to end sentence"
+input = "これはペンです。それはマーカーです。"
+expected = ["これはペンです。", "それはマーカーです。"]
+
+[[rules]]
+id = 2
+name = "Question mark to end sentence"
+input = "それは何ですか？ペンですか？"
+expected = ["それは何ですか？", "ペンですか？"]
+
+[[rules]]
+id = 3
+name = "Exclamation point to end sentence"
+input = "良かったね！すごい！"
+expected = ["良かったね！", "すごい！"]
+
+[[rules]]
+id = 4
+name = "Quotation"
+input = "自民党税制調査会の幹部は、「引き下げ幅は３．２９％以上を目指すことになる」と指摘していて、今後、公明党と合意したうえで、３０日に決定する与党税制改正大綱に盛り込むことにしています。"
+expected = ["自民党税制調査会の幹部は、「引き下げ幅は３．２９％以上を目指すことになる」と指摘していて、今後、公明党と合意したうえで、３０日に決定する与党税制改正大綱に盛り込むことにしています。"]
+
+[[rules]]
+id = 5
+name = "Errant newline in the middle of a sentence"
+input = "これは父の\n家です。"
+expected = ["これは父の家です。"]
+requires_text_modification = true
