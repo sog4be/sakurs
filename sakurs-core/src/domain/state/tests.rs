@@ -121,8 +121,10 @@ fn window_hash(window: &str, pos: usize, salt: u64) -> u64 {
 
 impl Judge for HashJudge {
     fn judge(&self, window: &str, pos_in_window: usize, kind: TerminatorKind) -> Judgment {
-        let TerminatorKind::Char(c) = kind;
-        let salt = c as u64;
+        let salt = match kind {
+            TerminatorKind::Char(c) => c as u64,
+            TerminatorKind::AfterClosers(c) => 0x1000 + c as u64,
+        };
         match window_hash(window, pos_in_window, salt) % 3 {
             0 => Judgment::NotBoundary,
             1 => Judgment::Boundary(BoundaryFlags::WEAK),

@@ -222,7 +222,7 @@ A candidate becomes a sentence boundary in the reduce phase iff it is outside ev
 - **Asymmetric type i**: `cumulative_net[i] + local_depth[i] ≤ 0`. The comparison clamps at zero rather than requiring exact equality: a closing delimiter without a matching opener (a bare list marker like `1)`, an editorial artifact) drives the depth negative, and treating negative depth as "inside an enclosure" would suppress every boundary in the rest of the document. Unmatched closers therefore never mask sentence boundaries.
 - **Symmetric type b**: `(cumulative_parity XOR local_parity)` bit `b` is 0 (an even number of toggles precedes the candidate).
 
-Boundary offsets are the position *after* the terminator, and each chunk owns the offsets in `(start, end]` — a boundary at exactly the end of the text belongs to the last chunk.
+Boundary offsets are the position *after* the terminator — or, when the language enables boundary-after-closers, after the closing delimiters that immediately follow it (see [Terminator + Closing Delimiter](#terminator--closing-delimiter-quote-final-boundaries)). Each chunk owns the offsets in `(start, end]` — a boundary at exactly the end of the text belongs to the last chunk.
 
 ## Complex Case Handling
 
@@ -243,6 +243,14 @@ The dot after `U` sits within `k` characters of its chunk's end, so it is record
 Example: "don't" split across chunks as `...don'` | `t...`
 
 The `'` is simultaneously a symmetric enclosure character and, between letters, a contraction that must *not* toggle quotation parity. At a chunk edge the deciding neighbor is in the other chunk, and guessing wrong would corrupt the parity of the entire span — every boundary after it would flip between suppressed and accepted. The scanner therefore records the occurrence as a pending enclosure with its effect excluded; the combine that supplies the neighbor runs the suppression oracle on the reconstructed window and, only if it is a real quote, applies the parity toggle retroactively (see [Pending Enclosures](#3-pending-enclosures-e)). Interior occurrences are decided inline on a borrowed window — the same oracle, the same window content, the same verdict.
+
+### Terminator + Closing Delimiter (Quote-Final Boundaries)
+
+Example: `He said "That's it." She left.`
+
+The period belongs inside the quotation, so its own candidate is parity-suppressed; the sentence actually ends after the closing `"`. For languages that enable `boundary_after_closers`, the scanner emits an additional candidate just after every *closing-capable* enclosure character (asymmetric closers and symmetric toggles), recorded with the character's own depth/parity effect already included. The judgment for such a candidate is window-pure like every other: walk back through at most a short, bounded chain of closing-capable characters (each must be a real enclosure on this window, not a suppressed use) to the terminator, re-judge the terminator with its forward context read from *after* the chain, and require the follow condition — an uppercase letter or the end of text.
+
+Structural containment is deliberately not decided at emission time. A candidate emitted after an *opening* occurrence (or a closer that still leaves an outer enclosure open) simply records a depth/parity inside an enclosure and is dropped by the reduce predicate — the same global decision that filters ordinary candidates. This is what makes the mechanism compose with symmetric quotes, where open-versus-close is not locally knowable: the candidate after a toggle that closes the quotation lands on even parity and survives; after one that opens it, odd parity, and it is filtered. Chains like `.")` resolve the same way — a candidate is emitted after each closer, and exactly the one outside every enclosure survives. Near chunk edges the chain may start in the neighboring chunk, so the candidate goes pending like any other, and a pending closer's toggle reaches it through the ordinary retroactive toggle application.
 
 ### Symmetric Enclosures (Same Open/Close Character)
 
@@ -267,6 +275,7 @@ The scan phase does constant work per character with no per-character allocation
 - **Abbreviation matching as a reverse-trie state machine**: the automaton advances on alphabetic and dot characters and resets otherwise, so when a `.` is reached, "does an abbreviation end here?" is already answered — no backward scan per dot.
 - **Terminator hit** → window classification: if the candidate is ≥ k characters from both chunk edges, `judge` runs inline on a borrowed window (zero copy); otherwise the candidate is pushed to pending.
 - **Suppressible enclosure hit** → the same classification: interior occurrences run the suppression oracle inline and count (or not) immediately; occurrences within `k` of an edge become pending enclosures. Enclosure characters without suppression rules never go pending — they count unconditionally.
+- **Closing-capable enclosure hit** (when the language enables boundary-after-closers) → a quote-final candidate just after the character, judged inline when interior (a cheap previous-character prefilter skips the common case) and pending near an edge, where the terminator chain may live in the neighboring chunk.
 
 Depth/parity updates and candidate collection are the only other per-character work, which is what the algorithm's high sequential throughput rests on.
 

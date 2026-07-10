@@ -133,9 +133,15 @@ fn test_complex_apostrophe_patterns() {
 #[test]
 fn test_mixed_quotes_and_contractions() {
     let test_cases = vec![
-        (r#"He said "I don't know." She agreed."#, vec![35]), // Corrected: only final boundary (enclosure suppresses internal boundaries)
-        (r#""It's true," she said. "Isn't it?""#, vec![22]), // Boundary after "she said." (quotes suppress internal boundaries)
-        (r#"'I'm going,' he said. 'You're not.'"#, vec![21]), // Boundary after "he said." (quotes suppress internal boundaries)
+        // Boundary-after-closers places the break after `know."`; the period
+        // itself stays parity-suppressed inside the quotation.
+        (r#"He said "I don't know." She agreed."#, vec![23, 35]),
+        // Boundary after "she said." plus the quote-final boundary at the end
+        // of text (after `it?"`).
+        (r#""It's true," she said. "Isn't it?""#, vec![22, 34]),
+        // Boundary after "he said." plus the quote-final boundary at the end
+        // of text (after `not.'`).
+        (r#"'I'm going,' he said. 'You're not.'"#, vec![21, 35]),
     ];
 
     for (text, expected_offsets) in test_cases {

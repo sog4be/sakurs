@@ -6,7 +6,9 @@ fn test_bracket_pattern_detection() {
     let test_cases = vec![
         (
             "First sentence. [Second sentence.] Third sentence.",
-            vec![15, 50], // After first period and at end of text
+            // After the first period, after the closing bracket
+            // (boundary-after-closers), and at the end of text.
+            vec![15, 34, 50],
             "Basic bracket pattern",
         ),
         (
@@ -16,12 +18,16 @@ fn test_bracket_pattern_detection() {
         ),
         (
             "Test one. (Another test.) Final test.",
-            vec![9, 37], // Boundary after "one." and at end; inside parentheses is not a boundary
+            // After "one.", after the closing paren (boundary-after-closers,
+            // next word capitalized), and at the end of text.
+            vec![9, 25, 37],
             "Parenthesis pattern",
         ),
         (
             "Quote test. \"This is quoted.\" Another sentence.",
-            vec![11, 47], // After "test." and at the final period; the quoted period is inside the quotes
+            // After "test.", after the closing quote (boundary-after-closers),
+            // and at the final period.
+            vec![11, 29, 47],
             "Quote pattern",
         ),
     ];

@@ -143,7 +143,6 @@ const ENGLISH_PINNED_FAILURES: &[u32] = &[
     18, // a.m./P.M. followed by capitalized non-starter
     22, // email addresses
     23, // web addresses
-    26, // quote-final terminator (boundary after closing quote)
     31, // list: 1.) without item-final period
     32, // list: 1.) with item-final period
     33, // list: 1) without item-final period

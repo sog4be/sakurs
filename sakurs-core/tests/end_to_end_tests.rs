@@ -203,11 +203,14 @@ fn test_nested_quotes_and_parentheses() {
     let text = r#"He said "She told me 'Hello there!' yesterday." Then he left. (This is important (very important) to note.) Done."#;
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // Quotes suppress boundaries WITHIN them, not after closing quotes
-    // Expected boundaries:
-    // 1. After "yesterday." Then he left." (offset 61)
-    // 2. After "Done." (offset 113)
-    assert_eq!(result.boundaries.len(), 2);
+    // Boundaries inside the quotes/parentheses stay suppressed; the
+    // terminator-plus-closer positions carry the breaks instead
+    // (boundary-after-closers):
+    // 1. After `yesterday."` — quote-final period, next word capitalized
+    // 2. After "Then he left."
+    // 3. After `to note.)` — paren-final period, next word capitalized
+    // 4. After "Done."
+    assert_eq!(result.boundaries.len(), 4);
 }
 
 #[test]
