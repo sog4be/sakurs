@@ -97,8 +97,9 @@ pub(crate) struct CompiledRules {
     suppression_regexes: RegexSet,
 }
 
-/// Abbreviation matcher: a trie over *reversed*, lowercase-normalized
-/// abbreviation strings, walked backward from the period. One backward walk
+/// Abbreviation matcher: a trie over *reversed* abbreviation strings
+/// (case-sensitive — `a.m.` and `A.M.` are distinct entries), walked
+/// backward from the period. One backward walk
 /// replaces a forward walk from every candidate start position; the accepted
 /// language is identical, because a forward match from `start` is exactly a
 /// backward walk reaching depth `end − start` on an accepting node.
@@ -126,7 +127,6 @@ impl ReverseTrie {
     fn insert(&mut self, abbr: &str) {
         let mut node = 0usize;
         for ch in abbr.chars().rev() {
-            let ch = lowercase_char(ch);
             node = match self.nodes[node]
                 .children
                 .binary_search_by_key(&ch, |&(c, _)| c)
@@ -156,7 +156,6 @@ impl ReverseTrie {
             if count >= ABBREVIATION_REACH {
                 break;
             }
-            let ch = lowercase_char(ch);
             match self.nodes[node]
                 .children
                 .binary_search_by_key(&ch, |&(c, _)| c)
@@ -170,12 +169,6 @@ impl ReverseTrie {
         }
         best
     }
-}
-
-/// Per-character lowercase normalization (first mapping character), matching
-/// how the abbreviation entries are normalized at build time.
-fn lowercase_char(ch: char) -> char {
-    ch.to_lowercase().next().unwrap_or(ch)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -351,7 +344,10 @@ impl CompiledRules {
             ellipsis_context_rules,
             ellipsis_exceptions,
             abbreviations: {
-                // Case-insensitive, matching the legacy rules.
+                // Case-sensitive: the configuration lists each casing it
+                // accepts (No/no, Vol/vol), and casing can carry meaning —
+                // lowercase a.m. is an abbreviation while uppercase P.M.
+                // before a capitalized word ends the sentence.
                 let mut trie = ReverseTrie::new();
                 for words in config.abbreviations.categories.values() {
                     for word in words {
@@ -468,8 +464,10 @@ impl CompiledRules {
     }
 
     /// Multi-period abbreviation context (`U.S.A.`, `Ph.D.`): 1–2 letters
-    /// before the period, then optional whitespace and 1–2 letters followed
-    /// by another period.
+    /// before the period and 1–2 letters immediately after it (same token,
+    /// no whitespace) followed by another period. Whitespace after the
+    /// period means the next word is a separate token — `P.M. Mr.` is a
+    /// sentence break plus a title, not one spaced abbreviation.
     fn is_multi_period_context(&self, preceding10: &str, following10: &str) -> bool {
         let mut letters_before = 0usize;
         let mut before_run_start: Option<char> = None;
@@ -489,9 +487,6 @@ impl CompiledRules {
         }
 
         let mut it = following10.chars().peekable();
-        while it.peek().is_some_and(|c| c.is_whitespace()) {
-            it.next();
-        }
         let mut letters_after = 0usize;
         while it.peek().is_some_and(|c| c.is_alphabetic()) && letters_after < 3 {
             it.next();
