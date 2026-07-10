@@ -71,14 +71,27 @@ pub struct TerminatorConfig {
     pub chars: Vec<String>, // Python expects strings, not chars
     #[pyo3(get, set)]
     pub patterns: Vec<TerminatorPattern>,
+    /// Place the boundary after closing quotes/brackets that immediately
+    /// follow a terminator, when followed by an uppercase letter or the end
+    /// of text.
+    #[pyo3(get, set)]
+    pub boundary_after_closers: bool,
 }
 
 #[pymethods]
 impl TerminatorConfig {
     #[new]
-    #[pyo3(signature = (chars, patterns=vec![]))]
-    fn new(chars: Vec<String>, patterns: Vec<TerminatorPattern>) -> Self {
-        Self { chars, patterns }
+    #[pyo3(signature = (chars, patterns=vec![], boundary_after_closers=false))]
+    fn new(
+        chars: Vec<String>,
+        patterns: Vec<TerminatorPattern>,
+        boundary_after_closers: bool,
+    ) -> Self {
+        Self {
+            chars,
+            patterns,
+            boundary_after_closers,
+        }
     }
 
     fn __repr__(&self) -> String {
@@ -561,7 +574,11 @@ impl LanguageConfig {
                 name: p.name,
             })
             .collect();
-        let terminators = TerminatorConfig { chars, patterns };
+        let terminators = TerminatorConfig {
+            chars,
+            patterns,
+            boundary_after_closers: core.terminators.boundary_after_closers,
+        };
 
         // Convert ellipsis
         let context_rules = core
@@ -687,7 +704,11 @@ impl LanguageConfig {
                 name: p.name.clone(),
             })
             .collect();
-        let terminators = CoreTerminatorConfig { chars, patterns };
+        let terminators = CoreTerminatorConfig {
+            chars,
+            patterns,
+            boundary_after_closers: self.terminators.boundary_after_closers,
+        };
 
         // Convert ellipsis
         let context_rules = self

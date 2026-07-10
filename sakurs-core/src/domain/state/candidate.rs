@@ -16,6 +16,12 @@ use crate::domain::types::{BoundaryFlags, DepthVec};
 pub(crate) enum TerminatorKind {
     /// A single terminator character (e.g. `.`, `。`).
     Char(char),
+    /// A closing-capable enclosure character with a terminator behind it
+    /// (possibly through a short chain of further closers), e.g. the `"` of
+    /// `great." She`. The candidate sits just after the enclosure character;
+    /// the judgment walks back through the chain, re-judges the terminator,
+    /// and applies the boundary-after-closers follow condition.
+    AfterClosers(char),
 }
 
 /// Verdict of the judgment function for one candidate.
@@ -52,6 +58,18 @@ pub(crate) enum EnclosureSlot {
     Asym { index: u8, delta: i8 },
     /// Symmetric type: flip parity bit `bit`.
     Sym { bit: u8 },
+}
+
+impl EnclosureSlot {
+    /// Whether this effect can close an enclosure. Symmetric toggles always
+    /// can — whether a particular occurrence opens or closes is a global
+    /// parity question the reduce predicate answers, not a local one.
+    pub(crate) fn closing_capable(self) -> bool {
+        match self {
+            EnclosureSlot::Sym { .. } => true,
+            EnclosureSlot::Asym { delta, .. } => delta < 0,
+        }
+    }
 }
 
 /// A suppressible enclosure character within `k` characters of a state edge,

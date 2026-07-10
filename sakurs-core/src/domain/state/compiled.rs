@@ -31,6 +31,10 @@ const ELLIPSIS_REGEX_REACH: usize = 20;
 /// position without a newline (the threshold compared against is 10).
 const LINE_START_REACH: usize = 11;
 
+/// Longest chain of closing enclosure characters a boundary-after-closers
+/// candidate walks back through to reach its terminator (`."`, `.")`, …).
+const CLOSER_CHAIN_MAX: usize = 3;
+
 /// Classification of one character for the scanner.
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct CharClass {
@@ -71,6 +75,7 @@ pub(crate) struct CompiledRules {
     // Terminator rules
     terminator_chars: HashSet<char>,
     terminator_patterns: Vec<String>,
+    boundary_after_closers: bool,
 
     // Ellipsis rules
     ellipsis_treat_as_boundary: bool,
@@ -334,6 +339,7 @@ impl CompiledRules {
                 .iter()
                 .map(|p| p.pattern.clone())
                 .collect(),
+            boundary_after_closers: config.terminators.boundary_after_closers,
             ellipsis_treat_as_boundary: config.ellipsis.treat_as_boundary,
             ellipsis_patterns: config.ellipsis.patterns.clone(),
             ellipsis_context_rules,
@@ -532,52 +538,36 @@ impl CompiledRules {
             true
         }
     }
-}
 
-/// The judgment-window requirement of a configuration, in characters.
-fn required_window(config: &LanguageConfig) -> usize {
-    let longest_terminator_pattern = config
-        .terminators
-        .patterns
-        .iter()
-        .map(|p| p.pattern.chars().count())
-        .max()
-        .unwrap_or(0);
-    let longest_ellipsis_pattern = config
-        .ellipsis
-        .patterns
-        .iter()
-        .map(|p| p.chars().count())
-        .max()
-        .unwrap_or(0);
-    [
-        CONTEXT_REACH + 1,
-        ABBREVIATION_REACH + 1,
-        ELLIPSIS_REGEX_REACH + 1,
-        LINE_START_REACH,
-        longest_terminator_pattern + 1,
-        longest_ellipsis_pattern + 1,
-    ]
-    .into_iter()
-    .max()
-    .unwrap_or(0)
-}
+    /// Whether the language places boundaries after closers that immediately
+    /// follow a terminator (the scanner consults this to emit candidates at
+    /// closing-capable enclosure characters).
+    pub(crate) fn boundary_after_closers(&self) -> bool {
+        self.boundary_after_closers
+    }
 
-impl Judge for CompiledRules {
-    /// Window-relative port of the legacy `detect_sentence_boundary`. Every
-    /// sub-rule reads exactly the context reach the legacy rules read, so a
-    /// single-chunk v2 run reproduces the legacy sequential output.
-    fn judge(&self, w: &str, pos_in_window: usize, kind: TerminatorKind) -> Judgment {
-        let TerminatorKind::Char(ch) = kind;
-        let term_pos = pos_in_window - ch.len_utf8();
-        let following = &w[pos_in_window..];
+    /// Core terminator judgment — a window-relative port of the legacy
+    /// `detect_sentence_boundary`. `after_term` is the byte offset just after
+    /// the terminator. Forward-context rules read from `follow_from`: equal to
+    /// `after_term` for a plain terminator, or the offset after the closer
+    /// chain for a boundary-after-closers candidate, so rules like sentence
+    /// starters see the text after the closing quote.
+    fn judge_terminator(
+        &self,
+        w: &str,
+        after_term: usize,
+        ch: char,
+        follow_from: usize,
+    ) -> Judgment {
+        let term_pos = after_term - ch.len_utf8();
+        let following = &w[follow_from..];
         let following10 = &following[..fwd_chars(following, 0, CONTEXT_REACH)];
         let preceding = &w[..term_pos];
         let preceding10 =
             &preceding[super::context::back_chars(preceding, preceding.len(), CONTEXT_REACH)..];
 
         // 1. A completed ellipsis run gets the ellipsis evaluation.
-        if self.ellipsis_completes_at(w, pos_in_window) {
+        if self.ellipsis_completes_at(w, after_term) {
             return self.evaluate_ellipsis(w, term_pos, following10);
         }
 
@@ -600,9 +590,9 @@ impl Judge for CompiledRules {
         // 4. Multi-character terminator patterns ("!?"): strong boundary at
         //    the pattern's last character, no boundary before it completes.
         for pattern in &self.terminator_patterns {
-            if pos_in_window >= pattern.len()
-                && w.is_char_boundary(pos_in_window - pattern.len())
-                && &w[pos_in_window - pattern.len()..pos_in_window] == pattern.as_str()
+            if after_term >= pattern.len()
+                && w.is_char_boundary(after_term - pattern.len())
+                && &w[after_term - pattern.len()..after_term] == pattern.as_str()
             {
                 return Judgment::Boundary(BoundaryFlags::STRONG);
             }
@@ -655,6 +645,100 @@ impl Judge for CompiledRules {
                 }
             }
             _ => Judgment::NotBoundary,
+        }
+    }
+
+    /// Boundary-after-closers judgment: the candidate at `pos` sits just
+    /// after a closing-capable enclosure character. Walk back through at most
+    /// [`CLOSER_CHAIN_MAX`] such characters (each must be a real enclosure,
+    /// not a suppressed use) to the terminator, re-judge it with forward
+    /// context read from after the chain, and require the follow condition —
+    /// an uppercase letter or the end of text. Structural
+    /// containment is not decided here: a candidate emitted after an *opening*
+    /// toggle simply records a depth/parity inside the enclosure and is
+    /// dropped by the reduce predicate.
+    fn judge_after_closers(&self, w: &str, pos: usize, _closer: char) -> Judgment {
+        if !self.boundary_after_closers {
+            return Judgment::NotBoundary;
+        }
+
+        let mut cur = pos;
+        let mut closers = 0usize;
+        loop {
+            let Some(ch_at) = w[..cur].chars().next_back() else {
+                return Judgment::NotBoundary;
+            };
+            let start = cur - ch_at.len_utf8();
+            let class = self.classify(ch_at);
+            if let Some(enc) = class.enclosure {
+                if !enc.slot.closing_capable() || closers >= CLOSER_CHAIN_MAX {
+                    return Judgment::NotBoundary;
+                }
+                if enc.suppressible && Judge::suppress_enclosure(self, w, start, ch_at) {
+                    return Judgment::NotBoundary;
+                }
+                closers += 1;
+                cur = start;
+                continue;
+            }
+            if closers == 0 || !class.terminator {
+                return Judgment::NotBoundary;
+            }
+
+            let Judgment::Boundary(flags) = self.judge_terminator(w, cur, ch_at, pos) else {
+                return Judgment::NotBoundary;
+            };
+            return match w[pos..].chars().find(|c| !c.is_whitespace()) {
+                None => Judgment::Boundary(flags),
+                Some(next) if next.is_uppercase() => Judgment::Boundary(flags),
+                Some(_) => Judgment::NotBoundary,
+            };
+        }
+    }
+}
+
+/// The judgment-window requirement of a configuration, in characters.
+fn required_window(config: &LanguageConfig) -> usize {
+    let longest_terminator_pattern = config
+        .terminators
+        .patterns
+        .iter()
+        .map(|p| p.pattern.chars().count())
+        .max()
+        .unwrap_or(0);
+    let longest_ellipsis_pattern = config
+        .ellipsis
+        .patterns
+        .iter()
+        .map(|p| p.chars().count())
+        .max()
+        .unwrap_or(0);
+    // A boundary-after-closers candidate sits up to CLOSER_CHAIN_MAX
+    // characters past its terminator, extending every backward reach by the
+    // chain length (plus the terminator character itself).
+    let closer_chain = if config.terminators.boundary_after_closers {
+        CLOSER_CHAIN_MAX + 1
+    } else {
+        0
+    };
+    [
+        CONTEXT_REACH + 1,
+        ABBREVIATION_REACH + 1 + closer_chain,
+        ELLIPSIS_REGEX_REACH + 1 + closer_chain,
+        LINE_START_REACH,
+        longest_terminator_pattern + 1 + closer_chain,
+        longest_ellipsis_pattern + 1 + closer_chain,
+    ]
+    .into_iter()
+    .max()
+    .unwrap_or(0)
+}
+
+impl Judge for CompiledRules {
+    fn judge(&self, w: &str, pos_in_window: usize, kind: TerminatorKind) -> Judgment {
+        match kind {
+            TerminatorKind::Char(ch) => self.judge_terminator(w, pos_in_window, ch, pos_in_window),
+            TerminatorKind::AfterClosers(ch) => self.judge_after_closers(w, pos_in_window, ch),
         }
     }
 

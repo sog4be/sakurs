@@ -4,6 +4,10 @@ name = "English"
 
 [terminators]
 chars = [".", "!", "?"]
+# Place the boundary after closing quotes/brackets that immediately follow a
+# terminator ('great." She' → boundary after the quote), when followed by an
+# uppercase letter or the end of text.
+boundary_after_closers = true
 
 # Limited pattern recognition for special cases
 patterns = [

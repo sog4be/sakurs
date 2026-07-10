@@ -225,6 +225,8 @@ chars = [".", "!", "?"]        # Sentence-ending punctuation
 patterns = [                   # Multi-character patterns
     { pattern = "!?", name = "surprised_question" },
 ]
+boundary_after_closers = true  # Boundary after closers following a terminator
+                               # ('great." She' → boundary after the quote)
 
 [ellipsis]
 treat_as_boundary = true       # Default ellipsis behavior

@@ -26,6 +26,11 @@ pub struct TerminatorConfig {
     pub chars: Vec<char>,
     #[serde(default)]
     pub patterns: Vec<TerminatorPattern>,
+    /// Place the boundary after closing quotes/brackets that immediately
+    /// follow a terminator (`great." She` → boundary after `"`), when the
+    /// closers are followed by an uppercase letter or the end of text.
+    #[serde(default)]
+    pub boundary_after_closers: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

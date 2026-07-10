@@ -18,7 +18,9 @@ fn test_symmetric_quote_with_quotes() {
     let text = "He said \"Hello.\" She agreed.";
     let result = processor.process(Input::from_text(text)).unwrap();
 
-    // Should detect boundary only at the end (quote content should be suppressed)
-    assert_eq!(result.boundaries.len(), 1);
-    assert_eq!(result.boundaries[0].offset, 28); // After "She agreed."
+    // The period inside the quotes stays suppressed; boundary-after-closers
+    // places the break after the closing quote instead.
+    assert_eq!(result.boundaries.len(), 2);
+    assert_eq!(result.boundaries[0].offset, 16); // After `Hello."`
+    assert_eq!(result.boundaries[1].offset, 28); // After "She agreed."
 }

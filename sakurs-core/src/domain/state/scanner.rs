@@ -47,6 +47,44 @@ pub(crate) fn scan_chunk(text: &str, rules: &CompiledRules) -> PartialState {
                     slot: enc.slot,
                 });
             }
+
+            // Boundary-after-closers: a closing-capable enclosure character
+            // may carry the boundary of a terminator just before it
+            // (`great." She`). The candidate sits after the enclosure
+            // character, so an interior character's own toggle (applied
+            // above) is already in `depths`/`parity`; a pending character's
+            // toggle reaches the candidate retroactively on resolution. The
+            // judge validates the closer chain and the follow condition —
+            // near an edge the chain may start in another chunk, so the
+            // candidate goes pending without any local prefilter.
+            if rules.boundary_after_closers() && enc.slot.closing_capable() {
+                let offset = i + ch.len_utf8();
+                let kind = TerminatorKind::AfterClosers(ch);
+                if before + 1 >= WINDOW_CHARS && after > WINDOW_CHARS {
+                    let chained = text[..i].chars().next_back().is_some_and(|prev| {
+                        let pc = rules.classify(prev);
+                        pc.terminator || pc.enclosure.is_some_and(|e| e.slot.closing_capable())
+                    });
+                    if chained {
+                        let (window, pos) = window_around(text, offset, WINDOW_CHARS);
+                        if let Judgment::Boundary(flags) = rules.judge(window, pos, kind) {
+                            state.boundaries.push(Candidate {
+                                local_offset: offset,
+                                local_depths: depths.clone(),
+                                local_parity: parity,
+                                flags,
+                            });
+                        }
+                    }
+                } else {
+                    state.pending.push(PendingCandidate {
+                        local_offset: offset,
+                        local_depths: depths.clone(),
+                        local_parity: parity,
+                        kind,
+                    });
+                }
+            }
         }
 
         if class.terminator {
@@ -126,9 +164,13 @@ mod tests {
                 "Dr. Smith went to Washington. He arrived at 3.5 p.m. and left.",
                 &[29, 62],
             ),
+            // Boundary 23 sits after the closing quote of `world."` —
+            // boundary-after-closers places it there (departure from the
+            // legacy rules, which lost the sentence break entirely because
+            // the period inside the quotation was parity-suppressed).
             (
                 "She said \"Hello world.\" Then (after a pause) she left! Really?!",
-                &[54, 63],
+                &[23, 54, 63],
             ),
             (
                 "Wait... what happened? The U.S. economy grew. That's John's book.",
