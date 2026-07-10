@@ -31,6 +31,21 @@ pub struct TerminatorConfig {
     /// closers are followed by an uppercase letter or the end of text.
     #[serde(default)]
     pub boundary_after_closers: bool,
+    /// Context rules refining the default terminator verdict (same
+    /// conditions as the ellipsis context rules). A rule only fires where the
+    /// default evaluation would have produced a boundary — it cannot turn a
+    /// decimal point or an abbreviation dot back into one.
+    #[serde(default)]
+    pub context_rules: Vec<TerminatorContextRule>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminatorContextRule {
+    pub condition: String,
+    pub boundary: bool,
+    /// Terminator characters this rule applies to; empty means all.
+    #[serde(default)]
+    pub chars: Vec<char>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

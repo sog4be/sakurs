@@ -708,6 +708,10 @@ impl LanguageConfig {
             chars,
             patterns,
             boundary_after_closers: self.terminators.boundary_after_closers,
+            // Not exposed on the programmatic Python builder; TOML-based
+            // custom languages (the language_config path parameter) support
+            // terminator context rules in full.
+            context_rules: vec![],
         };
 
         // Convert ellipsis

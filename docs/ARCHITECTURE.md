@@ -227,6 +227,9 @@ patterns = [                   # Multi-character patterns
 ]
 boundary_after_closers = true  # Boundary after closers following a terminator
                                # ('great." She' → boundary after the quote)
+context_rules = [              # Refine positive default verdicts by context
+    { condition = "followed_by_lowercase", boundary = false, chars = ["!", "?"] },
+]
 
 [ellipsis]
 treat_as_boundary = true       # Default ellipsis behavior
