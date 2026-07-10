@@ -312,3 +312,22 @@ fn double_terminator_runs_bind_as_one_boundary() {
         ["Hello??", "Who is there?"]
     );
 }
+
+#[test]
+fn exclamation_and_question_before_lowercase_stay_open() {
+    // The followed_by_lowercase context rule is scoped to ! and ? — a
+    // mid-sentence exclamation or dialogue attribution keeps the sentence
+    // open, while a period before a lowercase list marker still splits.
+    assert_eq!(
+        split_en("She works at Yahoo! in the accounting department."),
+        ["She works at Yahoo! in the accounting department."]
+    );
+    assert_eq!(
+        split_en("“What can one say?” replied the prince. He left."),
+        ["“What can one say?” replied the prince.", "He left."]
+    );
+    assert_eq!(
+        split_en("a) Option A is good. b) Option B is better."),
+        ["a) Option A is good.", "b) Option B is better."]
+    );
+}

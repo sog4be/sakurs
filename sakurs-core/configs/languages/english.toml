@@ -17,6 +17,13 @@ patterns = [
     { pattern = "??", name = "double_question" }
 ]
 
+# ! or ? followed by a lowercase word does not end the sentence ("She works
+# at Yahoo! in the accounting department."). Periods are exempt: a period
+# before a lowercase list marker ("good. b) Option B") is still a boundary.
+context_rules = [
+    { condition = "followed_by_lowercase", boundary = false, chars = ["!", "?"] }
+]
+
 [ellipsis]
 # Default behavior: treat as boundary
 treat_as_boundary = true

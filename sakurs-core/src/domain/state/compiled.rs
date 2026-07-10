@@ -80,7 +80,8 @@ pub(crate) struct CompiledRules {
     // Ellipsis rules
     ellipsis_treat_as_boundary: bool,
     ellipsis_patterns: Vec<String>,
-    ellipsis_context_rules: Vec<(EllipsisCondition, bool)>,
+    ellipsis_context_rules: Vec<(ContextCondition, bool)>,
+    terminator_context_rules: Vec<(ContextCondition, bool, Vec<char>)>,
     ellipsis_exceptions: Vec<(Regex, bool)>,
 
     // Abbreviation rules
@@ -178,7 +179,7 @@ fn lowercase_char(ch: char) -> char {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum EllipsisCondition {
+enum ContextCondition {
     FollowedByCapital,
     FollowedByLowercase,
     /// Unimplemented custom condition: never matches.
@@ -278,18 +279,22 @@ impl CompiledRules {
             }
         }
 
+        let parse_condition = |s: &str| match s {
+            "followed_by_capital" => ContextCondition::FollowedByCapital,
+            "followed_by_lowercase" => ContextCondition::FollowedByLowercase,
+            _ => ContextCondition::Custom,
+        };
         let ellipsis_context_rules = config
             .ellipsis
             .context_rules
             .iter()
-            .map(|r| {
-                let cond = match r.condition.as_str() {
-                    "followed_by_capital" => EllipsisCondition::FollowedByCapital,
-                    "followed_by_lowercase" => EllipsisCondition::FollowedByLowercase,
-                    _ => EllipsisCondition::Custom,
-                };
-                (cond, r.boundary)
-            })
+            .map(|r| (parse_condition(&r.condition), r.boundary))
+            .collect();
+        let terminator_context_rules = config
+            .terminators
+            .context_rules
+            .iter()
+            .map(|r| (parse_condition(&r.condition), r.boundary, r.chars.clone()))
             .collect();
 
         let ellipsis_exceptions = config
@@ -340,6 +345,7 @@ impl CompiledRules {
                 .map(|p| p.pattern.clone())
                 .collect(),
             boundary_after_closers: config.terminators.boundary_after_closers,
+            terminator_context_rules,
             ellipsis_treat_as_boundary: config.ellipsis.treat_as_boundary,
             ellipsis_patterns: config.ellipsis.patterns.clone(),
             ellipsis_context_rules,
@@ -437,13 +443,13 @@ impl CompiledRules {
         for (cond, is_boundary) in &self.ellipsis_context_rules {
             let first_alpha = following10.chars().find(|c| c.is_alphabetic());
             let matches = match cond {
-                EllipsisCondition::FollowedByCapital => {
+                ContextCondition::FollowedByCapital => {
                     first_alpha.map(char::is_uppercase).unwrap_or(false)
                 }
-                EllipsisCondition::FollowedByLowercase => {
+                ContextCondition::FollowedByLowercase => {
                     first_alpha.map(char::is_lowercase).unwrap_or(false)
                 }
-                EllipsisCondition::Custom => false,
+                ContextCondition::Custom => false,
             };
             if matches {
                 return if *is_boundary {
@@ -630,7 +636,7 @@ impl CompiledRules {
         }
 
         // 6. Default single-terminator evaluation.
-        match ch {
+        let default_judgment = match ch {
             '!' | '?' | '！' | '？' => Judgment::Boundary(BoundaryFlags::STRONG),
             '.' | '。' => {
                 let digit_before = preceding
@@ -645,7 +651,37 @@ impl CompiledRules {
                 }
             }
             _ => Judgment::NotBoundary,
+        };
+
+        // 7. Terminator context rules refine a positive default verdict
+        //    ("Yahoo! in the department" — next word lowercase, keep the
+        //    sentence open). They never resurrect a negative one: a decimal
+        //    point stays a decimal point.
+        if let Judgment::Boundary(_) = default_judgment {
+            for (cond, boundary, chars) in &self.terminator_context_rules {
+                if !chars.is_empty() && !chars.contains(&ch) {
+                    continue;
+                }
+                let first_alpha = following10.chars().find(|c| c.is_alphabetic());
+                let matches = match cond {
+                    ContextCondition::FollowedByCapital => {
+                        first_alpha.map(char::is_uppercase).unwrap_or(false)
+                    }
+                    ContextCondition::FollowedByLowercase => {
+                        first_alpha.map(char::is_lowercase).unwrap_or(false)
+                    }
+                    ContextCondition::Custom => false,
+                };
+                if matches {
+                    return if *boundary {
+                        default_judgment
+                    } else {
+                        Judgment::NotBoundary
+                    };
+                }
+            }
         }
+        default_judgment
     }
 
     /// Boundary-after-closers judgment: the candidate at `pos` sits just

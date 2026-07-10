@@ -153,7 +153,6 @@ const ENGLISH_PINNED_FAILURES: &[u32] = &[
     39, // list: alphabetical
     41, // requires text modification (newline removal)
     42, // newline-terminated lowercase list items
-    44, // Yahoo! mid-sentence (terminator followed by lowercase)
     45, // I. as initial vs boundary
     46, // spaced ellipsis inside curly quotes
     48, // spaced ellipsis ". . . ."
