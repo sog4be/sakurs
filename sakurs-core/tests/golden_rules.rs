@@ -28,10 +28,25 @@ struct Rule {
     input: String,
     expected: Vec<String>,
     /// The expected output is not an exact substring of the input, so a pure
-    /// boundary detector cannot produce it. Kept in the set (and the score)
-    /// for comparability with published GRS results.
+    /// boundary detector cannot produce it. Kept in the set (and the full
+    /// score) for comparability with published GRS results.
     #[serde(default)]
     requires_text_modification: bool,
+    /// The expected boundary sits at a position with no terminator before it
+    /// (list-item starts, bare newlines), which is outside the
+    /// boundary-after-terminator task definition. Kept in the set (and the
+    /// full score) for comparability with published GRS results.
+    #[serde(default)]
+    requires_non_terminator_boundary: bool,
+}
+
+impl Rule {
+    /// Whether the rule is expressible as boundary detection over the
+    /// unmodified input — the task sakurs defines. Rules outside this subset
+    /// are still run and counted in the full score.
+    fn in_detection_subset(&self) -> bool {
+        !self.requires_text_modification && !self.requires_non_terminator_boundary
+    }
 }
 
 /// Splits `text` at the reported boundaries the way the CLI and Python
@@ -62,14 +77,23 @@ fn run_golden_rules(language: &str, data: &str, pinned_failures: &[u32]) {
         SentenceProcessor::with_language(language).expect("bundled language should load");
 
     let mut failed = Vec::new();
+    let mut subset_total = 0;
+    let mut subset_passed = 0;
     for rule in &golden.rules {
         let actual = split(&processor, &rule.input);
-        if actual == rule.expected {
+        let passed = actual == rule.expected;
+        if rule.in_detection_subset() {
+            subset_total += 1;
+            subset_passed += usize::from(passed);
+        }
+        if passed {
             println!("PASS {language} #{:>2} {}", rule.id, rule.name);
         } else {
             failed.push(rule.id);
             let note = if rule.requires_text_modification {
                 " [requires text modification]"
+            } else if rule.requires_non_terminator_boundary {
+                " [requires non-terminator boundary]"
             } else {
                 ""
             };
@@ -83,8 +107,10 @@ fn run_golden_rules(language: &str, data: &str, pinned_failures: &[u32]) {
     let total = golden.rules.len();
     let passed = total - failed.len();
     println!(
-        "golden rules ({language}): {passed}/{total} passed ({:.2}%), failing: {failed:?}",
-        passed as f64 / total as f64 * 100.0
+        "golden rules ({language}): full {passed}/{total} ({:.2}%), \
+         detection subset {subset_passed}/{subset_total} ({:.2}%), failing: {failed:?}",
+        passed as f64 / total as f64 * 100.0,
+        subset_passed as f64 / subset_total as f64 * 100.0
     );
 
     let regressions: Vec<u32> = failed

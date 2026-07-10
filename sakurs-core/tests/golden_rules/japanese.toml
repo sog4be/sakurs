@@ -4,11 +4,14 @@
 #   https://github.com/diasks2/pragmatic_segmenter (README.md, "Golden Rules (Japanese)")
 # Retrieved: 2026-07-10. Rule ids and texts follow the upstream numbering verbatim.
 #
-# Rules whose expected output is not an exact substring of the input (i.e. they
-# require text normalization, not just boundary detection) are marked with
-# `requires_text_modification = true`. sakurs returns exact substrings by design,
-# so these cannot pass; they stay in the set for score comparability with
-# published GRS results.
+# Rules outside the boundary-detection task definition (returning exact offsets
+# into the unmodified input) are marked and excluded from the subset score,
+# while staying in the set for full-score comparability with published GRS
+# results:
+# - `requires_text_modification = true`: the expected output is not an exact
+#   substring of the input (text normalization, e.g. newline removal)
+# - `requires_non_terminator_boundary = true`: the expected boundary sits at a
+#   position with no terminator before it (list-item starts, bare newlines)
 
 [[rules]]
 id = 1
