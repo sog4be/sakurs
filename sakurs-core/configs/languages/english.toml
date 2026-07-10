@@ -8,7 +8,9 @@ chars = [".", "!", "?"]
 # Limited pattern recognition for special cases
 patterns = [
     { pattern = "!?", name = "surprised_question" },
-    { pattern = "?!", name = "questioning_exclamation" }
+    { pattern = "?!", name = "questioning_exclamation" },
+    { pattern = "!!", name = "double_exclamation" },
+    { pattern = "??", name = "double_question" }
 ]
 
 [ellipsis]
@@ -85,25 +87,27 @@ time = [
     "a.m", "p.m", "A.M", "P.M"
 ]
 
+# Matching requires a word boundary before the entry ("amt." never matches
+# "Mt"), so short entries are safe; they are still added only as evidence
+# (Golden Rules or real-text regressions) calls for them.
 geographic = [
     "U.S", "U.K", "U.S.A", "U.K", "E.U", "U.N", "D.C",
     # Note: Added back St with specific common usage pattern to avoid false matches
-    "St", "Ave", "Blvd", "Pkwy",
-    # TODO: These short abbreviations need word boundary checking
-    # "Rd", "Dr", "Ct", "Ln", "Sq", "Pl", "Mt", "Ft", "Is", "Pt"
+    "St", "Ave", "Blvd", "Pkwy", "Mt",
+    # Candidates, unused so far: "Rd", "Dr", "Ct", "Ln", "Sq", "Pl", "Ft", "Is", "Pt"
 ]
 
 common = [
     "etc", "vs", "e.g", "i.e", "cf", "al", "seq", "no", "No", "vol", "Vol",
-    # TODO: Single letter and short abbreviations need word boundary checking
-    # "v", "pp", "p", "ed", "Ed", "trans", "Trans", "ca", "c", "esp", "viz"
+    # p → page ("p. 55"), N° → numero sign ("N°. 1026")
+    "p", "N°",
+    # Candidates, unused so far: "v", "pp", "ed", "Ed", "trans", "Trans", "ca", "c", "esp", "viz"
 ]
 
 measurement = [
     "oz", "lb", "lbs", "kg", "mg", "km", "cm", "mm", "ft", "yd",
     "mi", "hr", "min", "sec", "mph", "kph", "°F", "°C"
-    # TODO: Single letter abbreviations need word boundary checking
-    # "g", "m", "in"
+    # Candidates, unused so far: "g", "m", "in"
 ]
 
 month = [

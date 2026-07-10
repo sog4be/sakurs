@@ -236,3 +236,76 @@ fn test_boundaries_are_ordered() {
     sorted.sort_unstable();
     assert_eq!(offsets, sorted);
 }
+
+/// Splits `text` at the reported boundaries (trimmed, empties dropped), the
+/// way the adapters present sentences.
+fn split_en(text: &str) -> Vec<String> {
+    let processor = SentenceProcessor::with_language("en").unwrap();
+    let result = processor.process(Input::from_text(text)).unwrap();
+    let mut sentences = Vec::new();
+    let mut start = 0;
+    for b in &result.boundaries {
+        let piece = text[start..b.offset].trim();
+        if !piece.is_empty() {
+            sentences.push(piece.to_string());
+        }
+        start = b.offset;
+    }
+    let tail = text[start..].trim();
+    if !tail.is_empty() {
+        sentences.push(tail.to_string());
+    }
+    sentences
+}
+
+#[test]
+fn abbreviation_followed_by_non_letter_keeps_sentence_open() {
+    // Comma, apostrophe, and digit continuations after an abbreviation dot
+    // must not end the sentence.
+    assert_eq!(
+        split_en("The U.S., drafted the memo. It was long."),
+        ["The U.S., drafted the memo.", "It was long."]
+    );
+    assert_eq!(
+        split_en("That is JFK Jr.'s book."),
+        ["That is JFK Jr.'s book."]
+    );
+    assert_eq!(
+        split_en("Please turn to p. 55. Next sentence."),
+        ["Please turn to p. 55.", "Next sentence."]
+    );
+    assert_eq!(
+        split_en("See Memorandum No. 178 for details."),
+        ["See Memorandum No. 178 for details."]
+    );
+}
+
+#[test]
+fn abbreviation_at_end_of_text_is_a_boundary() {
+    assert_eq!(
+        split_en("They closed the deal with Pitt, Briggs & Co."),
+        ["They closed the deal with Pitt, Briggs & Co."]
+    );
+}
+
+#[test]
+fn abbreviation_lookup_applies_only_to_periods() {
+    // "No" is a configured abbreviation ("No. 178"), but "No!" and "No?" end
+    // with plain terminators and must split like any exclamation or question.
+    assert_eq!(
+        split_en("No! Is she happy? No! But why?"),
+        ["No!", "Is she happy?", "No!", "But why?"]
+    );
+}
+
+#[test]
+fn double_terminator_runs_bind_as_one_boundary() {
+    assert_eq!(
+        split_en("Hello!! Long time no see."),
+        ["Hello!!", "Long time no see."]
+    );
+    assert_eq!(
+        split_en("Hello?? Who is there?"),
+        ["Hello??", "Who is there?"]
+    );
+}

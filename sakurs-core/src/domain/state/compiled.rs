@@ -618,8 +618,12 @@ impl Judge for CompiledRules {
         }
 
         // 5. Abbreviations: no boundary, unless followed by a configured
-        //    sentence starter (weak boundary) or the end of text.
-        if self.abbreviation_ends_at(w, term_pos).is_some() {
+        //    sentence starter (weak boundary) or the end of text. A following
+        //    word that isn't a starter, and any non-letter continuation
+        //    (comma, apostrophe, digit, closing delimiter — "U.S., drafted",
+        //    "Jr.'s", "p. 55"), keep the sentence open. Only a period can be
+        //    an abbreviation dot; "no!" must not match the abbreviation "no".
+        if ch == '.' && self.abbreviation_ends_at(w, term_pos).is_some() {
             return match Self::extract_next_word(following10) {
                 Some((word, remaining)) => {
                     if self.is_sentence_starter(word, remaining) {
@@ -628,7 +632,10 @@ impl Judge for CompiledRules {
                         Judgment::NotBoundary
                     }
                 }
-                None => Judgment::Boundary(BoundaryFlags::WEAK),
+                None if following10.trim_start().is_empty() => {
+                    Judgment::Boundary(BoundaryFlags::WEAK)
+                }
+                None => Judgment::NotBoundary,
             };
         }
 
