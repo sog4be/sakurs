@@ -331,3 +331,35 @@ fn exclamation_and_question_before_lowercase_stay_open() {
         ["a) Option A is good.", "b) Option B is better."]
     );
 }
+
+#[test]
+fn name_initials_do_not_end_sentences() {
+    // A single capital letter's dot inside a name sequence: previous word
+    // capitalized (Jonas E. Smith) or next token another initial (N. N.).
+    assert_eq!(
+        split_en("My name is Jonas E. Smith."),
+        ["My name is Jonas E. Smith."]
+    );
+    assert_eq!(
+        split_en("Well, supposing N. N. has swindled the country."),
+        ["Well, supposing N. N. has swindled the country."]
+    );
+    // "you and I." — lowercase previous word, ordinary next word: the normal
+    // rules apply and the sentence ends.
+    assert_eq!(
+        split_en("We make a good team, you and I. Did you see Albert I. Jones yesterday?"),
+        [
+            "We make a good team, you and I.",
+            "Did you see Albert I. Jones yesterday?"
+        ]
+    );
+    // A configured sentence starter after an initial ends the sentence, the
+    // same escape hatch abbreviations get.
+    assert_eq!(
+        split_en("Hold fast by Brother A. Though I am unworthy, much was revealed."),
+        [
+            "Hold fast by Brother A.",
+            "Though I am unworthy, much was revealed."
+        ]
+    );
+}

@@ -512,6 +512,45 @@ impl CompiledRules {
         has_word_boundary.then_some(length)
     }
 
+    /// Name-initial context for a period preceded by a single uppercase
+    /// letter: `Jonas E. Smith`, `le Comte N. N.`. The dot is part of an
+    /// initial (not a boundary) when the *previous* word is capitalized —
+    /// initials follow a name or another initial — or when the *next* token
+    /// is itself an initial (`supposing N. N.`). A lowercase previous word
+    /// with an ordinary next word (`you and I. Did`) falls through to the
+    /// normal terminator rules.
+    fn is_initial_sequence(preceding10: &str, following10: &str) -> bool {
+        let mut before = preceding10.split_whitespace().rev();
+        let Some(last) = before.next() else {
+            return false;
+        };
+        let mut alnum = last.chars().filter(|c| c.is_alphanumeric());
+        let single_capital = matches!(
+            (alnum.next(), alnum.next()),
+            (Some(c), None) if c.is_uppercase()
+        );
+        if !single_capital {
+            return false;
+        }
+
+        let prev_word_capitalized = before
+            .next()
+            .and_then(|w| w.chars().find(|c| c.is_alphabetic()))
+            .is_some_and(char::is_uppercase);
+        if prev_word_capitalized {
+            return true;
+        }
+
+        following10.split_whitespace().next().is_some_and(|w| {
+            let mut cs = w.chars();
+            matches!(
+                (cs.next(), cs.next(), cs.next()),
+                (Some(u), Some('.'), rest) if u.is_uppercase()
+                    && rest.map_or(true, |c| !c.is_alphanumeric())
+            )
+        })
+    }
+
     /// Extracts the next word from the following context: skip whitespace,
     /// take alphabetic characters. Returns the word and the rest.
     fn extract_next_word(following: &str) -> Option<(&str, &str)> {
@@ -630,7 +669,20 @@ impl CompiledRules {
             };
         }
 
-        // 6. Default single-terminator evaluation.
+        // 6. Name initials: a single capital letter's dot inside a name
+        //    sequence is not a boundary (`Jonas E. Smith`, `N. N.`) — unless
+        //    a configured sentence starter follows, the same escape hatch
+        //    abbreviations get (`Brother A. Though I am unworthy…`).
+        if ch == '.' && Self::is_initial_sequence(preceding10, following10) {
+            return match Self::extract_next_word(following10) {
+                Some((word, remaining)) if self.is_sentence_starter(word, remaining) => {
+                    Judgment::Boundary(BoundaryFlags::WEAK)
+                }
+                _ => Judgment::NotBoundary,
+            };
+        }
+
+        // 7. Default single-terminator evaluation.
         let default_judgment = match ch {
             '!' | '?' | '！' | '？' => Judgment::Boundary(BoundaryFlags::STRONG),
             '.' | '。' => {
@@ -648,7 +700,7 @@ impl CompiledRules {
             _ => Judgment::NotBoundary,
         };
 
-        // 7. Terminator context rules refine a positive default verdict
+        // 8. Terminator context rules refine a positive default verdict
         //    ("Yahoo! in the department" — next word lowercase, keep the
         //    sentence open). They never resurrect a negative one: a decimal
         //    point stays a decimal point.

@@ -187,6 +187,6 @@ common_starters = [
     "Usually", "Often", "Sometimes", "Rarely", "Never", "Always",
     "Today", "Yesterday", "Tomorrow", "Later", "Earlier",
     "First", "Second", "Third", "Next", "Last", "Finally",
-    "For", "Since", "Because", "Although", "While", "If", "Unless",
+    "For", "Since", "Because", "Although", "Though", "While", "If", "Unless",
     "After", "Before", "During", "Throughout", "Despite", "Without"
 ]
