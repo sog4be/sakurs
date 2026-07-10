@@ -68,7 +68,10 @@ regex_patterns = [
     { pattern = "\\d+'", description = "Feet measurement like 6'" },
     { pattern = "\\d+\"", description = "Inches measurement like 12\"" },
     { pattern = "\\w+'s\\b", description = "Possessive forms like John's" },
-    { pattern = "\\ws'\\s", description = "Plural possessive like students'" }
+    { pattern = "\\ws'\\s", description = "Plural possessive like students'" },
+    # Without this, the apostrophe counts as a quote toggle and corrupts the
+    # parity of everything after it.
+    { pattern = "[.!?]'s\\b", description = "Possessive after an abbreviation or terminator like Jr.'s" }
 ]
 
 [abbreviations]

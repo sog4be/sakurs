@@ -76,6 +76,26 @@ fn test_possessive_forms() {
 }
 
 #[test]
+fn test_possessive_after_abbreviation() {
+    // The apostrophe in `Jr.'s` sits between a period and `s`; without a
+    // suppression rule for that shape it counts as a quote toggle and the
+    // corrupted parity swallows every boundary after it.
+    let test_cases = vec![
+        ("That is JFK Jr.'s book. Hello. Bye.", vec![23, 30, 35]),
+        ("The U.S.'s policy changed. Nothing else did.", vec![26, 44]),
+    ];
+
+    for (text, expected_offsets) in test_cases {
+        let boundaries = detect_sentences(text).unwrap();
+        assert_eq!(
+            boundaries, expected_offsets,
+            "Failed for text: '{}'\nGot: {:?}\nExpected: {:?}",
+            text, boundaries, expected_offsets
+        );
+    }
+}
+
+#[test]
 #[ignore = "James' possessive pattern is not supported - requires contextual understanding beyond rule-based systems"]
 fn test_james_possessive_pattern() {
     // This test documents the known limitation with James' possessive forms
