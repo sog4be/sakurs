@@ -4,7 +4,9 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    # feature/* is included so PRs from work/* branches into a long-lived
+    # feature branch get the same checks as PRs into main.
+    branches: [ main, 'feature/**' ]
   workflow_dispatch:
 
 env:
