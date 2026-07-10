@@ -140,15 +140,10 @@ fn run_golden_rules(language: &str, data: &str, pinned_failures: &[u32]) {
 /// Baseline at harness introduction (v0.2.0 rules): 25/52 passing.
 const ENGLISH_PINNED_FAILURES: &[u32] = &[
     4,  // one-letter initials (Jonas E. Smith)
-    5,  // one-letter lower abbreviation (p. 55)
-    10, // Mt. not in abbreviation list
-    12, // Jr. followed by 's
     18, // a.m./P.M. followed by capitalized non-starter
     22, // email addresses
     23, // web addresses
     26, // quote-final terminator (boundary after closing quote)
-    27, // !! treated as two boundaries
-    28, // ?? treated as two boundaries
     31, // list: 1.) without item-final period
     32, // list: 1.) with item-final period
     33, // list: 1) without item-final period
@@ -159,7 +154,6 @@ const ENGLISH_PINNED_FAILURES: &[u32] = &[
     39, // list: alphabetical
     41, // requires text modification (newline removal)
     42, // newline-terminated lowercase list items
-    43, // N°. and digit-run coordinates
     44, // Yahoo! mid-sentence (terminator followed by lowercase)
     45, // I. as initial vs boundary
     46, // spaced ellipsis inside curly quotes
