@@ -46,9 +46,13 @@ sakurs process -i document.txt -f json
 
 ## Features
 
-- **Parallel Processing**: Automatically utilizes multiple CPU cores for optimal performance
-- **Multiple Output Formats**: Plain text, JSON, or quiet mode for different use cases
-- **Language Support**: Built-in configurations for English and Japanese
+- **Parallel Processing**: automatically utilizes multiple CPU cores; throughput no longer
+  depends on chunk size, so tuning is optional
+- **Multiple Output Formats**: plain text, JSON, or Markdown
+- **Language Support**: built-in configurations for English and Japanese, plus external TOML
+  language configurations via `--language-config`
+- **Configuration Tooling**: `validate` compiles a language configuration and reports
+  rule-level errors; `generate-config` scaffolds a new one
 
 ## Usage Examples
 
@@ -81,40 +85,71 @@ sakurs process -i file.txt
 # JSON format for programmatic use
 sakurs process -i file.txt -f json
 
-# Quiet mode (only sentence count)
-sakurs process -i file.txt -f quiet
+# Markdown format
+sakurs process -i file.txt -f markdown
+
+# Suppress the progress bar (sentence output is unchanged)
+sakurs process -i file.txt -q
 ```
 
 ### Performance Tuning
 
-For large files, you can tune performance:
+The scanner does constant, allocation-free work per character and chunking is zero-copy, so
+throughput no longer depends on chunk size — the 256KB default is fine for files of any size.
+`--threads`/`--chunk-kb` remain available for explicit control:
 
 ```bash
-# Use 8 threads with 1MB chunks
-sakurs process -i large_file.txt --threads 8 --chunk-kb 1024
+# Force a specific thread count
+sakurs process -i large_file.txt --threads 8
 
-# Sequential processing (useful for debugging)
-sakurs process -i file.txt --sequential
+# Force single-threaded processing (useful for debugging)
+sakurs process -i file.txt --threads 1
+
+# Force parallel processing even for small files (default: chosen automatically)
+sakurs process -i file.txt --parallel
 ```
 
 ## Command Reference
 
 ```
-sakurs process [OPTIONS]
+sakurs process [OPTIONS] --input <FILE/PATTERN>
 
 OPTIONS:
-    -i, --input <INPUT>           Input file(s) or '-' for stdin
-    -o, --output <OUTPUT>         Output file (default: stdout)
-    -f, --format <FORMAT>         Output format [default: text]
-                                  [possible values: text, json, quiet]
-    -l, --language <LANGUAGE>     Language for sentence detection [default: en]
-                                  [possible values: en, ja, english, japanese]
-    --sequential                  Force sequential processing
-    --parallel                    Force parallel processing (default: auto)
-    --threads <N>                 Number of threads (default: CPU count)
-    --chunk-kb <SIZE>             Chunk size in KB [default: 256]
-    -h, --help                    Print help
-    -V, --version                 Print version
+    -i, --input <FILE/PATTERN>            Input files or patterns (supports glob, use '-' for stdin)
+    -o, --output <FILE>                   Output file (default: stdout)
+    -f, --format <FORMAT>                 Output format [default: text]
+                                           [possible values: text (txt), json, markdown (md)]
+    -l, --language <LANGUAGE>             Language for sentence detection (default: english)
+                                           [possible values: english (en, eng), japanese (ja, jpn)]
+                                           Mutually exclusive with --language-config
+    -c, --language-config <FILE>          Path to an external language configuration file (TOML)
+                                           Mutually exclusive with --language
+    --language-code <LANGUAGE_CODE>       Language code for the external configuration (optional,
+                                           only used with --language-config)
+    -p, --parallel                        Force parallel processing even for small files
+    -t, --threads <COUNT>                 Number of threads for parallel processing (default: auto)
+    --chunk-kb <SIZE_KB>                  Chunk size in KB for parallel processing [default: 256]
+    -q, --quiet                           Suppress progress output
+    -v, --verbose...                      Increase verbosity
+    --stream                              Enable streaming mode for large files
+    --stream-chunk-mb <STREAM_CHUNK_MB>   Streaming chunk size in MB [default: 10]
+    -h, --help                            Print help
+    -V, --version                         Print version
+```
+
+`sakurs process` is the main subcommand; three more are available:
+
+```bash
+# Validate (and compile) a language configuration, catching rule-level problems
+# like invalid regexes or rules whose context exceeds the algorithm's judgment window
+sakurs validate -c my_language.toml
+
+# Scaffold a new language configuration template
+sakurs generate-config -l fr -o french.toml
+
+# List built-in languages or output formats
+sakurs list languages
+sakurs list formats
 ```
 
 ## Examples
@@ -128,15 +163,15 @@ sakurs process -i japanese_novel.txt -l ja -f json > sentences.json
 ### Analyzing Code Documentation
 
 ```bash
-# Extract sentences from all README files
-sakurs process -i "**/README.md" -f quiet
+# Count sentences across all README files (one sentence per output line)
+sakurs process -i "**/README.md" -q | wc -l
 ```
 
 ### Pipeline Integration
 
 ```bash
 # Count sentences in git commit messages
-git log --format=%B | sakurs process -i - -f quiet
+git log --format=%B | sakurs process -i - -q | wc -l
 
 # Extract sentences from specific files
 find . -name "*.txt" -exec sakurs process -i {} \;

@@ -110,13 +110,14 @@ command -v tree >/dev/null 2>&1 && echo "tree is available" || echo "tree not fo
 - Use conventional commit format as described in @CONTRIBUTING.md
 
 ## Performance Tuning
-- Default chunk size: 256KB (optimal for most use cases)
-- Chunk size can be customized via `--chunk-kb` CLI option
-- Thread count can be specified via `--threads` option
-- For best performance with large files:
-  - Use larger chunk sizes (512KB-1MB) to reduce overhead
-  - Adjust thread count based on CPU cores and file size
-  - Example: `sakurs process -i large.txt --threads 8 --chunk-kb 1024`
+- Default chunk size: 256KB, and there is rarely a reason to change it — per-character work is
+  constant, so throughput is flat across chunk sizes and correctness never depends on where
+  chunks are cut (see @docs/PERFORMANCE.md)
+- Chunk size can still be customized via `--chunk-kb` if a chunk-count/parallelism tradeoff is
+  needed (see docs/PERFORMANCE.md's "Chunk Size" section)
+- Thread count can be specified via `--threads`; parallel setup cost usually outweighs the gain
+  below ~1MB of input, which is what the adaptive default encodes
+  - Example: `sakurs process -i large.txt --threads 8`
 
 ## CI Verification Commands
 **Run these exact commands before committing to avoid CI failures:**

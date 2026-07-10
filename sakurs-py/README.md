@@ -25,11 +25,13 @@ High-performance sentence boundary detection for Python using the Delta-Stack Mo
 pip install sakurs
 ```
 
-To build from source:
+To build from source, build and install a wheel rather than an editable install (see
+[Building from Source](#building-from-source) below for why):
 ```bash
 git clone https://github.com/sog4be/sakurs.git
 cd sakurs/sakurs-py
-uv pip install -e .
+maturin build --release --features extension-module
+uv pip install --force-reinstall target/wheels/*.whl
 ```
 
 **Requirements**: Python 3.9 or later
@@ -37,13 +39,17 @@ uv pip install -e .
 ## Quick Start
 
 ```python
+from pathlib import Path
+
 import sakurs
 
 # Simple sentence splitting
-sentences = sakurs.split("Hello world. This is a test.")
+text = "Hello world. This is a test."
+sentences = sakurs.split(text)
 print(sentences)  # ['Hello world.', 'This is a test.']
 
-# Process files directly
+# Process files directly (a string is read as a file only if it names an
+# existing file on disk; otherwise it's treated as literal text)
 sentences = sakurs.split("document.txt")  # Path as string
 sentences = sakurs.split(Path("document.txt"))  # Path object
 
@@ -96,20 +102,22 @@ sakurs.split(
     parallel=False,
     execution_mode="adaptive",
     return_details=False,
+    preserve_whitespace=False,
     encoding="utf-8"
 )
 ```
 
 **Parameters:**
-- `input` (str | Path | TextIO | BinaryIO): Text string, file path, or file-like object
+- `input` (str | bytes | Path | TextIO | BinaryIO): Text string, file path, bytes, or file-like object
 - `language` (str, optional): Language code ("en", "ja")
 - `language_config` (LanguageConfig, optional): Custom language configuration
 - `threads` (int, optional): Number of threads (None for auto)
-- `chunk_kb` (int, optional): Chunk size in KB (default: 256) for parallel processing (default: 256)
+- `chunk_kb` (int, optional): Chunk size in KB (default: 256) for parallel processing
 - `parallel` (bool): Force parallel processing even for small inputs
 - `execution_mode` (str): "sequential", "parallel", or "adaptive" (default)
 - `return_details` (bool): Return Sentence objects with metadata instead of strings
-- `encoding` (str): Text encoding for file inputs (default: "utf-8")
+- `preserve_whitespace` (bool): Keep leading/trailing whitespace on each sentence instead of trimming it
+- `encoding` (str): Text encoding for file/bytes inputs (default: "utf-8")
 
 **Returns:** List[str] or List[Sentence] if return_details=True
 
@@ -129,7 +137,7 @@ sakurs.iter_split(
 )
 ```
 
-**Parameters:** Same as `split()` except no `return_details` parameter
+**Parameters:** Same as `split()` except no `parallel`, `execution_mode`, `preserve_whitespace`, or `return_details` parameters
 
 **Returns:** Iterator[str] - Iterator yielding sentences
 
@@ -207,7 +215,7 @@ Main sentence splitter class for sentence boundary detection.
 
 **Methods:**
 - `split(input, *, return_details=False, encoding="utf-8")`: Split text or file into sentences
-- `iter_split(input, *, encoding="utf-8")`: Return iterator over sentences
+- `iter_split(input, *, encoding="utf-8", preserve_whitespace=False)`: Return iterator over sentences
 - `__enter__()` / `__exit__()`: Context manager support
 
 #### `sakurs.Sentence`
@@ -228,13 +236,14 @@ Language configuration for custom rules.
 - `to_toml(path)`: Save configuration to TOML file
 
 **Attributes:**
-- `code` (str): Language code
-- `name` (str): Language name
+- `metadata` (MetadataConfig): Language code (`metadata.code`) and name (`metadata.name`)
 - `terminators` (TerminatorConfig): Sentence terminator rules
 - `ellipsis` (EllipsisConfig): Ellipsis handling rules
-- `abbreviations` (AbbreviationConfig): Abbreviation rules
 - `enclosures` (EnclosureConfig): Enclosure (quotes, parentheses) rules
 - `suppression` (SuppressionConfig): Pattern suppression rules
+- `abbreviations` (AbbreviationConfig): Abbreviation rules
+- `sentence_starters` (SentenceStarterConfig | None): Words that can begin a sentence right
+  after a terminator
 
 ## Supported Languages
 
@@ -306,6 +315,8 @@ pytest benchmarks/test_benchmark_japanese.py --benchmark-only
 ## Error Handling
 
 ```python
+from pathlib import Path
+
 import sakurs
 
 # Language errors
@@ -314,17 +325,24 @@ try:
 except sakurs.InvalidLanguageError as e:
     print(f"Language error: {e}")
 
-# File errors
+# A plain string that doesn't name an existing file is treated as literal
+# text, not an error — there is no sakurs.FileNotFoundError
+sentences = sakurs.split("nonexistent.txt")  # -> ['nonexistent.', 'txt']
+
+# Passing an explicit Path to a missing file raises the standard OSError
 try:
-    sentences = sakurs.split("nonexistent.txt")
-except sakurs.FileNotFoundError as e:
+    sentences = sakurs.split(Path("nonexistent.txt"))
+except OSError as e:
     print(f"File error: {e}")
 
-# Configuration errors
+# Configuration errors (raised for a file that exists but fails to parse;
+# a missing file raises FileNotFoundError instead, as above)
 try:
-    config = sakurs.LanguageConfig.from_toml("invalid.toml")
+    config = sakurs.LanguageConfig.from_toml("malformed.toml")
 except sakurs.ConfigurationError as e:
     print(f"Config error: {e}")
+except FileNotFoundError as e:
+    print(f"File error: {e}")
 
 # The library handles edge cases gracefully
 sentences = sakurs.split("")  # Returns []

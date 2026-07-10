@@ -25,9 +25,9 @@
 </p>
 
 > [!NOTE]
-> **This project is in early release (v0.1.1)**. 
-> APIs may change in future releases, especially the internal `sakurs-core` crate.
-> We welcome feedback and contributions!
+> **This project is pre-1.0 (currently v0.2.0)**.
+> The 0.2 series is the first pass at a stable public API; breaking changes are still
+> possible before v1.0.0. We welcome feedback and contributions!
 
 ## Table of Contents
 
@@ -46,8 +46,9 @@
 
 ## Features
 
-- **High Performance**: Implemented in Rust with the Δ-Stack Monoid algorithm, enabling true parallel processing that scales efficiently even with large datasets
-- **Multiple Languages**: Built-in support for English and Japanese, easily extensible via TOML configs
+- **High Performance**: Implemented in Rust with the Δ-Stack Monoid algorithm — 252 MB/s single-threaded, 1.44 GB/s at 8 threads on plain English text (see [PERFORMANCE.md](docs/PERFORMANCE.md))
+- **Sequential Equivalence**: any chunk size and thread count produce exactly the same boundaries as processing the whole text sequentially — a guaranteed, property-tested invariant
+- **Multiple Languages**: Built-in support for English and Japanese, easily extensible via TOML configs — no code required
 - **Memory Efficient**: Streaming support for processing gigabyte-sized files with constant memory
 
 ## Installation
@@ -184,7 +185,7 @@ sakurs process -i input.txt | split -l 1 - sentence_
 
 The library consists of three main components:
 
-- **`sakurs-core`** - Core Rust library implementing the Δ-Stack Monoid algorithm with configurable language rules
+- **`sakurs-core`** - Core Rust library implementing the Δ-Stack Monoid algorithm, with languages defined as compiled TOML configurations
 - **`sakurs-cli`** - Command-line interface for batch processing
 - **`sakurs-py`** - Python bindings for easy integration
 
