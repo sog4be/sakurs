@@ -193,8 +193,9 @@ py-dev:
 	@echo "🐍 Building Python bindings for development..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run maturin build --release --features extension-module -o dist && \
-		WHEEL_FILE=$$(ls dist/*.whl | head -1) && \
+		uv sync --no-install-project && \
+		uv run --no-sync maturin build --release --features extension-module -o dist && \
+		WHEEL_FILE=$$(ls -t dist/*.whl | head -1) && \
 		uv pip install --force-reinstall "$$WHEEL_FILE" && \
 		echo "✅ Python bindings built and installed from wheel!"; \
 		echo "💡 Note: Use .venv/bin/python directly instead of 'uv run' to avoid editable install issues"; \
@@ -207,7 +208,7 @@ py-test: py-dev
 	@echo "🧪 Running Python tests..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run pytest tests/ -v && \
+		.venv/bin/python -m pytest tests/ -v && \
 		echo "✅ Python tests passed!"; \
 	else \
 		echo "❌ sakurs-py directory not found"; \
@@ -218,7 +219,7 @@ py-bench: py-dev
 	@echo "⚡ Running Python benchmarks..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run pytest benches/ --benchmark-only && \
+		.venv/bin/python -m pytest benchmarks/ --benchmark-only && \
 		echo "✅ Python benchmarks complete!"; \
 	else \
 		echo "❌ sakurs-py directory not found"; \
@@ -229,7 +230,8 @@ py-build:
 	@echo "📦 Building Python wheel..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run maturin build --features extension-module --release && \
+		uv sync --no-install-project && \
+		uv run --no-sync maturin build --features extension-module --release && \
 		echo "✅ Python wheel built!"; \
 	else \
 		echo "❌ sakurs-py directory not found"; \
@@ -241,7 +243,8 @@ wheels:
 	@echo "📦 Building wheels for distribution..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run maturin build --features extension-module --release --strip && \
+		uv sync --no-install-project && \
+		uv run --no-sync maturin build --features extension-module --release --strip && \
 		echo "✅ Distribution wheels built!"; \
 	else \
 		echo "❌ sakurs-py directory not found"; \

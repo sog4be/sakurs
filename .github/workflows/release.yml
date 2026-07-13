@@ -208,7 +208,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          # Build against the minimum supported ABI so one wheel works on all
+          # supported CPython versions.
+          python-version: '3.10'
       
       - name: Build wheels
         uses: PyO3/maturin-action@v1
