@@ -206,7 +206,7 @@ jobs:
       - uses: actions/checkout@v7
       
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           # Build against the minimum supported ABI so one wheel works on all
           # supported CPython versions.

@@ -18,6 +18,21 @@ updates:
     labels:
       - "dependencies"
       - "rust"
+    groups:
+      cargo-patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+    ignore:
+      # These upgrades require separate compatibility work and are intentionally
+      # deferred. Later release lines remain eligible for future review.
+      - dependency-name: "pyo3"
+        versions:
+          - ">=0.29.0, <0.30.0"
+      - dependency-name: "clap"
+        versions:
+          - ">=4.6.0, <4.7.0"
     
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
@@ -36,22 +51,36 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+    groups:
+      github-actions-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
-  # Enable version updates for Python (when sakurs-py is active)
-  # - package-ecosystem: "pip"
-  #   directory: "/sakurs-py"
-  #   schedule:
-  #     interval: "weekly"
-  #     day: "monday"
-  #     time: "09:00"
-  #     timezone: "Asia/Tokyo"
-  #   open-pull-requests-limit: 5
-  #   reviewers:
-  #     - "sog4be"
-  #   commit-message:
-  #     prefix: "chore"
-  #     prefix-development: "chore"
-  #     include: "scope"
-  #   labels:
-  #     - "dependencies"
-  #     - "python"
+  # Enable version updates for Python development and test tooling
+  - package-ecosystem: "uv"
+    directory: "/sakurs-py"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "sog4be"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "python"
+    groups:
+      python-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
