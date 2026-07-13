@@ -2,7 +2,7 @@
 # PreToolUse hook for Bash: validate gh pr create/edit title and body.
 #   - Title: must follow Conventional Commits.
 #   - Body:  must contain the core sections of .github/PULL_REQUEST_TEMPLATE.md.
-# Exits 0 to allow, 2 to block (stderr fed back to Claude Code).
+# Exits 0 to allow, 2 to block (stderr fed back to the coding agent).
 
 set -euo pipefail
 
@@ -43,7 +43,7 @@ if [[ -n "$TITLE" ]]; then
   Expected: <type>(<scope>)?: <subject>
   Types:    feat | fix | chore | docs | refactor | test | build | ci | perf | style | revert
 
-See CLAUDE.md and CONTRIBUTING.md for details.
+See AGENTS.md, CLAUDE.md, and CONTRIBUTING.md for details.
 MSG
     exit 2
   fi
@@ -84,7 +84,7 @@ PR bodies must follow .github/PULL_REQUEST_TEMPLATE.md and contain at least:
   ## Changes Made
   ## How Has This Been Tested?
 
-See CLAUDE.md "Pull Request Guidelines" for details.
+See AGENTS.md or CLAUDE.md "Pull Request Guidelines" for details.
 MSG
   exit 2
 fi
