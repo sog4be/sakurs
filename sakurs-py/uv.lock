@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -273,11 +273,11 @@ wheels = [
 
 [[package]]
 name = "ja-sentence-segmenter"
-version = "0.0.2"
+version = "0.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/73/8d/917bdefdaae77934c8b84293e6a40ee1609d28c49535d02c0efd55fe0748/ja_sentence_segmenter-0.0.2.tar.gz", hash = "sha256:caa373b504ff3f906688ac9cb9a761935a84e03c20d2a9741cfcb4f778859e35", size = 7701, upload-time = "2020-02-22T16:09:27.52Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/94/2d0e099acc617b08fc120df96582d2e6d4ee224074d872267e993fadbeb0/ja_sentence_segmenter-0.1.0.tar.gz", hash = "sha256:23cbdaf637ed66bdbf3ba6bb9859703332b2ebeed67f673713047bc89fac48f2", size = 7254, upload-time = "2026-07-11T00:48:39.287Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0f/58/6268f9249100f2f269c04c379d0b1b6c2cd2e5c09ddba0bfa7d0173c0059/ja_sentence_segmenter-0.0.2-py3-none-any.whl", hash = "sha256:237d99e79f9fe0e858310c088d9fb7d74e765954769ae6473197a0bd5ace4edb", size = 8620, upload-time = "2020-02-22T16:09:25.906Z" },
+    { url = "https://files.pythonhosted.org/packages/52/01/40e0a4a9f405604d4cd2cd396dec998cba762b94501c45368e1ba0c73fbe/ja_sentence_segmenter-0.1.0-py3-none-any.whl", hash = "sha256:b8945f776fb39db7fffff1dedfae329cca0be7d8e1ec859a181a8275af15f06e", size = 10090, upload-time = "2026-07-11T00:48:38.057Z" },
 ]
 
 [[package]]
@@ -689,7 +689,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "hypothesis", marker = "extra == 'test'", specifier = ">=6.0,<7.0" },
-    { name = "ja-sentence-segmenter", marker = "extra == 'benchmark'", specifier = "~=0.0.2" },
+    { name = "ja-sentence-segmenter", marker = "extra == 'benchmark'", specifier = ">=0.0.2,<0.2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.2,<3.0" },
     { name = "pysbd", marker = "extra == 'benchmark'", specifier = "~=0.3.4" },
     { name = "pytest", marker = "extra == 'benchmark'", specifier = ">=9.0.3,<10.0" },
