@@ -26,10 +26,11 @@ updates:
           - "patch"
     ignore:
       # These upgrades require separate compatibility work and are intentionally
-      # deferred. Later release lines remain eligible for future review.
+      # deferred. PyO3 remains on 0.27.x; later release lines remain eligible for
+      # future review.
       - dependency-name: "pyo3"
         versions:
-          - ">=0.29.0, <0.30.0"
+          - ">=0.28.0, <0.30.0"
       - dependency-name: "clap"
         versions:
           - ">=4.6.0, <4.7.0"
