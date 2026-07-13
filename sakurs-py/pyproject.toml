@@ -46,7 +46,7 @@ benchmark = [
     "pytest>=9.0.3,<10.0",
     "pytest-benchmark>=5.2,<6.0",
     "pysbd~=0.3.4",
-    "ja-sentence-segmenter~=0.0.2",
+    "ja-sentence-segmenter>=0.0.2,<0.2.0",
     "pytest-md-report>=0.8,<0.9",
 ]
 
