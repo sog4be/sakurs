@@ -134,7 +134,8 @@ The GitHub Actions workflow will automatically:
 4. Publish `sakurs-cli` to crates.io (user-facing tool)
 5. Build Python wheels for Linux x86_64, Windows x64, and both macOS architectures — the
    macOS x86_64 wheel is cross-compiled on an `macos-14` (ARM) runner, since GitHub retired
-   Intel macOS runners (`macos-13`); there is no separate Intel runner in the matrix
+   Intel macOS runners (`macos-13`); there is no separate Intel runner in the matrix. Python
+   wheels target the CPython 3.10 stable ABI (`cp310-abi3`) and support Python 3.10 or later
 6. Upload wheels to PyPI as `sakurs` (**pauses for manual environment approval**, see above)
 7. Create a GitHub release with changelog
 

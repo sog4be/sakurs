@@ -31,10 +31,11 @@ To build from source, build and install a wheel rather than an editable install 
 git clone https://github.com/sog4be/sakurs.git
 cd sakurs/sakurs-py
 maturin build --release --features extension-module
-uv pip install --force-reinstall target/wheels/*.whl
+WHEEL_FILE=$(ls -t ../target/wheels/*.whl | head -1)
+uv pip install --force-reinstall "$WHEEL_FILE"
 ```
 
-**Requirements**: Python 3.9 or later
+**Requirements**: Python 3.10 or later (tested through Python 3.14)
 
 ## Quick Start
 
@@ -362,7 +363,8 @@ For development, we recommend building and installing wheels rather than using e
 maturin build --release --features extension-module
 
 # Install the wheel (force reinstall to ensure updates)
-uv pip install --force-reinstall target/wheels/*.whl
+WHEEL_FILE=$(ls -t ../target/wheels/*.whl | head -1)
+uv pip install --force-reinstall "$WHEEL_FILE"
 ```
 
 **Important Note**: Avoid using `pip install -e .` or `maturin develop` as they can lead to stale binaries that don't reflect Rust code changes. The editable install mechanism doesn't properly track changes in the compiled Rust extension module.
@@ -371,7 +373,7 @@ uv pip install --force-reinstall target/wheels/*.whl
 
 1. Make changes to the Rust code
 2. Build the wheel: `maturin build --release --features extension-module`
-3. Install the wheel: `uv pip install --force-reinstall target/wheels/*.whl`
+3. Install the newest wheel from `../target/wheels/` with `uv pip install --force-reinstall`
 4. Run tests: `python -m pytest tests/`
 
 For convenience, you can use the Makefile from the project root:

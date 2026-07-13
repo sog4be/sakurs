@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the Python package now requires Python 3.10 or later. Published wheels use
+  the CPython 3.10 stable ABI and are tested through Python 3.14
+
 ## [0.2.0] - 2026-07-07
 
 ### Added

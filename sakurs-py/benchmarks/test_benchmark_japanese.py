@@ -1,7 +1,8 @@
 """Japanese sentence segmentation benchmarks comparing sakurs vs ja_sentence_segmenter."""
 
 import functools
-from typing import Callable, Final
+from collections.abc import Callable, Generator
+from typing import Final, cast
 
 import pytest
 from ja_sentence_segmenter.common.pipeline import make_pipeline
@@ -20,7 +21,7 @@ def sakurs_processor_ja() -> sakurs.SentenceSplitter:
 
 
 @pytest.fixture
-def ja_segmenter() -> Callable[[str], list[str]]:
+def ja_segmenter() -> Callable[[str], Generator[str, None, None]]:
     """Create and reuse ja_sentence_segmenter pipeline."""
     split_punc = functools.partial(split_punctuation, punctuations=r"。!?")
     concat_tail_no = functools.partial(
@@ -28,7 +29,10 @@ def ja_segmenter() -> Callable[[str], list[str]]:
         former_matching_rule=r"^(?P<r>.+)(の)$",
         remove_former_matched=False,
     )
-    return make_pipeline(normalize, split_newline, concat_tail_no, split_punc)  # type: ignore[no-any-return]
+    return cast(
+        Callable[[str], Generator[str, None, None]],
+        make_pipeline(normalize, split_newline, concat_tail_no, split_punc),
+    )
 
 
 # Benchmark configuration constants
@@ -70,7 +74,7 @@ class TestJapaneseBenchmarks:
         self,
         benchmark: BenchmarkFixture,
         japanese_text_400: str,
-        ja_segmenter: Callable[[str], list[str]],
+        ja_segmenter: Callable[[str], Generator[str, None, None]],
     ) -> list[str]:
         """Benchmark ja_sentence_segmenter on 400-character Japanese text."""
         result = benchmark(lambda text: list(ja_segmenter(text)), japanese_text_400)
@@ -111,7 +115,7 @@ class TestJapaneseBenchmarks:
         benchmark: BenchmarkFixture,
         japanese_text_400: str,
         large_text_multiplier: int,
-        ja_segmenter: Callable[[str], list[str]],
+        ja_segmenter: Callable[[str], Generator[str, None, None]],
     ) -> None:
         """Benchmark ja_sentence_segmenter on large Japanese text."""
         # Create large text by repeating the sample

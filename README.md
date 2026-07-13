@@ -20,7 +20,7 @@
         <img src="https://img.shields.io/badge/rust-1.81+-orange.svg" alt="Rust Version">
     </a>
     <a href="https://github.com/sog4be/sakurs/tree/main/sakurs-py">
-        <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python Version">
+        <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python Version">
     </a>
 </p>
 
@@ -62,7 +62,10 @@ pip install sakurs
 # Or build from source
 git clone https://github.com/sog4be/sakurs.git
 cd sakurs/sakurs-py
-uv pip install -e .
+uv sync --no-install-project
+uv run --no-sync maturin build --release --features extension-module -o dist
+WHEEL_FILE=$(ls -t dist/*.whl | head -1)
+uv pip install --force-reinstall "$WHEEL_FILE"
 ```
 
 ### Command Line Tool
