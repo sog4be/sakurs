@@ -141,7 +141,7 @@ impl ProcessArgs {
                     // Process text
                     let result = processor
                         .process(sakurs_core::Input::from_text(content.clone()))
-                        .map_err(|e| anyhow::anyhow!("Processing failed: {}", e))?;
+                        .map_err(|e| anyhow::anyhow!("Processing failed: {e}"))?;
 
                     // Extract and output sentences
                     let mut last_offset = 0;
@@ -255,16 +255,16 @@ impl ProcessArgs {
                 // Build configuration with thread option handling
                 let builder = Config::builder()
                     .language(language_code)
-                    .map_err(|e| anyhow::anyhow!("Failed to set language: {}", e))?;
+                    .map_err(|e| anyhow::anyhow!("Failed to set language: {e}"))?;
 
                 let builder = self.configure_builder(builder)?;
 
                 let config = builder
                     .build()
-                    .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?;
+                    .map_err(|e| anyhow::anyhow!("Failed to build processor config: {e}"))?;
 
                 SentenceProcessor::with_config(config)
-                    .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))
+                    .map_err(|e| anyhow::anyhow!("Failed to create processor: {e}"))
             }
             LanguageSource::External {
                 path,
@@ -273,10 +273,8 @@ impl ProcessArgs {
                 // Load external configuration
                 use sakurs_core::LanguageConfig;
 
-                let language =
-                    LanguageConfig::from_file(&path, language_code.as_deref()).map_err(|e| {
-                        anyhow::anyhow!("Failed to load external language config: {}", e)
-                    })?;
+                let language = LanguageConfig::from_file(&path, language_code.as_deref())
+                    .map_err(|e| anyhow::anyhow!("Failed to load external language config: {e}"))?;
 
                 // Build configuration
                 let builder = Config::builder();
@@ -284,11 +282,11 @@ impl ProcessArgs {
 
                 let config = builder
                     .build()
-                    .map_err(|e| anyhow::anyhow!("Failed to build processor config: {}", e))?;
+                    .map_err(|e| anyhow::anyhow!("Failed to build processor config: {e}"))?;
 
                 // Create processor with the custom language configuration
                 SentenceProcessor::with_language_config(config, &language)
-                    .map_err(|e| anyhow::anyhow!("Failed to create processor: {}", e))
+                    .map_err(|e| anyhow::anyhow!("Failed to create processor: {e}"))
             }
         }
     }
@@ -341,7 +339,7 @@ impl ProcessArgs {
         let content = crate::input::FileReader::read_text(file)?;
         let result = processor
             .process(sakurs_core::Input::from_text(content.clone()))
-            .map_err(|e| anyhow::anyhow!("Processing failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Processing failed: {e}"))?;
 
         let mut last_offset = 0;
         for boundary in &result.boundaries {
@@ -376,7 +374,7 @@ impl ProcessArgs {
 
         let result = processor
             .process(sakurs_core::Input::from_text(buffer.clone()))
-            .map_err(|e| anyhow::anyhow!("Processing failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Processing failed: {e}"))?;
 
         let mut last_offset = 0;
         for boundary in &result.boundaries {
