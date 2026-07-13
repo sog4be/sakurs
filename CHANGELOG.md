@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking**: the Python package now requires Python 3.10 or later. Published wheels use
   the CPython 3.10 stable ABI and are tested through Python 3.14
+- Updated the Python development and test toolchain to current releases, including
+  pytest 9, pytest-cov 7, pytest-benchmark 5, Ruff 0.15, mypy 2.2, and maturin 1.14
+
+### Security
+
+- Require pytest 9.0.3 or later for test and benchmark environments, addressing
+  CVE-2025-71176 (GHSA-6w46-j5rx-g56g)
 
 ## [0.2.0] - 2026-07-07
 
