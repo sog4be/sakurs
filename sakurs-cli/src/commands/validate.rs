@@ -43,7 +43,7 @@ impl ValidateArgs {
             Err(e) => {
                 println!("✗ Configuration is invalid!");
                 println!("  Error: {e}");
-                Err(anyhow::anyhow!("Validation failed: {}", e))
+                Err(anyhow::anyhow!("Validation failed: {e}"))
             }
         }
     }
