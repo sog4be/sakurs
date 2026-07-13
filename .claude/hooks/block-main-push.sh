@@ -1,7 +1,7 @@
 #!/bin/bash
 # PreToolUse hook for Bash: block direct pushes to main/master.
 # Enforces the PR-required branch strategy (see CONTRIBUTING.md).
-# Exits 0 to allow, 2 to block (stderr fed back to Claude Code).
+# Exits 0 to allow, 2 to block (stderr fed back to the coding agent).
 
 set -euo pipefail
 
@@ -29,7 +29,8 @@ MSG
 fi
 
 # --- Current branch is main/master and a bare push was requested ---
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
+PROJECT_DIR=$(echo "$INPUT" | jq -r '.cwd // empty')
+PROJECT_DIR="${PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}"
 CURRENT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 
 if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then

@@ -1,7 +1,7 @@
 #!/bin/bash
 # PreToolUse hook for Bash: validate that git commit messages follow
 # Conventional Commits format (see CONTRIBUTING.md).
-# Exits 0 to allow, 2 to block (stderr fed back to Claude Code).
+# Exits 0 to allow, 2 to block (stderr fed back to the coding agent).
 
 set -euo pipefail
 
@@ -54,7 +54,7 @@ if ! echo "$FIRST_LINE" | grep -qE "$TYPE_RE"; then
   Expected: <type>(<scope>)?: <subject>
   Types:    feat | fix | chore | docs | refactor | test | build | ci | perf | style | revert
 
-See CLAUDE.md and CONTRIBUTING.md for details.
+See AGENTS.md, CLAUDE.md, and CONTRIBUTING.md for details.
 MSG
   exit 2
 fi
