@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1.0,<2.0"]
+requires = ["maturin>=1.14,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -33,29 +33,29 @@ Issues = "https://github.com/sog4be/sakurs/issues"
 
 [project.optional-dependencies]
 dev = [
-    "ruff>=0.12.0,<0.13.0",
-    "mypy~=1.0",
+    "ruff>=0.15,<0.16",
+    "mypy>=2.2,<3.0",
     "types-setuptools",
 ]
 test = [
-    "pytest~=7.0",
-    "pytest-cov~=4.0",
-    "hypothesis~=6.0",
+    "pytest>=9.0.3,<10.0",
+    "pytest-cov>=7.0,<8.0",
+    "hypothesis>=6.0,<7.0",
 ]
 benchmark = [
-    "pytest~=7.0",
-    "pytest-benchmark~=4.0",
+    "pytest>=9.0.3,<10.0",
+    "pytest-benchmark>=5.2,<6.0",
     "pysbd~=0.3.4",
     "ja-sentence-segmenter~=0.0.2",
-    "pytest-md-report~=0.5.0",
+    "pytest-md-report>=0.8,<0.9",
 ]
 
 [tool.maturin]
 features = ["extension-module"]
 
-[tool.uv]
-dev-dependencies = [
-    "maturin~=1.0",
+[dependency-groups]
+dev = [
+    "maturin>=1.14,<2.0",
 ]
 
 [tool.ruff]
