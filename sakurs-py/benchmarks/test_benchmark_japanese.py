@@ -2,7 +2,7 @@
 
 import functools
 from collections.abc import Callable, Generator
-from typing import Final
+from typing import Final, cast
 
 import pytest
 from ja_sentence_segmenter.common.pipeline import make_pipeline
@@ -29,7 +29,10 @@ def ja_segmenter() -> Callable[[str], Generator[str, None, None]]:
         former_matching_rule=r"^(?P<r>.+)(の)$",
         remove_former_matched=False,
     )
-    return make_pipeline(normalize, split_newline, concat_tail_no, split_punc)
+    return cast(
+        Callable[[str], Generator[str, None, None]],
+        make_pipeline(normalize, split_newline, concat_tail_no, split_punc),
+    )
 
 
 # Benchmark configuration constants
