@@ -67,7 +67,7 @@ for sentence in results:
 for sentence in sakurs.split_large_file("huge_corpus.txt", max_memory_mb=50):
     process(sentence)  # Process each sentence as it's found
 
-# Responsive iteration (loads all, yields incrementally)  
+# Responsive iteration (loads all, yields incrementally)
 for sentence in sakurs.iter_split("document.txt"):
     print(sentence)  # Get results as they're processed
 ```
