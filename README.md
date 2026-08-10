@@ -49,7 +49,8 @@
 - **High Performance**: Implemented in Rust with the Δ-Stack Monoid algorithm — 252 MB/s single-threaded, 1.44 GB/s at 8 threads on plain English text (see [PERFORMANCE.md](docs/PERFORMANCE.md))
 - **Sequential Equivalence**: any chunk size and thread count produce exactly the same boundaries as processing the whole text sequentially — a guaranteed, property-tested invariant
 - **Multiple Languages**: Built-in support for English and Japanese, easily extensible via TOML configs — no code required
-- **Memory Efficient**: Streaming support for processing gigabyte-sized files with constant memory
+- **Large-file Python API**: `split_large_file()` processes files incrementally with a
+  configurable target chunk size. The CLI currently reads each input file completely into memory.
 
 ## Installation
 
@@ -65,7 +66,7 @@ cd sakurs/sakurs-py
 uv sync --no-install-project
 uv run --no-sync maturin build --release --features extension-module -o dist
 WHEEL_FILE=$(ls -t dist/*.whl | head -1)
-uv pip install --force-reinstall "$WHEEL_FILE"
+uv pip install --python .venv/bin/python --force-reinstall "$WHEEL_FILE"
 ```
 
 ### Command Line Tool
@@ -135,12 +136,12 @@ For comprehensive CLI documentation, including detailed command reference, usage
 
 Sakurs automatically optimizes performance based on text size and available CPU cores. For advanced usage:
 
+The CLI currently reads each input file completely into memory. `--stream` and
+`--stream-chunk-mb` remain accepted for compatibility but do not bound memory use.
+
 ```bash
 # Manual thread control
 sakurs process -i large.txt --threads 8
-
-# Stream large files with custom chunk size
-sakurs process -i huge.txt --stream --stream-chunk-mb 50
 
 # Common aliases (add to ~/.bashrc or ~/.zshrc)
 alias sakurs-ja='sakurs process -l japanese'

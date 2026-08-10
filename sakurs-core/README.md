@@ -17,7 +17,7 @@ sakurs-core = "0.2"
 - [Advanced Usage](#advanced-usage)
   - [Custom Configuration](#custom-configuration)
   - [Processing Files](#processing-files)
-  - [Streaming Large Files](#streaming-large-files)
+  - [Streaming Preset](#streaming-preset)
 - [Language Support](#language-support)
 - [Algorithm](#algorithm)
 - [License](#license)
@@ -80,12 +80,12 @@ println!("Found {} sentences", output.boundaries.len());
 println!("Processing took {:?}", output.metadata.duration);
 ```
 
-### Streaming Large Files
+### Streaming Preset
 
 ```rust
 use sakurs_core::{Config, Input, SentenceProcessor};
 
-// Use the streaming preset for memory-efficient processing (32KB chunks, limited threads)
+// Use the streaming preset for 32KB algorithm chunks and limited threads
 let processor = SentenceProcessor::with_config(Config::streaming())?;
 let output = processor.process(Input::from_file("large_document.txt"))?;
 ```
@@ -93,6 +93,10 @@ let output = processor.process(Input::from_file("large_document.txt"))?;
 `Config::streaming()`, `Config::small_text()`, and `Config::large_text()` are fixed presets
 for English; to combine a preset's chunk size/thread count with another language, use
 `Config::builder()` directly with the same `chunk_size`/`threads` values.
+
+The `streaming` preset controls algorithm chunking and parallelism; it does not provide
+incremental I/O. `Input::File` and `Input::Reader` are currently read completely into memory
+before sentence detection.
 
 ## Language Support
 

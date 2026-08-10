@@ -9,6 +9,38 @@ use crate::types::PyProcessingResult;
 use pyo3::prelude::*;
 use sakurs_core::{Config, SentenceProcessor};
 
+/// Resolve public execution options to the explicit core thread setting.
+///
+/// The core represents adaptive execution as `None`, so forced parallel modes
+/// must resolve the available worker count before building the configuration.
+pub(crate) fn resolve_execution_threads(
+    execution_mode: &str,
+    threads: Option<usize>,
+    force_parallel: bool,
+) -> Result<Option<usize>, InternalError> {
+    if !matches!(execution_mode, "sequential" | "parallel" | "adaptive") {
+        return Err(InternalError::ConfigurationError(format!(
+            "Invalid execution_mode: {execution_mode}"
+        )));
+    }
+
+    if force_parallel || execution_mode == "parallel" {
+        return Ok(Some(threads.unwrap_or_else(available_worker_threads)));
+    }
+
+    match execution_mode {
+        "sequential" => Ok(Some(1)),
+        "adaptive" => Ok(threads),
+        _ => unreachable!("execution mode was validated above"),
+    }
+}
+
+fn available_worker_threads() -> usize {
+    std::thread::available_parallelism()
+        .map(|count| count.get())
+        .unwrap_or(1)
+}
+
 /// Main sentence splitter class for sentence boundary detection
 #[pyclass(name = "SentenceSplitter")]
 pub struct PyProcessor {
@@ -16,8 +48,6 @@ pub struct PyProcessor {
     language: String,
     chunk_size: usize,
     num_threads: Option<usize>,
-    #[allow(dead_code)]
-    custom_config: bool, // Track if using custom language config
 }
 
 #[pymethods]
@@ -46,7 +76,7 @@ impl PyProcessor {
         };
 
         // Build Rust configuration and optionally a custom language config
-        let (mut config_builder, language_display, is_custom, custom_language) =
+        let (mut config_builder, language_display, custom_language) =
             if let Some(lang_config) = language_config {
                 // Use custom language configuration
                 let core_config = lang_config.to_core_config(py)?;
@@ -57,7 +87,6 @@ impl PyProcessor {
                         .language("en") // Default, will be overridden
                         .map_err(|e| InternalError::ConfigurationError(e.to_string()))?,
                     display_name,
-                    true,
                     Some(core_config),
                 )
             } else {
@@ -73,30 +102,15 @@ impl PyProcessor {
                         .language(lang_code)
                         .map_err(|e| InternalError::ProcessingError(e.to_string()))?,
                     lang.to_string(),
-                    false,
                     None,
                 )
             };
 
-        // Handle execution mode
-        match execution_mode {
-            "sequential" => {
-                config_builder = config_builder.threads(Some(1));
-            }
-            "parallel" => {
-                config_builder = config_builder.threads(threads);
-            }
-            "adaptive" => {
-                if let Some(t) = threads {
-                    config_builder = config_builder.threads(Some(t));
-                }
-            }
-            _ => {
-                return Err(InternalError::ConfigurationError(format!(
-                    "Invalid execution_mode: {execution_mode}"
-                ))
-                .into())
-            }
+        // Handle execution mode. Parallel mode resolves an explicit worker
+        // count so it remains parallel even for short inputs.
+        let resolved_threads = resolve_execution_threads(execution_mode, threads, false)?;
+        if let Some(thread_count) = resolved_threads {
+            config_builder = config_builder.threads(Some(thread_count));
         }
 
         config_builder = config_builder.chunk_size(chunk_size_bytes);
@@ -118,8 +132,7 @@ impl PyProcessor {
             processor,
             language: language_display,
             chunk_size: chunk_size_bytes,
-            num_threads: threads,
-            custom_config: is_custom,
+            num_threads: resolved_threads,
         })
     }
 
@@ -180,32 +193,22 @@ impl PyProcessor {
         true // Always true for Rust implementation
     }
 
-    /// Iterate over sentences (memory-efficient)
-    #[pyo3(signature = (input, *, encoding="utf-8", _preserve_whitespace=false))]
+    /// Load the input and iterate over the resulting sentences
+    #[pyo3(signature = (input, *, encoding="utf-8", preserve_whitespace=false))]
     pub fn iter_split(
         &self,
         input: &Bound<'_, PyAny>,
         encoding: &str,
-        _preserve_whitespace: bool,
+        preserve_whitespace: bool,
         py: Python,
     ) -> PyResult<crate::iterator::SentenceIterator> {
-        use crate::stream::create_iter_split_iterator;
+        use crate::stream::create_iter_split_iterator_from_processor;
 
-        // Extract language from processor
-        let language = if self.custom_config {
-            None // Custom config already embedded in processor
-        } else {
-            Some(self.language.as_str())
-        };
-
-        // Use the processor's configuration for streaming
-        create_iter_split_iterator(
+        create_iter_split_iterator_from_processor(
             py,
             input,
-            language,
-            None, // language_config already in processor
-            self.num_threads,
-            Some(self.chunk_size),
+            &self.processor,
+            preserve_whitespace,
             encoding,
         )
     }
@@ -232,5 +235,48 @@ impl PyProcessor {
             "SentenceSplitter(language='{}', threads={:?}, chunk_kb={})",
             self.language, self.num_threads, chunk_kb
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_execution_modes() {
+        assert_eq!(
+            resolve_execution_threads("sequential", None, false).unwrap(),
+            Some(1)
+        );
+        assert_eq!(
+            resolve_execution_threads("adaptive", None, false).unwrap(),
+            None
+        );
+        assert_eq!(
+            resolve_execution_threads("adaptive", Some(3), false).unwrap(),
+            Some(3)
+        );
+        assert_eq!(
+            resolve_execution_threads("parallel", Some(2), false).unwrap(),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn resolves_forced_parallel_without_explicit_threads() {
+        assert_eq!(
+            resolve_execution_threads("parallel", None, false).unwrap(),
+            Some(available_worker_threads())
+        );
+        assert_eq!(
+            resolve_execution_threads("sequential", None, true).unwrap(),
+            Some(available_worker_threads())
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_execution_mode() {
+        assert!(resolve_execution_threads("invalid", None, false).is_err());
+        assert!(resolve_execution_threads("invalid", None, true).is_err());
     }
 }

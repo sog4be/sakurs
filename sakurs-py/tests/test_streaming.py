@@ -142,15 +142,15 @@ class TestIterSplit:
         with pytest.raises(StopIteration):
             next(iterator)
 
-    def test_iter_split_memory_efficiency(self, tmp_path):
-        """Test that streaming doesn't load entire file into memory."""
+    def test_iter_split_large_file(self, tmp_path):
+        """Test iterating over the sentences from a moderately large file."""
         # Create a moderately large file
         file_path = tmp_path / "large.txt"
         with open(file_path, "w") as f:
             for i in range(10000):
                 f.write(f"This is sentence number {i}. ")
 
-        # Stream through the file
+        # Iterate without retaining the returned sentences in the test.
         count = 0
         for sentence in sakurs.iter_split(file_path, chunk_kb=1024):
             count += 1
@@ -189,12 +189,30 @@ class TestProcessorIterSplit:
     def test_iter_split_whitespace_handling(self):
         """Test whitespace handling in processor iteration."""
         processor = sakurs.load("en")
-        text = "  Hello.  \n  World.  "
-        # iter_split trims whitespace by default
-        sentences = list(processor.iter_split(text))
-        assert len(sentences) == 2
-        assert sentences[0] == "Hello."
-        assert sentences[1] == "World."
+        text = "  Hello.  \n  World."
+
+        trimmed = list(processor.iter_split(text, preserve_whitespace=False))
+        preserved = list(processor.iter_split(text, preserve_whitespace=True))
+
+        assert trimmed == ["Hello.", "World."]
+        assert preserved == ["  Hello.", "  \n  World."]
+
+    @pytest.mark.parametrize("preserve_whitespace", [False, True])
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [("Hello.\n", ["Hello."]), ("  \n\t", [])],
+    )
+    def test_iter_split_omits_whitespace_only_segments(
+        self, preserve_whitespace, text, expected
+    ):
+        """Do not yield trailing or standalone whitespace as a sentence."""
+        processor = sakurs.load("en")
+
+        sentences = list(
+            processor.iter_split(text, preserve_whitespace=preserve_whitespace)
+        )
+
+        assert sentences == expected
 
     def test_iter_split_with_context_manager(self):
         """Test iteration within context manager."""
@@ -339,7 +357,7 @@ class TestStreamingEdgeCases:
 
 
 class TestSplitLargeFile:
-    """Test split_large_file function for memory-efficient processing."""
+    """Test split_large_file incremental chunk processing."""
 
     def test_split_large_file_basic(self):
         """Test basic large file processing."""
@@ -357,23 +375,94 @@ class TestSplitLargeFile:
         finally:
             os.unlink(temp_path)
 
+    def test_split_large_file_accepts_pathlike(self, tmp_path):
+        """Accept pathlib.Path as documented by the public type stub."""
+        file_path = tmp_path / "pathlike.txt"
+        file_path.write_text("First sentence. Second sentence.", encoding="utf-8")
+
+        sentences = list(sakurs.split_large_file(file_path))
+
+        assert sentences == ["First sentence.", "Second sentence."]
+
     def test_split_large_file_with_chunks(self):
-        """Test large file processing with small chunks."""
-        # Create a file with multiple sentences
-        text = ". ".join([f"This is sentence number {i}" for i in range(100)]) + "."
+        """Test processing across real target-chunk and overlap boundaries."""
+        sentence_count = 20_000
+        text = "".join(f"This is sentence number {i}.\n" for i in range(sentence_count))
 
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
             f.write(text)
             temp_path = f.name
 
         try:
-            # Process with very small memory limit to force chunking
+            # A 1MB target yields a 256KB processing chunk; this fixture is larger.
             sentences = list(sakurs.split_large_file(temp_path, max_memory_mb=1))
-            assert len(sentences) == 100
-            # Check a few sentences
+            assert len(sentences) == sentence_count
             assert sentences[0] == "This is sentence number 0."
-            assert sentences[50] == "This is sentence number 50."
-            assert sentences[99] == "This is sentence number 99."
+            assert sentences[10_000] == "This is sentence number 10000."
+            assert sentences[-1] == f"This is sentence number {sentence_count - 1}."
+        finally:
+            os.unlink(temp_path)
+
+    def test_split_large_file_reads_after_oversized_carry(self):
+        """An oversized unterminated region must not make the iterator stop early."""
+        prefix = "x" * (256 * 1024 + 100)
+        text = f"{prefix}\nHello.\nWorld.\n"
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
+            f.write(text)
+            temp_path = f.name
+
+        try:
+            sentences = list(sakurs.split_large_file(temp_path, max_memory_mb=1))
+
+            assert len(sentences) == 2
+            assert sentences[0].startswith(prefix)
+            assert sentences[0].endswith("Hello.")
+            assert sentences[1] == "World."
+        finally:
+            os.unlink(temp_path)
+
+    def test_split_large_file_flushes_each_sentence_from_final_overlap(self):
+        """EOF must process boundaries retained in an exactly aligned overlap."""
+        sentence_count = 74_752
+        text = "Hello.\n" * sentence_count
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
+            f.write(text)
+            temp_path = f.name
+
+        try:
+            sentences = list(sakurs.split_large_file(temp_path, max_memory_mb=1))
+
+            assert len(sentences) == sentence_count
+            assert sentences[0] == "Hello."
+            assert sentences[-1] == "Hello."
+        finally:
+            os.unlink(temp_path)
+
+    def test_split_large_file_preserves_multibyte_character_at_chunk_boundary(self):
+        """A stateful decoder must join a Shift_JIS character split across reads."""
+        chunk_size = 256 * 1024
+        text = "Hello. " * 37_449 + "あ. Next."
+        encoded = text.encode("shift_jis")
+        encoded_character = "あ".encode("shift_jis")
+        assert encoded[chunk_size - 1 : chunk_size + 1] == encoded_character
+
+        with tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".txt") as f:
+            f.write(encoded)
+            temp_path = f.name
+
+        try:
+            sentences = list(
+                sakurs.split_large_file(
+                    temp_path,
+                    max_memory_mb=1,
+                    encoding="shift_jis",
+                )
+            )
+
+            assert sentences == sakurs.split(text)
+            assert sentences[-2:] == ["あ.", "Next."]
         finally:
             os.unlink(temp_path)
 

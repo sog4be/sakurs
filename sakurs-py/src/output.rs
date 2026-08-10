@@ -3,6 +3,17 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
+/// Apply the public whitespace policy while omitting non-sentence segments.
+pub(crate) fn normalize_sentence_text(sentence: &str, preserve_whitespace: bool) -> Option<String> {
+    if sentence.trim().is_empty() {
+        None
+    } else if preserve_whitespace {
+        Some(sentence.to_string())
+    } else {
+        Some(sentence.trim().to_string())
+    }
+}
+
 /// Sentence with metadata
 #[pyclass]
 pub struct Sentence {
@@ -137,25 +148,13 @@ pub fn boundaries_to_sentences_with_char_offsets(
 
     for &(end_char, end_byte) in boundaries {
         if end_char > start_char && end_byte <= text.len() {
-            let sentence_text = text[start_byte..end_byte].to_string();
-
-            // Calculate offsets based on whether we trim whitespace
-            let (final_text, final_start, final_end) = if preserve_whitespace {
-                (sentence_text, start_char, end_char)
-            } else {
-                // Trim the text but keep original offsets
-                let trimmed = sentence_text.trim();
-                if trimmed.is_empty() {
-                    // Skip empty sentences
-                    start_char = end_char;
-                    start_byte = end_byte;
-                    continue;
-                }
-                (trimmed.to_string(), start_char, end_char)
-            };
-
-            let sentence = Sentence::new(final_text, final_start, final_end, Some(1.0), None, py)?;
-            sentences.push(sentence);
+            if let Some(final_text) =
+                normalize_sentence_text(&text[start_byte..end_byte], preserve_whitespace)
+            {
+                let sentence =
+                    Sentence::new(final_text, start_char, end_char, Some(1.0), None, py)?;
+                sentences.push(sentence);
+            }
             start_char = end_char;
             start_byte = end_byte;
         }
@@ -163,24 +162,12 @@ pub fn boundaries_to_sentences_with_char_offsets(
 
     // Handle any remaining text after the last boundary
     if start_byte < text.len() {
-        let sentence_text = text[start_byte..].to_string();
         let char_count = text.chars().count();
-
-        let (final_text, final_start, final_end) = if preserve_whitespace {
-            (sentence_text, start_char, char_count)
-        } else {
-            // Trim the text but keep original offsets
-            let trimmed = sentence_text.trim();
-            if !trimmed.is_empty() {
-                (trimmed.to_string(), start_char, char_count)
-            } else {
-                // Skip empty sentences
-                return Ok(sentences);
-            }
-        };
-
-        let sentence = Sentence::new(final_text, final_start, final_end, Some(1.0), None, py)?;
-        sentences.push(sentence);
+        if let Some(final_text) = normalize_sentence_text(&text[start_byte..], preserve_whitespace)
+        {
+            let sentence = Sentence::new(final_text, start_char, char_count, Some(1.0), None, py)?;
+            sentences.push(sentence);
+        }
     }
 
     Ok(sentences)

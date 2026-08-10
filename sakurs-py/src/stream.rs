@@ -4,12 +4,15 @@ use crate::exceptions::InternalError;
 use crate::input::PyInput;
 use crate::iterator::SentenceIterator;
 use crate::language_config::LanguageConfig;
+use crate::output::normalize_sentence_text;
+use encoding_rs::{CoderResult, Decoder, Encoding};
 use pyo3::prelude::*;
 use pyo3::types::PyIterator;
 use sakurs_core::{Config, SentenceProcessor};
+use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Default chunk size for streaming (10MB)
 #[allow(dead_code)]
@@ -19,7 +22,8 @@ const DEFAULT_CHUNK_SIZE_MB: usize = 10;
 #[allow(dead_code)]
 const DEFAULT_OVERLAP_SIZE: usize = 1024;
 
-/// Create an iterator that loads all input but yields incrementally  
+/// Create an iterator over sentences computed from the complete input.
+#[allow(clippy::too_many_arguments)]
 pub fn create_iter_split_iterator(
     py: Python,
     input: &Bound<'_, PyAny>,
@@ -27,6 +31,7 @@ pub fn create_iter_split_iterator(
     language_config: Option<LanguageConfig>,
     threads: Option<usize>,
     chunk_size: Option<usize>,
+    preserve_whitespace: bool,
     encoding: &str,
 ) -> PyResult<SentenceIterator> {
     // Build processor configuration
@@ -81,8 +86,18 @@ pub fn create_iter_split_iterator(
             .map_err(|e| InternalError::ProcessingError(e.to_string()))?
     };
 
-    // Create iterator
-    let iterator = SentenceIterator::new_internal(false); // No whitespace preservation for now
+    create_iter_split_iterator_from_processor(py, input, &processor, preserve_whitespace, encoding)
+}
+
+/// Create an iterator using an already configured sentence processor.
+pub(crate) fn create_iter_split_iterator_from_processor(
+    py: Python,
+    input: &Bound<'_, PyAny>,
+    processor: &SentenceProcessor,
+    preserve_whitespace: bool,
+    encoding: &str,
+) -> PyResult<SentenceIterator> {
+    let iterator = SentenceIterator::new_internal(preserve_whitespace);
 
     // Process all input at once and populate iterator
     let py_input = PyInput::from_py_object(py, input)?;
@@ -114,8 +129,8 @@ pub fn create_iter_split_iterator(
     let mut last_pos = 0;
 
     for boundary in output.boundaries {
-        let sentence = text[last_pos..boundary.offset].trim().to_string();
-        if !sentence.is_empty() {
+        let raw_sentence = &text[last_pos..boundary.offset];
+        if let Some(sentence) = normalize_sentence_text(raw_sentence, preserve_whitespace) {
             sentences.push(sentence);
         }
         last_pos = boundary.offset;
@@ -123,8 +138,8 @@ pub fn create_iter_split_iterator(
 
     // Add any remaining text
     if last_pos < text.len() {
-        let sentence = text[last_pos..].trim().to_string();
-        if !sentence.is_empty() {
+        let raw_sentence = &text[last_pos..];
+        if let Some(sentence) = normalize_sentence_text(raw_sentence, preserve_whitespace) {
             sentences.push(sentence);
         }
     }
@@ -197,25 +212,22 @@ pub fn adapt_python_iterator(
     Ok(iterator)
 }
 
-/// Create a memory-efficient iterator for large files
+/// Create an incremental iterator for large files.
 pub fn create_large_file_iterator(
     py: Python,
-    file_path: &str,
+    file_path: &Path,
     language: Option<&str>,
     language_config: Option<LanguageConfig>,
     max_memory_mb: usize,
     overlap_size: usize,
     encoding: &str,
 ) -> PyResult<LargeFileIterator> {
-    use std::path::Path;
-
     // Validate file path
-    let path = Path::new(file_path);
-    if !path.exists() {
-        return Err(InternalError::FileNotFound(file_path.to_string()).into());
+    if !file_path.exists() {
+        return Err(InternalError::FileNotFound(file_path.display().to_string()).into());
     }
 
-    // Build processor configuration for memory-efficient processing
+    // Build processor configuration for incremental processing
     let (mut config_builder, custom_language) = if let Some(lang_config) = language_config {
         // Use custom language configuration
         let core_config = lang_config.to_core_config(py)?;
@@ -246,7 +258,7 @@ pub fn create_large_file_iterator(
         )
     };
 
-    // Configure for memory-efficient processing
+    // Derive a target chunk size from the requested memory budget.
     let chunk_size = (max_memory_mb * 1024 * 1024) / 4; // Reserve memory for processing
     config_builder = config_builder.chunk_size(chunk_size).threads(Some(1)); // Single thread for streaming
 
@@ -264,7 +276,7 @@ pub fn create_large_file_iterator(
     };
 
     Ok(LargeFileIterator::new(
-        PathBuf::from(file_path),
+        file_path.to_path_buf(),
         processor,
         chunk_size,
         overlap_size,
@@ -272,7 +284,7 @@ pub fn create_large_file_iterator(
     ))
 }
 
-/// Iterator for memory-efficient large file processing
+/// Iterator for incremental large-file processing.
 #[pyclass]
 pub struct LargeFileIterator {
     file_path: PathBuf,
@@ -281,8 +293,9 @@ pub struct LargeFileIterator {
     overlap_size: usize,
     encoding: String,
     reader: Option<BufReader<File>>,
+    decoder: Option<Decoder>,
     carry_over: String,
-    sentence_buffer: Vec<String>,
+    sentence_buffer: VecDeque<String>,
     exhausted: bool,
 }
 
@@ -301,8 +314,9 @@ impl LargeFileIterator {
             overlap_size,
             encoding,
             reader: None,
+            decoder: None,
             carry_over: String::new(),
-            sentence_buffer: Vec::new(),
+            sentence_buffer: VecDeque::new(),
             exhausted: false,
         }
     }
@@ -317,134 +331,196 @@ impl LargeFileIterator {
     fn __next__(&mut self) -> PyResult<Option<String>> {
         use pyo3::exceptions::PyStopIteration;
 
-        // Return buffered sentences first
-        if !self.sentence_buffer.is_empty() {
-            return Ok(Some(self.sentence_buffer.remove(0)));
-        }
+        loop {
+            // Return buffered sentences first.
+            if let Some(sentence) = self.sentence_buffer.pop_front() {
+                return Ok(Some(sentence));
+            }
 
-        if self.exhausted {
-            return Err(PyStopIteration::new_err(()));
-        }
+            if self.exhausted {
+                return Err(PyStopIteration::new_err(()));
+            }
 
-        // Initialize reader on first call
-        if self.reader.is_none() {
-            let file = File::open(&self.file_path).map_err(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    InternalError::FileNotFound(self.file_path.display().to_string())
-                } else {
-                    InternalError::IoError(e.to_string())
-                }
-            })?;
-            self.reader = Some(BufReader::new(file));
-        }
-
-        let reader = self.reader.as_mut().unwrap();
-
-        // Read chunk from file
-        let mut buffer = String::with_capacity(self.chunk_size);
-        buffer.push_str(&self.carry_over);
-
-        // Read until we have enough data or reach EOF
-        if self.encoding == "utf-8" {
-            // Fast path for UTF-8
-            let mut line_buffer = String::new();
-            while buffer.len() < self.chunk_size {
-                match reader.read_line(&mut line_buffer) {
-                    Ok(0) => break, // EOF
-                    Ok(_) => {
-                        buffer.push_str(&line_buffer);
-                        line_buffer.clear();
+            // Initialize reader on first call.
+            if self.reader.is_none() {
+                let file = File::open(&self.file_path).map_err(|e| {
+                    if e.kind() == std::io::ErrorKind::NotFound {
+                        InternalError::FileNotFound(self.file_path.display().to_string())
+                    } else {
+                        InternalError::IoError(e.to_string())
                     }
-                    Err(e) => return Err(InternalError::IoError(e.to_string()).into()),
-                }
+                })?;
+                self.reader = Some(BufReader::new(file));
             }
-        } else {
-            // Handle other encodings
-            use encoding_rs::Encoding;
 
-            let encoding_obj = Encoding::for_label(self.encoding.as_bytes()).ok_or_else(|| {
-                InternalError::EncodingError(format!("Unknown encoding: {}", self.encoding))
-            })?;
+            let read_target = next_buffer_target(self.chunk_size, self.carry_over.len());
+            let mut buffer = String::with_capacity(read_target);
+            buffer.push_str(&self.carry_over);
+            let mut reached_eof = false;
 
-            let mut raw_buffer = vec![0u8; self.chunk_size];
-            match reader.read(&mut raw_buffer) {
-                Ok(0) => {} // EOF
-                Ok(n) => {
-                    let (decoded, _, _) = encoding_obj.decode(&raw_buffer[..n]);
-                    buffer.push_str(&decoded);
+            // Grow an oversized carry geometrically. This keeps repeated
+            // whole-buffer scans linear when a long region has no boundary.
+            if self.encoding == "utf-8" {
+                let reader = self.reader.as_mut().unwrap();
+                let mut line_buffer = String::new();
+                let mut read_any = false;
+                while buffer.len() < read_target || !read_any {
+                    match reader.read_line(&mut line_buffer) {
+                        Ok(0) => {
+                            reached_eof = true;
+                            break;
+                        }
+                        Ok(_) => {
+                            read_any = true;
+                            buffer.push_str(&line_buffer);
+                            line_buffer.clear();
+                        }
+                        Err(e) => return Err(InternalError::IoError(e.to_string()).into()),
+                    }
                 }
-                Err(e) => return Err(InternalError::IoError(e.to_string()).into()),
-            }
-        }
+            } else {
+                if self.decoder.is_none() {
+                    let encoding_obj =
+                        Encoding::for_label(self.encoding.as_bytes()).ok_or_else(|| {
+                            InternalError::EncodingError(format!(
+                                "Unknown encoding: {}",
+                                self.encoding
+                            ))
+                        })?;
+                    self.decoder = Some(encoding_obj.new_decoder());
+                }
 
-        // Check if we're at EOF
-        if buffer.len() <= self.carry_over.len() {
-            self.exhausted = true;
-            if !self.carry_over.is_empty() {
-                // Process final carry-over as a sentence
-                let sentence = self.carry_over.trim().to_string();
+                let bytes_to_read = read_target.saturating_sub(buffer.len()).max(1);
+                let mut raw_buffer = vec![0u8; bytes_to_read];
+                let bytes_read = self
+                    .reader
+                    .as_mut()
+                    .unwrap()
+                    .read(&mut raw_buffer)
+                    .map_err(|e| InternalError::IoError(e.to_string()))?;
+                reached_eof = bytes_read == 0;
+
+                let decoded = decode_chunk(
+                    self.decoder.as_mut().unwrap(),
+                    &raw_buffer[..bytes_read],
+                    reached_eof,
+                )?;
+                buffer.push_str(&decoded);
+            }
+
+            if buffer.is_empty() && reached_eof {
+                self.exhausted = true;
                 self.carry_over.clear();
-                if !sentence.is_empty() {
-                    return Ok(Some(sentence));
+                return Err(PyStopIteration::new_err(()));
+            }
+
+            let output = self
+                .processor
+                .process(sakurs_core::Input::from_text(&buffer))
+                .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
+
+            if output.boundaries.is_empty() {
+                if reached_eof {
+                    self.exhausted = true;
+                    self.carry_over.clear();
+                    if let Some(sentence) = normalize_sentence_text(&buffer, false) {
+                        return Ok(Some(sentence));
+                    }
+                    return Err(PyStopIteration::new_err(()));
+                }
+                self.carry_over = buffer;
+                continue;
+            }
+
+            // At EOF every discovered boundary is safe. Otherwise keep the
+            // configured overlap to resolve contexts crossing the next read.
+            let safe_boundary_pos = if reached_eof {
+                output.boundaries.last().unwrap().offset
+            } else {
+                let overlap_start = buffer.len().saturating_sub(self.overlap_size);
+                output
+                    .boundaries
+                    .iter()
+                    .rposition(|boundary| boundary.offset < overlap_start)
+                    .map(|index| output.boundaries[index].offset)
+                    .unwrap_or(0)
+            };
+
+            if safe_boundary_pos == 0 {
+                self.carry_over = buffer;
+                continue;
+            }
+
+            let mut last_pos = 0;
+            for boundary in &output.boundaries {
+                if boundary.offset <= safe_boundary_pos {
+                    if let Some(sentence) =
+                        normalize_sentence_text(&buffer[last_pos..boundary.offset], false)
+                    {
+                        self.sentence_buffer.push_back(sentence);
+                    }
+                    last_pos = boundary.offset;
                 }
             }
-            return Err(PyStopIteration::new_err(()));
-        }
 
-        // Process the chunk
-        let input = sakurs_core::Input::from_text(&buffer);
-        let output = self
-            .processor
-            .process(input)
-            .map_err(|e| InternalError::ProcessingError(e.to_string()))?;
+            self.carry_over = buffer[safe_boundary_pos..].to_string();
 
-        if output.boundaries.is_empty() {
-            // No boundaries found, carry over entire buffer
-            self.carry_over = buffer;
-            return self.__next__();
-        }
-
-        // Find the last safe boundary (not in overlap zone)
-        let safe_boundary_pos = if buffer.len() < self.chunk_size {
-            // Last chunk, process all boundaries
-            output.boundaries.last().unwrap().offset
-        } else {
-            // Find last boundary before overlap zone
-            let overlap_start = buffer.len().saturating_sub(self.overlap_size);
-            output
-                .boundaries
-                .iter()
-                .rposition(|b| b.offset < overlap_start)
-                .map(|idx| output.boundaries[idx].offset)
-                .unwrap_or(0)
-        };
-
-        if safe_boundary_pos == 0 {
-            // No safe boundary, carry over entire buffer
-            self.carry_over = buffer;
-            return self.__next__();
-        }
-
-        // Extract sentences up to safe boundary
-        let mut last_pos = 0;
-        for boundary in &output.boundaries {
-            if boundary.offset <= safe_boundary_pos {
-                let sentence = buffer[last_pos..boundary.offset].trim().to_string();
-                if !sentence.is_empty() {
-                    self.sentence_buffer.push(sentence);
+            if reached_eof {
+                if let Some(sentence) = normalize_sentence_text(&self.carry_over, false) {
+                    self.sentence_buffer.push_back(sentence);
                 }
-                last_pos = boundary.offset;
+                self.carry_over.clear();
+                self.exhausted = true;
             }
         }
+    }
+}
 
-        // Update carry-over with remaining text
-        self.carry_over = buffer[safe_boundary_pos..].to_string();
+fn next_buffer_target(chunk_size: usize, carry_len: usize) -> usize {
+    if carry_len >= chunk_size {
+        carry_len.saturating_mul(2)
+    } else {
+        chunk_size
+    }
+}
 
-        // Return first sentence from buffer
-        if !self.sentence_buffer.is_empty() {
-            Ok(Some(self.sentence_buffer.remove(0)))
-        } else {
-            self.__next__()
+fn decode_chunk(decoder: &mut Decoder, bytes: &[u8], reached_eof: bool) -> PyResult<String> {
+    let capacity = decoder.max_utf8_buffer_length(bytes.len()).ok_or_else(|| {
+        InternalError::EncodingError("Decoded chunk size exceeds platform limits".to_string())
+    })?;
+    let mut decoded = String::with_capacity(capacity);
+    let mut total_read = 0;
+
+    loop {
+        let (result, bytes_read, _) =
+            decoder.decode_to_string(&bytes[total_read..], &mut decoded, reached_eof);
+        total_read += bytes_read;
+
+        match result {
+            CoderResult::InputEmpty => return Ok(decoded),
+            CoderResult::OutputFull => {
+                let additional = decoder
+                    .max_utf8_buffer_length(bytes.len() - total_read)
+                    .ok_or_else(|| {
+                        InternalError::EncodingError(
+                            "Decoded chunk size exceeds platform limits".to_string(),
+                        )
+                    })?;
+                decoded.reserve(additional.max(4));
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::next_buffer_target;
+
+    #[test]
+    fn oversized_carry_grows_geometrically() {
+        assert_eq!(next_buffer_target(256, 0), 256);
+        assert_eq!(next_buffer_target(256, 255), 256);
+        assert_eq!(next_buffer_target(256, 256), 512);
+        assert_eq!(next_buffer_target(256, 1024), 2048);
     }
 }

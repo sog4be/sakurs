@@ -65,13 +65,13 @@ def main() -> None:
     )
     benchmark_split(base_text, parallel_processor, "Parallel (4 threads)")
 
-    # Streaming mode (for large files)
+    # Legacy algorithm-chunk preset (the complete input is still retained)
     streaming_processor = sakurs.SentenceSplitter(
         language="en",
         streaming=True,
-        stream_chunk_mb=1,  # 1MB
+        stream_chunk_mb=1,  # 1MB algorithm chunks, not a memory limit
     )
-    benchmark_split(base_text, streaming_processor, "Streaming mode")
+    benchmark_split(base_text, streaming_processor, "Algorithm-chunk preset")
 
     print("\nPerformance Comparison using split() function:")
     print("-" * 70)
@@ -97,7 +97,8 @@ def main() -> None:
     print("- For long texts, increase chunk_kb to reduce overhead")
     print("- For batch processing, use parallel mode with appropriate thread count")
     print("- For interactive use, use adaptive mode for automatic optimization")
-    print("- For memory-constrained environments, use streaming mode")
+    print("- streaming=True changes algorithm chunking; it does not stream input")
+    print("- For incremental large-file input, use split_large_file()")
 
 
 if __name__ == "__main__":

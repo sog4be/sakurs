@@ -205,8 +205,8 @@ Crate-private orchestration in `DeltaStackProcessor`:
 
 ### Adapter Layer
 
-- **CLI** (`sakurs-cli/`): file globbing, stdin, text/JSON/markdown output, external language configs (`--language-config`), streaming mode for very large files
-- **Python** (`sakurs-py/`): PyO3 bindings with an NLTK-compatible API, custom language configurations, iterator-based streaming
+- **CLI** (`sakurs-cli/`): file globbing, stdin, text/JSON/markdown output, and external language configs (`--language-config`); file inputs are currently loaded completely into memory
+- **Python** (`sakurs-py/`): PyO3 bindings with an NLTK-compatible API, custom language configurations, result iterators, and incremental large-file iteration through `split_large_file`
 - **WASM / C API**: planned
 
 ## Language Configuration System
@@ -359,7 +359,7 @@ Yes, within its scope: rule-based segmentation of well-punctuated text, with det
 - ✅ Load-time validation that a configuration fits the judgment window
 - ✅ Unified API layer; CLI adapter (stdin/file/glob, JSON/text/markdown); Python bindings with NLTK-compatible API
 - ✅ Zero-copy chunking, allocation-free scan hot path
-- ✅ Streaming via configuration presets and the CLI/Python streaming modes
+- ✅ Configurable algorithm chunk presets and incremental large-file iteration in Python
 
 ### Planned Features
 

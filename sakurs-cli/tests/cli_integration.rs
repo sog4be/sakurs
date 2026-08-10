@@ -129,6 +129,37 @@ fn test_help_command() {
 }
 
 #[test]
+fn test_process_help_describes_compatibility_options() {
+    let mut cmd = Command::cargo_bin("sakurs").unwrap();
+    cmd.arg("process").arg("--help");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "Compatibility option; currently has no effect",
+        ))
+        .stdout(predicate::str::contains(
+            "currently reads each file completely into memory",
+        ))
+        .stdout(predicate::str::contains(
+            "Compatibility value; currently unused",
+        ));
+}
+
+#[test]
+fn test_adaptive_compatibility_option_remains_accepted() {
+    let mut cmd = Command::cargo_bin("sakurs").unwrap();
+    cmd.arg("process")
+        .arg("-i")
+        .arg(fixture_path("english-sample.txt"))
+        .arg("--adaptive");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Dr. Smith went to the store."));
+}
+
+#[test]
 fn test_list_languages() {
     let mut cmd = Command::cargo_bin("sakurs").unwrap();
     cmd.arg("list").arg("languages");

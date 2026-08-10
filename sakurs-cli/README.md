@@ -53,6 +53,9 @@ sakurs process -i document.txt -f json
   language configurations via `--language-config`
 - **Configuration Tooling**: `validate` compiles a language configuration and reports
   rule-level errors; `generate-config` scaffolds a new one
+- **File Input**: each input file is currently read completely into memory. The legacy
+  `--stream`, `--stream-chunk-mb`, and `--adaptive` options remain accepted for command-line
+  compatibility but do not enable incremental input or change processor selection.
 
 ## Usage Examples
 
@@ -127,15 +130,22 @@ OPTIONS:
     --language-code <LANGUAGE_CODE>       Language code for the external configuration (optional,
                                            only used with --language-config)
     -p, --parallel                        Force parallel processing even for small files
+    --adaptive                            Compatibility option; currently has no effect
     -t, --threads <COUNT>                 Number of threads for parallel processing (default: auto)
     --chunk-kb <SIZE_KB>                  Chunk size in KB for parallel processing [default: 256]
     -q, --quiet                           Suppress progress output
     -v, --verbose...                      Increase verbosity
-    --stream                              Enable streaming mode for large files
-    --stream-chunk-mb <STREAM_CHUNK_MB>   Streaming chunk size in MB [default: 10]
+    --stream                              Compatibility option; currently reads each file completely
+                                           into memory
+    --stream-chunk-mb <STREAM_CHUNK_MB>   Compatibility value; currently unused [default: 10;
+                                           requires --stream]
     -h, --help                            Print help
-    -V, --version                         Print version
 ```
+
+`--stream` still selects its legacy compatibility path, but that path currently reads the
+complete file before sentence detection; `--stream-chunk-mb` does not bound memory use.
+`--adaptive` currently leaves the default processor configuration unchanged. These options are
+kept so existing scripts continue to parse while a future CLI streaming design is considered.
 
 `sakurs process` is the main subcommand; three more are available:
 

@@ -1,7 +1,7 @@
 # Makefile for sakurs - Rust workspace automation
 # Usage: make ci-check, make format, make test, etc.
 
-.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools check-python format-python lint-python type-check-python py-dev py-test py-bench py-build wheels
+.PHONY: help ci-check format lint test check build clean install-hooks coverage coverage-html coverage-threshold coverage-clean check-llvm-tools py-sync check-python format-python lint-python type-check-python py-dev py-test py-bench py-build wheels
 
 # Default target
 help:
@@ -142,62 +142,71 @@ coverage-clean:
 	cargo llvm-cov clean --workspace || echo "⚠️ Coverage clean failed (may not be installed)"
 
 # Python development commands
-check-python:
+py-sync:
+	@echo "🐍 Syncing locked Python development tools..."
+	@if [ -d sakurs-py ]; then \
+		cd sakurs-py && \
+		uv sync --all-extras --no-install-project --locked --inexact; \
+	else \
+		echo "❌ sakurs-py directory not found"; \
+		exit 1; \
+	fi
+
+check-python: py-sync
 	@echo "🐍 Running Python checks..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
 		echo "  Running ruff check..." && \
-		uv run ruff check . && \
+		.venv/bin/ruff check . && \
 		echo "  Running ruff format check..." && \
-		uv run ruff format --check . && \
+		.venv/bin/ruff format --check . && \
 		echo "  Running mypy..." && \
-		uv run mypy . || true; \
+		.venv/bin/mypy . && \
 		echo "✅ Python checks complete!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
 	fi
 
-format-python:
+format-python: py-sync
 	@echo "🎨 Formatting Python code..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run ruff format . && \
-		uv run ruff check --fix . && \
+		.venv/bin/ruff format . && \
+		.venv/bin/ruff check --fix . && \
 		echo "✅ Python code formatted!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
 	fi
 
-lint-python:
+lint-python: py-sync
 	@echo "🔍 Linting Python code..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run ruff check . --fix && \
+		.venv/bin/ruff check . --fix && \
 		echo "✅ Python linting complete!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
 	fi
 
-type-check-python:
+type-check-python: py-sync
 	@echo "🔍 Running mypy type checking..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv run mypy . && \
+		.venv/bin/mypy . && \
 		echo "✅ Type checking complete!"; \
 	else \
 		echo "⚠️ sakurs-py directory not found"; \
 	fi
 
 # Python development commands
-py-dev:
+py-dev: py-sync
 	@echo "🐍 Building Python bindings for development..."
 	@if [ -d sakurs-py ]; then \
 		cd sakurs-py && \
-		uv sync --no-install-project && \
 		uv run --no-sync maturin build --release --features extension-module -o dist && \
 		WHEEL_FILE=$$(ls -t dist/*.whl | head -1) && \
-		uv pip install --force-reinstall "$$WHEEL_FILE" && \
-		echo "✅ Python bindings built and installed from wheel!"; \
+		uv pip install --python .venv/bin/python --force-reinstall "$$WHEEL_FILE" && \
+		echo "✅ Python bindings built and installed from wheel!" && \
 		echo "💡 Note: Use .venv/bin/python directly instead of 'uv run' to avoid editable install issues"; \
 	else \
 		echo "❌ sakurs-py directory not found"; \
