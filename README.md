@@ -25,8 +25,8 @@
 </p>
 
 > [!NOTE]
-> **This project is pre-1.0 (currently v0.2.0)**.
-> The 0.2 series is the first pass at a stable public API; breaking changes are still
+> **This project is pre-1.0 (currently v0.3.0)**.
+> The 0.3 series is the current pre-1.0 public API; breaking changes are still
 > possible before v1.0.0. We welcome feedback and contributions!
 
 ## Table of Contents

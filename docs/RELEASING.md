@@ -102,14 +102,20 @@ cargo check --workspace
 Verify the packages without depending on an unpublished `sakurs-core` version:
 
 ```bash
-cargo publish --dry-run --locked -p sakurs-core
-cargo package --no-verify --locked -p sakurs-cli
+cargo package --locked -p sakurs-core
+CORE_PATH="$PWD/sakurs-core"
+cargo package --locked -p sakurs-cli \
+  --config "patch.crates-io.sakurs-core.path='$CORE_PATH'"
 ```
 
-The CLI uses `cargo package --no-verify` deliberately. A full CLI publish dry
-run attempts to resolve `sakurs-core X.Y.Z` from crates.io before that version
-has been published. The tag workflow packages and publishes the core first,
-then publishes the CLI after the registry has accepted the dependency.
+Cargo removes the CLI's local `path` entry when it creates the publishable
+manifest. Without the command-local patch, even `cargo package --no-verify`
+then attempts to resolve `sakurs-core X.Y.Z` from crates.io and fails before
+that version has been published. The patch lets Cargo fully build-verify the
+CLI archive against the same checkout. It does not modify the source manifest
+or the archive: the packaged dependency remains the exact `X.Y.Z` registry
+requirement. The core archive is independently build-verified by the preceding
+command.
 
 Verify that locally built artifacts report the exact release version:
 
@@ -180,9 +186,11 @@ The `Release` workflow will:
 
 1. Validate the tag, workspace versions, lockfile, and matching changelog section.
 2. Run formatting, Clippy, Rust tests, and a compilation check.
-3. In parallel, package-check `sakurs-core` and `sakurs-cli` and build all four
-   `cp310-abi3` wheels: Linux x86_64, Windows x86_64, macOS x86_64, and macOS
-   ARM64. The Intel macOS wheel is cross-compiled on an ARM runner.
+3. In parallel, build-verify the `sakurs-core` and `sakurs-cli` packages and
+   build all four `cp310-abi3` wheels: Linux x86_64, Windows x86_64, macOS
+   x86_64, and macOS ARM64. The CLI verification uses a command-local patch for
+   the as-yet-unpublished core. The Intel macOS wheel is cross-compiled on an
+   ARM runner.
 4. Publish `sakurs-core` to crates.io after every preflight and wheel build passes.
 5. Publish `sakurs-cli` to crates.io after the core publish succeeds.
 6. Pause for a maintainer to approve the protected `pypi` environment.
@@ -264,8 +272,9 @@ new patch version.
 - [ ] Dated changelog section added with a new empty `[Unreleased]` section
 - [ ] Version-specific README and API documentation updated
 - [ ] Mandatory Rust checks pass
-- [ ] `sakurs-core` publish dry run passes
-- [ ] `sakurs-cli` package check passes with `--no-verify --locked`
+- [ ] `sakurs-core` package build-verification passes with `--locked`
+- [ ] `sakurs-cli` package build-verification passes with the command-local
+      core patch
 - [ ] Local CLI and installed wheel report exactly `X.Y.Z`
 - [ ] Python tests pass against the installed wheel
 - [ ] Release PR approved, CI-green, and merged

@@ -7,12 +7,12 @@
 //!
 //! # Stability Notice
 //!
-//! This crate is pre-1.0. The 0.2 series is the first pass at a stable
-//! public surface: the API is intentionally small (the [`api`] module,
-//! re-exported at the crate root) so that internal improvements no longer
-//! require breaking changes. Pin a minor version in your Cargo.toml:
+//! This crate is pre-1.0. The current 0.3 series exposes a deliberately small
+//! public surface (the [`api`] module, re-exported at the crate root) so that
+//! internal improvements no longer require breaking changes. Pin a minor
+//! version in your Cargo.toml:
 //! ```toml
-//! sakurs-core = "0.2"
+//! sakurs-core = "0.3"
 //! ```
 //!
 //! # Example
