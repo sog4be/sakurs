@@ -35,7 +35,7 @@ alias sakurs-verbose='sakurs process -vv'
 # Process all text files in directory
 alias sakurs-dir='sakurs process -i "*.txt"'
 
-# Stream large files
+# Legacy compatibility path (currently reads the complete file into memory)
 alias sakurs-stream='sakurs process --stream'
 
 # Japanese novel processing

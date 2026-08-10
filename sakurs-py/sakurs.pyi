@@ -372,12 +372,12 @@ def split_large_file(
     encoding: str = "utf-8",
 ) -> LargeFileIterator:
     """
-    Process large files with limited memory usage.
+    Process large files incrementally in configurable chunks.
 
-    This function reads and processes the file in chunks, ensuring memory
-    usage stays within the specified limit. Sentences that span chunk
-    boundaries are handled correctly but may be delayed until the next
-    chunk is processed.
+    ``max_memory_mb`` is a target budget used to derive the chunk size, not a
+    hard memory limit. An individual line or sentence without a safe boundary
+    can require a larger carry-over buffer. Sentences spanning chunk boundaries
+    may be delayed until the following chunk and are yielded in input order.
     """
     ...
 

@@ -38,8 +38,7 @@ pub struct ProcessArgs {
     #[arg(short, long)]
     pub parallel: bool,
 
-    /// Use adaptive processing (automatically choose best strategy)
-    /// Note: This is experimental and currently uses the default processing
+    /// Compatibility option; currently has no effect
     #[arg(long, conflicts_with = "parallel")]
     pub adaptive: bool,
 
@@ -59,11 +58,11 @@ pub struct ProcessArgs {
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
-    /// Enable streaming mode for large files (process in chunks)
+    /// Compatibility option; currently reads each file completely into memory
     #[arg(long)]
     pub stream: bool,
 
-    /// Streaming chunk size in MB (default: 10MB)
+    /// Compatibility value; currently unused
     #[arg(long, default_value = "10", requires = "stream")]
     pub stream_chunk_mb: u64,
 }
@@ -123,13 +122,15 @@ impl ProcessArgs {
             for file in &files {
                 log::info!("Processing file: {}", file.display());
 
-                // Check if we should use streaming mode
+                // Keep the legacy streaming path for CLI compatibility. It currently
+                // reads the complete file, just like the regular path.
                 let file_size_mb = crate::input::FileReader::file_size(file)? / (1024 * 1024);
-                let should_stream = self.stream || file_size_mb > 100; // Auto-stream for files > 100MB
+                // Files over 100MB historically selected this path automatically.
+                let should_stream = self.stream || file_size_mb > 100;
 
                 if should_stream {
                     log::info!(
-                        "Using streaming mode for {} ({}MB)",
+                        "Using streaming compatibility path for {} ({}MB); input is read completely into memory",
                         file.display(),
                         file_size_mb
                     );
@@ -298,17 +299,10 @@ impl ProcessArgs {
     ) -> Result<sakurs_core::ConfigBuilder> {
         let mut builder = builder;
 
-        // Handle thread count:
-        // - If threads is specified, use that value
-        // - If parallel flag is set, use None (all available threads)
-        // - Otherwise, use default (auto-detect based on text size)
-        if let Some(thread_count) = self.threads {
-            if thread_count == 0 {
-                return Err(anyhow::anyhow!("Thread count must be greater than 0"));
-            }
+        // Resolve an explicit worker count for --parallel so short inputs do
+        // not fall back to the adaptive single-threaded path.
+        if let Some(thread_count) = resolve_thread_count(self.threads, self.parallel)? {
             builder = builder.threads(Some(thread_count));
-        } else if self.parallel {
-            builder = builder.threads(None); // Use all available threads
         }
 
         // Handle chunk size if specified
@@ -321,20 +315,24 @@ impl ProcessArgs {
             builder = builder.chunk_size(chunk_size);
         }
 
-        // Note: adaptive mode now uses default configuration
+        // --adaptive is retained for CLI compatibility and intentionally leaves
+        // the default processor configuration unchanged.
         Ok(builder)
     }
 
-    /// Process a file in streaming mode
+    /// Process a file through the legacy streaming compatibility path
     fn process_file_streaming(
         &self,
         file: &std::path::Path,
         processor: &sakurs_core::SentenceProcessor,
         formatter: &mut Box<dyn crate::output::OutputFormatter>,
     ) -> Result<()> {
-        // For now, streaming mode uses the same processing as regular mode
-        // but could be enhanced in the future to process chunks incrementally
-        log::info!("Using streaming mode for large file: {}", file.display());
+        // This path intentionally preserves the existing CLI contract. It is not
+        // incremental: the complete file is loaded before processing.
+        log::info!(
+            "Streaming compatibility path reads the complete file: {}",
+            file.display()
+        );
 
         let content = crate::input::FileReader::read_text(file)?;
         let result = processor
@@ -392,6 +390,16 @@ impl ProcessArgs {
         }
 
         Ok(())
+    }
+}
+
+/// Resolve the CLI's thread options into the core configuration.
+fn resolve_thread_count(threads: Option<usize>, force_parallel: bool) -> Result<Option<usize>> {
+    match threads {
+        Some(0) => Err(anyhow::anyhow!("Thread count must be greater than 0")),
+        Some(count) => Ok(Some(count)),
+        None if force_parallel => Ok(Some(num_cpus::get().max(1))),
+        None => Ok(None),
     }
 }
 
@@ -455,6 +463,17 @@ fn output_sentences(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_resolve_thread_count() {
+        assert_eq!(resolve_thread_count(None, false).unwrap(), None);
+        assert_eq!(resolve_thread_count(Some(4), false).unwrap(), Some(4));
+        assert_eq!(
+            resolve_thread_count(None, true).unwrap(),
+            Some(num_cpus::get().max(1))
+        );
+        assert!(resolve_thread_count(Some(0), true).is_err());
+    }
 
     #[test]
     fn test_find_safe_split_point_sentence_boundary() {

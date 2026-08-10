@@ -29,8 +29,9 @@ This directory contains examples demonstrating how to use the sakurs Python pack
 - Splitting text with `sakurs.split(text, language_config=config)`
 
 ### 5. Streaming (`streaming_demo.py`)
-- `iter_split()` for responsive, incremental iteration over in-memory text
-- `split_large_file()` for true memory-efficient processing of large files
+- `iter_split()` for responsive result iteration after loading the complete input
+- `split_large_file()` for incremental large-file input with a target chunk budget;
+  sentences remain in input order, but a long line or sentence can exceed the target
 
 ## Running the Examples
 

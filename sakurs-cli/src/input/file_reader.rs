@@ -24,7 +24,7 @@ impl FileReader {
         Ok(metadata.len())
     }
 
-    /// Check if file should be processed in streaming mode based on size
+    /// Check whether a file exceeds a compatibility-path size threshold
     pub fn should_stream(path: &Path, threshold_mb: u64) -> Result<bool> {
         let size = Self::file_size(path)?;
         Ok(size > threshold_mb * 1024 * 1024)

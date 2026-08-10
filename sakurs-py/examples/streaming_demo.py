@@ -3,7 +3,7 @@
 
 This example shows how to use:
 1. iter_split() - For responsive iteration (loads all data, yields incrementally)
-2. split_large_file() - For true memory-efficient processing of large files
+2. split_large_file() - For incremental large-file input with a target chunk budget
 """
 
 import os
@@ -53,9 +53,10 @@ def demo_iter_split() -> None:
 
 
 def demo_split_large_file() -> None:
-    """Demonstrate split_large_file() for memory-efficient processing."""
+    """Demonstrate split_large_file() with a target chunk budget."""
     print("=== split_large_file() Demo ===")
-    print("This processes files in chunks with limited memory usage.")
+    print("This reads files incrementally and yields sentences in input order.")
+    print("max_memory_mb is a target, not a hard limit; long lines can exceed it.")
     print()
 
     # Create a moderately large test file
@@ -72,8 +73,8 @@ def demo_split_large_file() -> None:
     print()
 
     try:
-        # Process with very limited memory (1MB)
-        print("Processing with max_memory_mb=1:")
+        # Use a 1MB target budget. Long lines or sentences can require more.
+        print("Processing with max_memory_mb=1 (target budget):")
         start_time = time.time()
         sentence_count = 0
 
@@ -95,7 +96,7 @@ def demo_split_large_file() -> None:
 
 
 def demo_language_support() -> None:
-    """Demonstrate streaming with different languages."""
+    """Demonstrate result iteration with different languages."""
     print("=== Language Support Demo ===")
     print()
 
@@ -137,7 +138,7 @@ def demo_use_case_comparison() -> None:
         sentences = list(sakurs.iter_split(small_file))
         print(f"  Loaded {len(sentences)} sentences in {time.time() - start:.3f}s")
 
-        # For larger files where memory is a concern, use split_large_file()
+        # For larger files, split_large_file() avoids retaining the complete input.
         print("\nMedium file (120KB) - comparing both methods:")
 
         print("  Using iter_split() (loads all at once):")
@@ -146,16 +147,14 @@ def demo_use_case_comparison() -> None:
         iter_time = time.time() - start
         print(f"    Processed {len(sentences)} sentences in {iter_time:.3f}s")
 
-        print("  Using split_large_file() (memory-efficient):")
+        print("  Using split_large_file() (incremental input):")
         start = time.time()
         sentences = list(sakurs.split_large_file(medium_file, max_memory_mb=1))
         large_time = time.time() - start
         print(f"    Processed {len(sentences)} sentences in {large_time:.3f}s")
 
         print(f"\nTime difference: {abs(iter_time - large_time):.3f}s")
-        print(
-            "Note: split_large_file() may be slightly slower but uses much less memory."
-        )
+        print("Note: max_memory_mb is a target budget, not a hard memory limit.")
 
     finally:
         os.unlink(small_file)
@@ -177,9 +176,8 @@ def main() -> None:
     print(
         "- Use iter_split() when you want responsive processing and memory is not a concern"
     )
-    print(
-        "- Use split_large_file() when processing very large files with limited memory"
-    )
+    print("- Use split_large_file() for incremental input from very large files")
+    print("- Its target budget can be exceeded by a long line or sentence")
     print("- Both APIs support all sakurs language configurations")
 
 

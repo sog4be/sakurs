@@ -246,6 +246,20 @@ class TestSplitFunction:
         for sent in result_preserved:
             assert text[sent.start : sent.end] == sent.text
 
+    @pytest.mark.parametrize("text", ["Hello.\n", "  \n\t"])
+    def test_preserve_whitespace_omits_whitespace_only_segments(self, text):
+        """Trailing or standalone whitespace is not a sentence."""
+        expected = ["Hello."] if text.startswith("Hello") else []
+
+        assert sakurs.split(text, preserve_whitespace=True) == expected
+
+        detailed = sakurs.split(
+            text,
+            return_details=True,
+            preserve_whitespace=True,
+        )
+        assert [sentence.text for sentence in detailed] == expected
+
 
 class TestSentenceClass:
     """Test the Sentence class functionality."""

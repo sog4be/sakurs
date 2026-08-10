@@ -14,7 +14,7 @@ pub mod defaults {
 pub struct Config {
     pub(crate) language: Language,
     pub(crate) chunk_size: usize,      // in bytes
-    pub(crate) threads: Option<usize>, // None = all available threads
+    pub(crate) threads: Option<usize>, // None = adaptive thread selection
 }
 
 impl Default for Config {
@@ -47,7 +47,7 @@ impl Config {
         Self {
             language: Language::default(),
             chunk_size: 512 * 1024, // 512KB chunks
-            threads: None,          // Use all available cores
+            threads: None,          // Adaptive thread selection
         }
     }
 
@@ -106,7 +106,7 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set the number of threads (None = all available)
+    /// Set an explicit thread count; `None` leaves adaptive selection enabled
     pub fn threads(mut self, count: Option<usize>) -> Self {
         self.threads = count;
         self

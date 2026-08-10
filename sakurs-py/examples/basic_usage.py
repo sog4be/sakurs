@@ -98,8 +98,8 @@ def main() -> None:  # noqa: PLR0915
     print()
 
     # Note about split_large_file()
-    print("Note: For memory-efficient processing of very large files,")
-    print("      use sakurs.split_large_file(). See streaming_demo.py for examples.")
+    print("Note: For incremental input from very large files,")
+    print("      use split_large_file(); max_memory_mb is a target, not a hard limit.")
 
 
 if __name__ == "__main__":

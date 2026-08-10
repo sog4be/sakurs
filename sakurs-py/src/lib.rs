@@ -20,9 +20,13 @@ mod types;
 use exceptions::{register_exceptions, InternalError};
 use input::PyInput;
 use language_config::LanguageConfig;
-use output::{boundaries_to_sentences_with_char_offsets, ProcessingMetadata, Sentence};
-use processor::PyProcessor;
+use output::{
+    boundaries_to_sentences_with_char_offsets, normalize_sentence_text, ProcessingMetadata,
+    Sentence,
+};
+use processor::{resolve_execution_threads, PyProcessor};
 use sakurs_core::{Config, SentenceProcessor};
+use std::path::PathBuf;
 use std::time::Instant;
 
 /// Split text into sentences
@@ -33,7 +37,7 @@ use std::time::Instant;
 ///     language_config: Custom language configuration
 ///     threads: Number of threads for parallel processing (None for auto)
 ///     chunk_kb: Chunk size in KB for parallel processing (default: 256)
-///     parallel: Force parallel processing even for small inputs
+///     parallel: Force parallel processing; overrides a valid execution_mode selection
 ///     execution_mode: Processing strategy ("sequential", "parallel", "adaptive")
 ///     return_details: Return Sentence objects with metadata instead of strings
 ///     preserve_whitespace: Keep leading/trailing whitespace in sentences (default: False)
@@ -44,7 +48,6 @@ use std::time::Instant;
 #[pyfunction]
 #[pyo3(signature = (input, *, language=None, language_config=None, threads=None, chunk_kb=None, parallel=false, execution_mode="adaptive", return_details=false, preserve_whitespace=false, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
-#[allow(unused_variables)]
 fn split(
     input: &Bound<'_, PyAny>,
     language: Option<&str>,
@@ -98,29 +101,12 @@ fn split(
         )
     };
 
-    // Handle execution mode and performance parameters
-    match execution_mode {
-        "sequential" => {
-            // Force sequential mode by setting threads to 1
-            config_builder = config_builder.threads(Some(1));
-        }
-        "parallel" => {
-            // Use provided threads or let it default to all available
-            config_builder = config_builder.threads(threads);
-            let _ = parallel; // historical flag; thread count drives parallelism
-        }
-        "adaptive" => {
-            // Let the system decide based on text size
-            if let Some(t) = threads {
-                config_builder = config_builder.threads(Some(t));
-            }
-        }
-        _ => {
-            return Err(InternalError::ConfigurationError(format!(
-                "Invalid execution_mode: {execution_mode}"
-            ))
-            .into())
-        }
+    // Resolve forced parallel modes to an explicit worker count so small
+    // inputs do not fall back to adaptive sequential processing. The legacy
+    // `parallel` flag is an alias that takes precedence after execution_mode
+    // has been validated.
+    if let Some(thread_count) = resolve_execution_threads(execution_mode, threads, parallel)? {
+        config_builder = config_builder.threads(Some(thread_count));
     }
 
     if let Some(kb) = chunk_kb {
@@ -206,14 +192,11 @@ fn split(
             let end_byte = boundary.offset;
 
             if end_char > start_char && end_byte <= text.len() {
-                let sentence = text[start_byte..end_byte].to_string();
-                // Trim whitespace unless preserve_whitespace is True
-                let sentence = if preserve_whitespace {
-                    sentence
-                } else {
-                    sentence.trim().to_string()
-                };
-                sentences.push(sentence);
+                if let Some(sentence) =
+                    normalize_sentence_text(&text[start_byte..end_byte], preserve_whitespace)
+                {
+                    sentences.push(sentence);
+                }
                 start_char = end_char;
                 start_byte = end_byte;
             }
@@ -221,14 +204,11 @@ fn split(
 
         // Handle any remaining text
         if start_byte < text.len() {
-            let sentence = text[start_byte..].to_string();
-            // Trim whitespace unless preserve_whitespace is True
-            let sentence = if preserve_whitespace {
-                sentence
-            } else {
-                sentence.trim().to_string()
-            };
-            sentences.push(sentence);
+            if let Some(sentence) =
+                normalize_sentence_text(&text[start_byte..], preserve_whitespace)
+            {
+                sentences.push(sentence);
+            }
         }
 
         Ok(PyList::new(py, sentences)?.unbind().into())
@@ -293,22 +273,23 @@ fn iter_split(
         language_config,
         threads,
         chunk_kb.map(|kb| kb * 1024),
+        false,
         encoding,
     )
 }
 
-/// Process large files with limited memory usage
+/// Process large files incrementally in configurable chunks.
 ///
-/// This function reads and processes the file in chunks, ensuring memory
-/// usage stays within the specified limit. Sentences that span chunk
-/// boundaries are handled correctly but may be delayed until the next
-/// chunk is processed.
+/// `max_memory_mb` is a target budget used to derive the chunk size, not a
+/// hard memory limit. An individual line or sentence without a safe boundary
+/// can require a larger carry-over buffer. Sentences spanning chunk boundaries
+/// may be delayed until the following chunk.
 ///
 /// Args:
 ///     file_path: Path to the file to process
 ///     language: Language code ("en", "ja") for built-in rules (default: "en")
 ///     language_config: Custom language configuration
-///     max_memory_mb: Maximum memory to use in MB (default: 100)
+///     max_memory_mb: Target memory budget in MB used to derive chunk size (default: 100)
 ///     overlap_size: Bytes to overlap between chunks for boundary handling (default: 1024)
 ///     encoding: File encoding (default: "utf-8")
 ///
@@ -316,14 +297,12 @@ fn iter_split(
 ///     Iterator yielding sentences as they are found
 ///
 /// Note:
-///     Due to the nature of chunk processing, sentences near chunk
-///     boundaries may be yielded slightly out of order compared to
-///     their position in the file.
+///     Sentences are yielded in input order.
 #[pyfunction]
 #[pyo3(signature = (file_path, *, language=None, language_config=None, max_memory_mb=100, overlap_size=1024, encoding="utf-8"))]
 #[allow(clippy::too_many_arguments)]
 fn split_large_file(
-    file_path: &str,
+    file_path: PathBuf,
     language: Option<&str>,
     language_config: Option<LanguageConfig>,
     max_memory_mb: usize,
@@ -333,7 +312,7 @@ fn split_large_file(
 ) -> PyResult<stream::LargeFileIterator> {
     stream::create_large_file_iterator(
         py,
-        file_path,
+        &file_path,
         language,
         language_config,
         max_memory_mb,

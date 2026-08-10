@@ -64,7 +64,7 @@ results = sakurs.split(text, return_details=True)
 for sentence in results:
     print(f"{sentence.text} [{sentence.start}:{sentence.end}]")
 
-# Memory-efficient processing for large files
+# Incremental processing for large files (the budget is a target, not a hard limit)
 for sentence in sakurs.split_large_file("huge_corpus.txt", max_memory_mb=50):
     process(sentence)  # Process each sentence as it's found
 
@@ -115,8 +115,11 @@ sakurs.split(
 - `language_config` (LanguageConfig, optional): Custom language configuration
 - `threads` (int, optional): Number of threads (None for auto)
 - `chunk_kb` (int, optional): Chunk size in KB (default: 256) for parallel processing
-- `parallel` (bool): Force parallel processing even for small inputs
-- `execution_mode` (str): "sequential", "parallel", or "adaptive" (default)
+- `parallel` (bool): Backward-compatible alias that forces parallel processing and
+  takes precedence after `execution_mode` is validated. Without `threads`, it uses
+  the available workers.
+- `execution_mode` (str): Must be "sequential", "parallel", or "adaptive" (default);
+  the selected valid mode is overridden when `parallel=True`
 - `return_details` (bool): Return Sentence objects with metadata instead of strings
 - `preserve_whitespace` (bool): Keep leading/trailing whitespace on each sentence instead of trimming it
 - `encoding` (str): Text encoding for file/bytes inputs (default: "utf-8")
@@ -144,7 +147,7 @@ sakurs.iter_split(
 **Returns:** Iterator[str] - Iterator yielding sentences
 
 #### `sakurs.split_large_file`
-Process large files with limited memory usage.
+Process large files incrementally in configurable chunks.
 
 **Signature:**
 ```python
@@ -163,11 +166,12 @@ sakurs.split_large_file(
 - `file_path` (str | Path): Path to the file
 - `language` (str, optional): Language code
 - `language_config` (LanguageConfig, optional): Custom language configuration  
-- `max_memory_mb` (int): Maximum memory to use in MB (default: 100)
+- `max_memory_mb` (int): Target memory budget used to derive chunk size (default: 100).
+  A single long line or sentence may require a larger carry-over buffer.
 - `overlap_size` (int): Bytes to overlap between chunks (default: 1024)
 - `encoding` (str): File encoding (default: "utf-8")
 
-**Returns:** Iterator[str] - Iterator yielding sentences
+**Returns:** Iterator[str] - Iterator yielding sentences in input order
 
 #### `sakurs.load`
 Create a processor instance for repeated use.
@@ -212,8 +216,10 @@ Main sentence splitter class for sentence boundary detection.
 - `threads` (int, optional): Number of threads
 - `chunk_kb` (int, optional): Chunk size in KB (default: 256)
 - `execution_mode` (str): "sequential", "parallel", or "adaptive"
-- `streaming` (bool): Enable streaming mode configuration
-- `stream_chunk_mb` (int): Chunk size in MB for streaming mode
+- `streaming` (bool): Compatibility algorithm-chunk preset. It does not enable
+  incremental I/O; `split()` and `iter_split()` still retain the complete input.
+- `stream_chunk_mb` (int): Algorithm chunk size in MB used when `streaming=True`
+  and `chunk_kb` is omitted. It is not a memory limit.
 
 **Methods:**
 - `split(input, *, return_details=False, encoding="utf-8")`: Split text or file into sentences
@@ -263,7 +269,8 @@ Language configuration for custom rules.
    for sentence in sakurs.iter_split(document):
        process_immediately(sentence)
    
-   # For huge files with memory constraints - use split_large_file()
+   # For incremental large-file I/O - use split_large_file(). max_memory_mb is
+   # a target budget; a long line or sentence can require a larger carry-over.
    for sentence in sakurs.split_large_file("10gb_corpus.txt", max_memory_mb=100):
        index_sentence(sentence)
    ```
@@ -283,8 +290,12 @@ Language configuration for custom rules.
    # For I/O-bound or interactive use
    processor = sakurs.load("en", threads=2, execution_mode="adaptive")
    
-   # For memory-constrained environments
+   # Legacy algorithm-chunk preset; the complete input is still retained
    processor = sakurs.SentenceSplitter(language="en", streaming=True, stream_chunk_mb=5)
+
+   # For incremental file input, use the large-file iterator instead
+   for sentence in sakurs.split_large_file("large.txt", max_memory_mb=100):
+       process_immediately(sentence)
    ```
 
 4. **Leave the chunk size alone**: results are identical for every chunk size by design, and throughput is flat across a wide range — the 256KB default is right for almost all workloads.

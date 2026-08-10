@@ -221,6 +221,9 @@ def test_split_with_custom_language_config():
     assert sentences[1] == "But this will!"
     assert sentences[2] == "And this. Not this!"
 
+    processor = sakurs.SentenceSplitter(language_config=config)
+    assert list(processor.iter_split(text)) == sentences
+
 
 def test_processor_with_custom_language_config():
     """Test creating a Processor with custom LanguageConfig."""
