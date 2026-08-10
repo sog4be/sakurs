@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use crate::exceptions::InternalError;
 
 /// Metadata configuration for a language
-#[pyclass(name = "MetadataConfig")]
+#[pyclass(name = "MetadataConfig", from_py_object)]
 #[derive(Clone)]
 pub struct MetadataConfig {
     #[pyo3(get, set)]
@@ -39,7 +39,7 @@ impl MetadataConfig {
 }
 
 /// Terminator pattern configuration
-#[pyclass(name = "TerminatorPattern")]
+#[pyclass(name = "TerminatorPattern", from_py_object)]
 #[derive(Clone)]
 pub struct TerminatorPattern {
     #[pyo3(get, set)]
@@ -64,7 +64,7 @@ impl TerminatorPattern {
 }
 
 /// Terminator configuration
-#[pyclass(name = "TerminatorConfig")]
+#[pyclass(name = "TerminatorConfig", from_py_object)]
 #[derive(Clone)]
 pub struct TerminatorConfig {
     #[pyo3(get, set)]
@@ -91,7 +91,7 @@ impl TerminatorConfig {
 }
 
 /// Context rule for ellipsis handling
-#[pyclass(name = "ContextRule")]
+#[pyclass(name = "ContextRule", from_py_object)]
 #[derive(Clone)]
 pub struct ContextRule {
     #[pyo3(get, set)]
@@ -119,7 +119,7 @@ impl ContextRule {
 }
 
 /// Exception pattern for ellipsis handling
-#[pyclass(name = "ExceptionPattern")]
+#[pyclass(name = "ExceptionPattern", from_py_object)]
 #[derive(Clone)]
 pub struct ExceptionPattern {
     #[pyo3(get, set)]
@@ -144,7 +144,7 @@ impl ExceptionPattern {
 }
 
 /// Ellipsis configuration
-#[pyclass(name = "EllipsisConfig")]
+#[pyclass(name = "EllipsisConfig", from_py_object)]
 #[derive(Clone)]
 pub struct EllipsisConfig {
     #[pyo3(get, set)]
@@ -187,7 +187,7 @@ impl EllipsisConfig {
 }
 
 /// Enclosure pair configuration
-#[pyclass(name = "EnclosurePair")]
+#[pyclass(name = "EnclosurePair", from_py_object)]
 #[derive(Clone)]
 pub struct EnclosurePair {
     #[pyo3(get, set)]
@@ -219,7 +219,7 @@ impl EnclosurePair {
 }
 
 /// Enclosure configuration
-#[pyclass(name = "EnclosureConfig")]
+#[pyclass(name = "EnclosureConfig", from_py_object)]
 #[derive(Clone)]
 pub struct EnclosureConfig {
     #[pyo3(get, set)]
@@ -239,7 +239,7 @@ impl EnclosureConfig {
 }
 
 /// Fast pattern for suppression
-#[pyclass(name = "FastPattern")]
+#[pyclass(name = "FastPattern", from_py_object)]
 #[derive(Clone)]
 pub struct FastPattern {
     #[pyo3(get, set)]
@@ -274,7 +274,7 @@ impl FastPattern {
 }
 
 /// Regex pattern for suppression
-#[pyclass(name = "RegexPattern")]
+#[pyclass(name = "RegexPattern", from_py_object)]
 #[derive(Clone)]
 pub struct RegexPattern {
     #[pyo3(get, set)]
@@ -303,7 +303,7 @@ impl RegexPattern {
 }
 
 /// Suppression configuration
-#[pyclass(name = "SuppressionConfig")]
+#[pyclass(name = "SuppressionConfig", from_py_object)]
 #[derive(Clone)]
 pub struct SuppressionConfig {
     #[pyo3(get, set)]
@@ -333,7 +333,7 @@ impl SuppressionConfig {
 }
 
 /// Abbreviation configuration
-#[pyclass(name = "AbbreviationConfig")]
+#[pyclass(name = "AbbreviationConfig", from_py_object)]
 pub struct AbbreviationConfig {
     #[pyo3(get, set)]
     pub categories: Py<PyDict>,
@@ -389,7 +389,7 @@ impl AbbreviationConfig {
 }
 
 /// Sentence starter configuration
-#[pyclass(name = "SentenceStarterConfig")]
+#[pyclass(name = "SentenceStarterConfig", from_py_object)]
 pub struct SentenceStarterConfig {
     #[pyo3(get, set)]
     pub categories: Py<PyDict>,
@@ -442,7 +442,7 @@ impl SentenceStarterConfig {
 }
 
 /// Complete language configuration
-#[pyclass(name = "LanguageConfig")]
+#[pyclass(name = "LanguageConfig", from_py_object)]
 #[derive(Clone)]
 pub struct LanguageConfig {
     #[pyo3(get, set)]

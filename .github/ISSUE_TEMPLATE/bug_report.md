@@ -21,7 +21,7 @@ A clear and concise description of what you expected to happen.
 
 **Environment:**
  - OS: [e.g., Ubuntu 22.04, macOS 14.0, Windows 11]
- - Rust version: [e.g., 1.81.0]
+ - Rust version: [e.g., 1.86.0]
  - Python version (if using sakurs-py): [e.g., 3.11.5]
  - Sakurs version: [e.g., 0.1.0]
 

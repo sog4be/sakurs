@@ -31,24 +31,29 @@ jobs:
     name: Test
     runs-on: ${{ matrix.os }}
     needs: quick-checks  # Only run tests if quick checks pass
+    env:
+      RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
     strategy:
       fail-fast: true  # Stop all jobs if one fails
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, 1.81.0]  # MSRV
+        rust: [stable, 1.86.0]  # MSRV
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
+          components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all-features --workspace --exclude sakurs-py
+      - name: Verify selected Rust toolchain
+        run: rustc --version --verbose
+      - run: cargo test --locked --all-features --workspace --exclude sakurs-py
       
       # Check sakurs-py separately (can't run normal tests for extension modules)
       - name: Check sakurs-py compilation
-        run: cargo check -p sakurs-py --all-features
+        run: cargo check --locked -p sakurs-py --all-features
       - name: Check sakurs-py with clippy
-        run: cargo clippy -p sakurs-py --all-features -- -D warnings
+        run: cargo clippy --locked -p sakurs-py --all-features -- -D warnings
 
   # Benchmarks temporarily disabled due to migration from TextProcessor to SentenceProcessor
   # See issue for details on required fixes
