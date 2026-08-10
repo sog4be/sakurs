@@ -218,9 +218,15 @@ jobs:
       - name: Package sakurs-core with verification
         run: cargo package -p sakurs-core --locked
 
-      - name: Package sakurs-cli metadata
-        # sakurs-core for this release is not available from crates.io yet.
-        run: cargo package -p sakurs-cli --no-verify --locked
+      - name: Package sakurs-cli with verification
+        # Cargo strips path dependencies from the published manifest, so an
+        # unpublished same-version core needs a local crates.io patch while
+        # verifying the CLI archive. The patch is command-local and is not
+        # included in the package that cargo publish uploads.
+        run: |
+          CORE_PATH="$PWD/sakurs-core"
+          cargo package -p sakurs-cli --locked \
+            --config "patch.crates-io.sakurs-core.path='$CORE_PATH'"
 
   # Publish sakurs-core only after all packages and wheels have been built.
   publish-core:

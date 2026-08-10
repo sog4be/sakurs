@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-10
+
+This release raises the supported toolchain baselines, resolves two PyO3
+security advisories, and hardens the large-file and release workflows. The
+public Rust API and the CPython 3.10 stable ABI (`abi3-py310`) remain unchanged.
+
 ### Changed
 
 - **Breaking**: the workspace minimum supported Rust version (MSRV) is now 1.86
@@ -16,6 +22,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the CPython 3.10 stable ABI and are tested through Python 3.14
 - Updated the Python development and test toolchain to current releases, including
   pytest 9, pytest-cov 7, pytest-benchmark 5, Ruff 0.15, mypy 2.2, and maturin 1.14
+- **Breaking**: `SentenceSplitter.iter_split()` now exposes the documented
+  `preserve_whitespace` keyword instead of the unintended private-looking
+  `_preserve_whitespace` spelling
+- Explicit parallel modes now select the available worker count rather than
+  falling back to adaptive execution. This applies to the CLI `--parallel`
+  option and the Python `parallel=True` compatibility alias
+- Clarified that CLI `--stream` and Python `streaming=True` retain the complete
+  input; use Python `split_large_file()` for incremental file input
+
+### Fixed
+
+- `SentenceSplitter.iter_split()` now retains custom language configuration and
+  execution settings, and applies `preserve_whitespace` consistently with
+  `split()` and detailed sentence results
+- Whitespace-only trailing input is no longer returned as an extra sentence
+- `split_large_file()` now accepts path-like objects and preserves every
+  sentence across real chunk boundaries, exact EOF/overlap boundaries, and
+  oversized unterminated regions
+- Non-UTF-8 incremental input now uses a stateful decoder, preventing multibyte
+  characters such as Shift_JIS text from being corrupted when split across a
+  read boundary
+- The release workflow now validates the tag, manifests, lockfile, and
+  CHANGELOG; builds all packages and wheels before the first registry write;
+  and only creates the GitHub Release after crates.io and PyPI succeed
+
+### Performance
+
+- Large-file carry-over grows geometrically and buffered sentences use a queue,
+  avoiding quadratic rescanning and front-removal costs without changing
+  sentence boundaries
 
 ### Security
 
@@ -197,5 +233,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Safe handling of untrusted text input with bounded memory usage
 - UTF-8 validation at chunk boundaries
 
+[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/sog4be/sakurs/releases/tag/v0.3.0
 [0.2.0]: https://github.com/sog4be/sakurs/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sog4be/sakurs/releases/tag/v0.1.0

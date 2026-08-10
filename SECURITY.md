@@ -2,12 +2,13 @@
 
 ## Supported Versions
 
-Security updates will be provided for:
+Because sakurs is pre-1.0, security updates are provided only for the latest
+minor release series:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+| 0.3.x   | :white_check_mark: |
+| < 0.3   | :x:                |
 
 ## Reporting a Vulnerability
 
