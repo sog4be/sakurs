@@ -349,7 +349,7 @@ fn supported_languages() -> Vec<&'static str> {
 }
 
 /// Main Python module for sakurs
-#[pymodule]
+#[pymodule(gil_used = true)]
 fn sakurs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let py = m.py();
 

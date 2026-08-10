@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking**: the workspace minimum supported Rust version (MSRV) is now 1.86
+- Updated the Python bindings from PyO3 0.27 to 0.29.2 while retaining the
+  CPython 3.10 stable ABI for published wheels
 - **Breaking**: the Python package now requires Python 3.10 or later. Published wheels use
   the CPython 3.10 stable ABI and are tested through Python 3.14
 - Updated the Python development and test toolchain to current releases, including
@@ -16,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Updated PyO3 to 0.29.2, addressing GHSA-36hh-v3qg-5jq4 (out-of-bounds reads
+  in `PyList`/`PyTuple` iterator `nth`/`nth_back`) and GHSA-chgr-c6px-7xpp
+  (a missing `Sync` bound in `PyCFunction::new_closure`)
 - Require pytest 9.0.3 or later for test and benchmark environments, addressing
   CVE-2025-71176 (GHSA-6w46-j5rx-g56g)
 

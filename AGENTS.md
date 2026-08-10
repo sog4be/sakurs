@@ -26,7 +26,7 @@ Except for this Codex-specific section, keep shared project guidance aligned
 with `CLAUDE.md`.
 
 ## Tech Stack
-- Rust 1.81+ (workspace with 3 crates)
+- Rust 1.86+ (workspace with 3 crates)
 - Cargo workspace resolver = "2"
 - Key dependencies: thiserror, serde, tracing
 - Testing: criterion (benchmarks), proptest (property testing)

@@ -1,8 +1,21 @@
 """Test error handling and validation."""
 
+import sys
+
 import pytest
 
 import sakurs
+
+
+def assert_integer_type_error(error: TypeError, parameter: str) -> None:
+    """Check PyO3's integer conversion error across supported Python versions."""
+    message = str(error)
+    assert "float" in message
+    assert "cannot be interpreted as an integer" in message
+
+    if sys.version_info >= (3, 11):
+        notes = getattr(error, "__notes__", ())
+        assert any(parameter in note for note in notes)
 
 
 class TestParameterValidation:
@@ -13,54 +26,42 @@ class TestParameterValidation:
         with pytest.raises(TypeError) as exc_info:
             list(sakurs.iter_split("Hello.", chunk_kb=1024.5))  # type: ignore
 
-        assert "chunk_kb" in str(exc_info.value)
-        assert "float" in str(exc_info.value)
-        assert "cannot be interpreted as an integer" in str(exc_info.value)
+        assert_integer_type_error(exc_info.value, "chunk_kb")
 
     def test_split_large_file_float_max_memory_mb(self):
         """Test that float max_memory_mb raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
             list(sakurs.split_large_file("/tmp/test.txt", max_memory_mb=10.5))  # type: ignore
 
-        assert "max_memory_mb" in str(exc_info.value)
-        assert "float" in str(exc_info.value)
-        assert "cannot be interpreted as an integer" in str(exc_info.value)
+        assert_integer_type_error(exc_info.value, "max_memory_mb")
 
     def test_split_float_threads(self):
         """Test that float threads raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
             sakurs.split("Hello.", threads=2.5)  # type: ignore
 
-        assert "threads" in str(exc_info.value)
-        assert "float" in str(exc_info.value)
-        assert "cannot be interpreted as an integer" in str(exc_info.value)
+        assert_integer_type_error(exc_info.value, "threads")
 
     def test_split_float_chunk_size(self):
         """Test that float chunk_size raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
             sakurs.split("Hello.", chunk_kb=1024.5)  # type: ignore
 
-        assert "chunk_kb" in str(exc_info.value)
-        assert "float" in str(exc_info.value)
-        assert "cannot be interpreted as an integer" in str(exc_info.value)
+        assert_integer_type_error(exc_info.value, "chunk_kb")
 
     def test_load_float_threads(self):
         """Test that float threads in load raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
             sakurs.load("en", threads=4.0)  # type: ignore
 
-        assert "threads" in str(exc_info.value)
-        assert "float" in str(exc_info.value)
-        assert "cannot be interpreted as an integer" in str(exc_info.value)
+        assert_integer_type_error(exc_info.value, "threads")
 
     def test_load_float_chunk_size(self):
         """Test that float chunk_size in load raises TypeError."""
         with pytest.raises(TypeError) as exc_info:
             sakurs.load("en", chunk_kb=2048.0)  # type: ignore
 
-        assert "chunk_kb" in str(exc_info.value)
-        assert "float" in str(exc_info.value)
-        assert "cannot be interpreted as an integer" in str(exc_info.value)
+        assert_integer_type_error(exc_info.value, "chunk_kb")
 
     def test_valid_integer_parameters(self):
         """Test that integer parameters work correctly."""
