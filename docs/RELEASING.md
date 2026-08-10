@@ -1,218 +1,288 @@
 # Releasing sakurs
 
-This document describes the release process for the sakurs project.
-
-## Overview
-
-The release process follows a PR-based workflow:
-- **Release PR**: Version updates and changelog modifications
-- **Tag Creation**: After PR merge, create tag on main branch
-- **Automated Publishing**: GitHub Actions handles package publishing and release creation
+This document describes the PR-based release process for sakurs. A release PR
+prepares immutable version metadata and release notes; an annotated tag on the
+merged commit triggers publishing through GitHub Actions.
 
 ## Prerequisites
 
-Before starting a release:
+Before creating the release PR:
 
-1. **Ensure all tests pass**:
-   ```bash
-   cargo test --workspace
-   cargo fmt --all -- --check
-   cargo clippy --workspace -- -D warnings
-   ```
-
-2. **Update CHANGELOG.md**:
-   - Add a new section for the version
-   - Follow the format: `## [X.Y.Z] - YYYY-MM-DD`
-   - Include all notable changes
-
-3. **Verify package names**:
-   - crates.io: `sakurs-core` (internal library), `sakurs-cli` (user-facing tool)
-   - PyPI: `sakurs`
-   
-   Note: sakurs-core is published as a dependency for sakurs-cli but is not 
-   intended for direct use due to unstable APIs.
-
-4. **Check GitHub Secrets**:
-   - `CARGO_REGISTRY_TOKEN` must be set. crates.io tokens expire after about a year — if
-     `publish-core`/`publish-cli` fail with an authentication error, this is the first thing
-     to check, regardless of how long ago the workflow last worked.
-
-5. **Configure PyPI OIDC** (first release only):
-   - Go to PyPI project settings
-   - Add trusted publisher for GitHub Actions
+1. Confirm that the latest `main` workflows are green.
+2. Confirm that the `CARGO_REGISTRY_TOKEN` repository secret exists. crates.io
+   tokens expire after about a year, so an authentication failure should be
+   treated as a token-rotation issue even if a previous release succeeded.
+3. Confirm that PyPI has the GitHub Actions trusted publisher configured for:
    - Repository: `sog4be/sakurs`
    - Workflow: `.github/workflows/release.yml`
    - Environment: `pypi`
+4. Confirm that a maintainer is available to approve the protected `pypi`
+   environment. OIDC trust and the environment approval are separate: the
+   `upload-pypi` job pauses for manual approval on every release.
+5. Confirm that the target version does not already exist on crates.io, PyPI,
+   or as a GitHub tag. Published versions cannot be overwritten.
 
-   This one-time setup is separate from the `upload-pypi` job's `environment: pypi` gate —
-   that gate requires a maintainer to manually approve the deployment in the Actions UI on
-   **every** release run (Settings → Environments → `pypi`, or the "Review deployments"
-   prompt on the workflow run page). Expect the release workflow to pause at `upload-pypi`
-   until approved.
+The published packages are:
+
+- crates.io: `sakurs-core`, followed by `sakurs-cli`
+- PyPI: `sakurs`
+
+`sakurs-core` is published first because `sakurs-cli` depends on the same
+version of it.
 
 ## Release Steps
 
-### 1. Create Release PR
+### 1. Create the release branch and update versions
 
-Create a new branch and update the version number:
+Start from the latest `main`:
+
 ```bash
-# Create release branch
-git checkout -b chore/release-vX.Y.Z
+git switch main
+git pull --ff-only origin main
+git switch -c chore/release-vX.Y.Z
+```
 
-# The version is managed once in the workspace root Cargo.toml
-# ([workspace.package] version); all three crates inherit it via
-# `version.workspace = true`, and sakurs-py's pyproject.toml reads it
-# dynamically through maturin. Edit the single line:
-# macOS:
-sed -i '' 's/^version = ".*"$/version = "X.Y.Z"/' Cargo.toml
-# Linux: use sed -i without ''
+Update both version declarations that must change for a release:
 
-# Refresh Cargo.lock with the new version
+1. `[workspace.package] version` in the root `Cargo.toml`
+2. The `sakurs-core` dependency version in `sakurs-cli/Cargo.toml`
+
+All three crates inherit their package version through
+`version.workspace = true`, and maturin reads the Python package version from
+the Rust package metadata. The CLI dependency requirement is independent and
+must be updated explicitly.
+
+Refresh `Cargo.lock` after editing the manifests:
+
+```bash
 cargo check --workspace
 ```
 
-### 2. Final Checks
+The expected version-related diff is therefore the root `Cargo.toml`,
+`sakurs-cli/Cargo.toml`, and `Cargo.lock`.
+
+### 2. Finalize the changelog and documentation
+
+Move the current `[Unreleased]` entries into a dated release section and leave
+a new, empty `[Unreleased]` section above it:
+
+```markdown
+## [Unreleased]
+
+## [X.Y.Z] - YYYY-MM-DD
+
+### Changed
+
+- ...
+```
+
+Add or update the link definitions at the bottom of `CHANGELOG.md`:
+
+```markdown
+[Unreleased]: https://github.com/sog4be/sakurs/compare/vX.Y.Z...HEAD
+[X.Y.Z]: https://github.com/sog4be/sakurs/releases/tag/vX.Y.Z
+```
+
+Use the actual release date. Update README files, API examples, compatibility
+notices, and other version-specific documentation in the same release PR. The
+release workflow requires a non-empty `## [X.Y.Z]` changelog section and uses
+that section as the GitHub Release body.
+
+### 3. Run release verification
+
+Run the repository's mandatory checks:
 
 ```bash
-# Verify the workspace version
-grep "^version = " Cargo.toml
-
-# Run final tests
+cargo fmt --all -- --check
+cargo clippy --workspace -- -D warnings
 cargo test --workspace
-cargo publish --dry-run -p sakurs-core
-cargo publish --dry-run -p sakurs-cli
-
-# Update CHANGELOG.md if not already done
-# Ensure the new version section is at the top
+cargo check --workspace
 ```
 
-### 3. Create and Merge PR
+Verify the packages without depending on an unpublished `sakurs-core` version:
 
 ```bash
-# Commit version changes
-git add -A
-git commit -m "chore: release vX.Y.Z
+cargo publish --dry-run --locked -p sakurs-core
+cargo package --no-verify --locked -p sakurs-cli
+```
 
-- Update version from X.Y.Z-dev to X.Y.Z
-- Update CHANGELOG.md for release"
+The CLI uses `cargo package --no-verify` deliberately. A full CLI publish dry
+run attempts to resolve `sakurs-core X.Y.Z` from crates.io before that version
+has been published. The tag workflow packages and publishes the core first,
+then publishes the CLI after the registry has accepted the dependency.
 
-# Push branch
+Verify that locally built artifacts report the exact release version:
+
+```bash
+VERSION=X.Y.Z
+
+test "$(cargo run --quiet -p sakurs-cli -- --version)" = "sakurs $VERSION"
+
+cd sakurs-py
+uv sync --extra test --no-install-project --locked
+uv run --no-sync maturin build --release --features extension-module -o dist
+WHEEL_FILE=$(find dist -type f -name "sakurs-${VERSION}-*.whl" -print -quit)
+test -n "$WHEEL_FILE"
+uv pip install --python .venv/bin/python --force-reinstall "$WHEEL_FILE"
+EXPECTED_VERSION="$VERSION" .venv/bin/python -c \
+  'import os, sakurs; assert sakurs.__version__ == os.environ["EXPECTED_VERSION"]'
+.venv/bin/python -m pytest tests/
+cd ..
+```
+
+### 4. Create and merge the release PR
+
+Commit the release preparation using the repository's conventional commit
+format, push the branch, and create a PR using every section of
+`.github/PULL_REQUEST_TEMPLATE.md`:
+
+```bash
+git status --short
+git diff
+git add -p
+git diff --cached
+git status --short
+git commit -m "chore: release vX.Y.Z"
 git push origin chore/release-vX.Y.Z
-
-# Create PR via GitHub
-gh pr create --title "chore: release vX.Y.Z" \
-  --body "Release vX.Y.Z with the following changes:
-  
-  - [List major changes from CHANGELOG]
-  
-  See CHANGELOG.md for full details."
 ```
 
-Wait for PR approval and CI checks to pass, then merge.
+The PR should summarize user-visible changes, breaking compatibility changes,
+security fixes, package verification, and documentation updates. Wait for the
+required review and all CI checks before merging.
 
-### 4. Create Tag and Trigger Release
+### 5. Tag the merged release commit
 
-After the PR is merged:
+After the release PR is merged, update local `main` and verify that the version
+and changelog at `HEAD` are the intended release state:
+
 ```bash
-# Switch to main and pull latest
-git checkout main
-git pull origin main
+git switch main
+git pull --ff-only origin main
+git status --short
+git log -1 --oneline
+grep '^version = ' Cargo.toml
+```
 
-# Create annotated tag
+Create and push an annotated tag on that exact commit:
+
+```bash
 git tag -a vX.Y.Z -m "Release vX.Y.Z"
-
-# Push tag to trigger automated release
 git push origin vX.Y.Z
 ```
 
-### 5. Monitor Release
+Do not move or recreate a release tag after any registry has accepted a
+package. The tag identifies the immutable source used for all published
+artifacts.
 
-The GitHub Actions workflow will automatically:
-1. Validate the tag format and version consistency
-2. Run tests (formatting, clippy, and unit tests)
-3. Publish `sakurs-core` to crates.io (as dependency)
-4. Publish `sakurs-cli` to crates.io (user-facing tool)
-5. Build Python wheels for Linux x86_64, Windows x64, and both macOS architectures — the
-   macOS x86_64 wheel is cross-compiled on an `macos-14` (ARM) runner, since GitHub retired
-   Intel macOS runners (`macos-13`); there is no separate Intel runner in the matrix. Python
-   wheels target the CPython 3.10 stable ABI (`cp310-abi3`) and support Python 3.10 or later
-6. Upload wheels to PyPI as `sakurs` (**pauses for manual environment approval**, see above)
-7. Create a GitHub release with changelog
+### 6. Monitor the automated release
 
-Monitor the progress at: https://github.com/sog4be/sakurs/actions
+The `Release` workflow will:
 
-### 6. Post-Release
+1. Validate the tag, workspace versions, lockfile, and matching changelog section.
+2. Run formatting, Clippy, Rust tests, and a compilation check.
+3. In parallel, package-check `sakurs-core` and `sakurs-cli` and build all four
+   `cp310-abi3` wheels: Linux x86_64, Windows x86_64, macOS x86_64, and macOS
+   ARM64. The Intel macOS wheel is cross-compiled on an ARM runner.
+4. Publish `sakurs-core` to crates.io after every preflight and wheel build passes.
+5. Publish `sakurs-cli` to crates.io after the core publish succeeds.
+6. Pause for a maintainer to approve the protected `pypi` environment.
+7. Publish the prebuilt wheels to PyPI through OIDC.
+8. Create the GitHub Release only after every package publisher succeeds.
 
-After successful release:
+Monitor the run at <https://github.com/sog4be/sakurs/actions>. Approve the
+`pypi` deployment from the workflow's **Review deployments** prompt when it is
+ready.
 
-1. **Version stays at the released value** until the next release branch
-   bumps it (this repository does not use `-dev` suffixes; the release
-   workflow validates that the tag matches the workspace version, so an
-   interim suffix would break tag validation).
+### 7. Verify the published release
 
-2. **Verify packages**:
-   - Check https://crates.io/crates/sakurs-core (verify it's published but not promoted)
-   - Check https://crates.io/crates/sakurs-cli (main CLI tool)
-   - Check https://pypi.org/project/sakurs/
-   - Test installation: `pip install sakurs` and `cargo install sakurs-cli`
+Check the registry and release pages:
+
+- <https://crates.io/crates/sakurs-core>
+- <https://crates.io/crates/sakurs-cli>
+- <https://pypi.org/project/sakurs/>
+- <https://github.com/sog4be/sakurs/releases>
+
+Then install the exact version from the public registries in a clean temporary
+environment and run small smoke tests:
+
+```bash
+VERSION=X.Y.Z
+SMOKE_ROOT=$(mktemp -d)
+
+python3 -m venv "$SMOKE_ROOT/venv"
+"$SMOKE_ROOT/venv/bin/pip" install "sakurs==$VERSION"
+EXPECTED_VERSION="$VERSION" "$SMOKE_ROOT/venv/bin/python" -c \
+  'import os, sakurs; assert sakurs.__version__ == os.environ["EXPECTED_VERSION"]; assert sakurs.split("One. Two.") == ["One.", "Two."]'
+
+cargo install sakurs-cli --version "$VERSION" --locked --root "$SMOKE_ROOT/cargo"
+"$SMOKE_ROOT/cargo/bin/sakurs" --version
+printf 'One. Two.\n' | "$SMOKE_ROOT/cargo/bin/sakurs" process -i -
+```
+
+Keep the workspace version at the released value until the next release PR;
+this repository does not use a development-version suffix.
 
 ## Troubleshooting
 
-### crates.io Publishing Fails
+### A publish job fails
 
-- **Authentication error**: Verify `CARGO_REGISTRY_TOKEN` is set correctly and hasn't expired
-  (crates.io tokens expire after about a year — this is the most likely cause if the workflow
-  worked on the previous release) and rotate it in repo Settings → Secrets if needed
-- **Version exists**: Version was already published, bump version number
-- **Dependencies**: Ensure all path dependencies are removed
-- **sakurs-core not found**: If sakurs-cli fails, ensure sakurs-core was published first
+Prefer **Re-run failed jobs** on the existing tag workflow. The workflow is
+designed to resume safely: crates.io publishing detects an already-published
+matching version, and the PyPI upload uses `skip-existing`. Allow time for the
+crates.io index to expose a newly published core before retrying a CLI failure.
 
-### PyPI Publishing Fails
+If the failure is caused by an expired `CARGO_REGISTRY_TOKEN`, rotate the
+repository secret and re-run the failed jobs. If it is an OIDC error, verify
+the PyPI trusted publisher's repository, workflow, and environment names, then
+re-run the failed jobs.
 
-- **Workflow appears stuck at `upload-pypi`**: this is expected — the `pypi` environment
-  requires manual approval on every run; approve the deployment in the Actions UI
-- **OIDC error**: Check trusted publisher configuration
-- **Version exists**: Version already published, PyPI doesn't allow overwrites
-- **Wheel building**: Check maturin and PyO3 compatibility
+Do not delete or move the tag to pick up a workflow fix after a partial
+publication. Registry releases are immutable; stop and assess the published
+state before considering any manual recovery or a patch release.
 
-### Partial Release
+### `upload-pypi` is waiting
 
-If some packages fail to publish:
-- The GitHub Release will still be created
-- Manually publish failed packages:
-  ```bash
-  # For crates.io (publish in order)
-  cd sakurs-core && cargo publish
-  # Wait a few seconds for crates.io to index
-  cd ../sakurs-cli && cargo publish
-  
-  # For PyPI (build wheels first)
-  cd sakurs-py
-  maturin build --release
-  twine upload target/wheels/*
-  ```
+This is expected while the protected `pypi` environment awaits maintainer
+approval. Approve the pending deployment in the Actions UI. No registry
+credential is needed because the upload uses OIDC.
+
+### A version already exists
+
+Do not overwrite or reuse it. Confirm which artifacts were published, complete
+an interrupted workflow through failed-job retry where possible, or prepare a
+new patch version.
 
 ## Release Checklist
 
-### Pre-Release PR
-- [ ] All CI checks passing on main branch
-- [ ] CHANGELOG.md updated with new version section
-- [ ] Create release branch `chore/release-vX.Y.Z`
-- [ ] Update version numbers in all Cargo.toml files
-- [ ] Run `cargo test --workspace`
-- [ ] Run `cargo publish --dry-run -p sakurs-core`
-- [ ] Run `cargo publish --dry-run -p sakurs-cli`
-- [ ] Create and merge release PR
+### Release PR
 
-### Release
-- [ ] Pull latest main branch after PR merge
-- [ ] Create annotated tag `vX.Y.Z`
-- [ ] Push tag to trigger automated release
-- [ ] Monitor GitHub Actions workflow
-- [ ] Verify packages on crates.io and PyPI
-- [ ] Verify GitHub Release was created
+- [ ] Latest `main` CI is green
+- [ ] Target version is unused on GitHub, crates.io, and PyPI
+- [ ] Root workspace version updated
+- [ ] `sakurs-cli` dependency on `sakurs-core` updated
+- [ ] `Cargo.lock` refreshed
+- [ ] Dated changelog section added with a new empty `[Unreleased]` section
+- [ ] Version-specific README and API documentation updated
+- [ ] Mandatory Rust checks pass
+- [ ] `sakurs-core` publish dry run passes
+- [ ] `sakurs-cli` package check passes with `--no-verify --locked`
+- [ ] Local CLI and installed wheel report exactly `X.Y.Z`
+- [ ] Python tests pass against the installed wheel
+- [ ] Release PR approved, CI-green, and merged
 
-### Post-Release
-- [ ] Create post-release PR to update documentation and add [Unreleased] section to CHANGELOG.md
-- [ ] Merge post-release PR
-- [ ] Announce release (if applicable)
+### Tag workflow
+
+- [ ] Latest release merge commit checked out on `main`
+- [ ] Annotated `vX.Y.Z` tag pushed once
+- [ ] Validation, tests, core, CLI, and all wheel builds succeed
+- [ ] Protected `pypi` deployment manually approved
+- [ ] PyPI upload succeeds
+- [ ] GitHub Release is created with the intended changelog
+
+### Published artifacts
+
+- [ ] `sakurs-core==X.Y.Z` is available on crates.io
+- [ ] `sakurs-cli==X.Y.Z` is available on crates.io
+- [ ] `sakurs==X.Y.Z` and all four wheels are available on PyPI
+- [ ] Clean, version-pinned Python smoke test passes
+- [ ] Clean, version-pinned CLI smoke test passes
