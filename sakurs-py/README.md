@@ -36,7 +36,7 @@ uv pip install --force-reinstall "$WHEEL_FILE"
 ```
 
 **Requirements**: Python 3.10 or later (tested through Python 3.14). Pre-built
-wheels do not require Rust; building from source requires Rust 1.86 or later.
+wheels do not require Rust; building from source requires Rust 1.88 or later.
 
 ## Quick Start
 

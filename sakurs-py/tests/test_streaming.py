@@ -440,12 +440,17 @@ class TestSplitLargeFile:
         finally:
             os.unlink(temp_path)
 
-    def test_split_large_file_preserves_multibyte_character_at_chunk_boundary(self):
-        """A stateful decoder must join a Shift_JIS character split across reads."""
+    @pytest.mark.parametrize(
+        "encoding", ["shift_jis", "euc-jp", "gbk", "big5", "euc-kr"]
+    )
+    def test_split_large_file_preserves_multibyte_character_at_chunk_boundary(
+        self, encoding
+    ):
+        """Two-byte legacy decoders must preserve characters split across reads."""
         chunk_size = 256 * 1024
-        text = "Hello. " * 37_449 + "あ. Next."
-        encoded = text.encode("shift_jis")
-        encoded_character = "あ".encode("shift_jis")
+        text = "Hello. " * 37_449 + "中. Next."
+        encoded = text.encode(encoding)
+        encoded_character = "中".encode(encoding)
         assert encoded[chunk_size - 1 : chunk_size + 1] == encoded_character
 
         with tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".txt") as f:
@@ -457,12 +462,12 @@ class TestSplitLargeFile:
                 sakurs.split_large_file(
                     temp_path,
                     max_memory_mb=1,
-                    encoding="shift_jis",
+                    encoding=encoding,
                 )
             )
 
             assert sentences == sakurs.split(text)
-            assert sentences[-2:] == ["あ.", "Next."]
+            assert sentences[-2:] == ["中.", "Next."]
         finally:
             os.unlink(temp_path)
 

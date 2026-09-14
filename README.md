@@ -17,7 +17,7 @@
         <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
     </a>
     <a href="https://github.com/sog4be/sakurs">
-        <img src="https://img.shields.io/badge/rust-1.86+-orange.svg" alt="Rust Version">
+        <img src="https://img.shields.io/badge/rust-1.88+-orange.svg" alt="Rust Version">
     </a>
     <a href="https://github.com/sog4be/sakurs/tree/main/sakurs-py">
         <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python Version">
@@ -25,8 +25,8 @@
 </p>
 
 > [!NOTE]
-> **This project is pre-1.0 (currently v0.3.0)**.
-> The 0.3 series is the current pre-1.0 public API; breaking changes are still
+> **This project is pre-1.0 (currently v0.4.0)**.
+> The 0.4 series is the current pre-1.0 public API; breaking changes are still
 > possible before v1.0.0. We welcome feedback and contributions!
 
 ## Table of Contents
