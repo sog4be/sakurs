@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-14
+
+### Changed
+
+- **Breaking**: the workspace minimum supported Rust version (MSRV) is now 1.88
+  to support encoding_rs 0.8.41. Prebuilt Python wheels still require only
+  CPython 3.10 or later; the public API and stable ABI are unchanged.
+- Updated encoding_rs from 0.8.35 to 0.8.41, including upstream fixes for
+  streaming decoder buffer boundaries and panic safety, plus ASCII decoding
+  optimizations.
+- Updated toml to 1.1.6 for reduced parsing allocations, along with the
+  dependency maintenance accumulated since 0.3.0.
+- Updated Python development/test tooling and GitHub Actions dependencies.
+
 ## [0.3.0] - 2026-08-10
 
 This release raises the supported toolchain baselines, resolves two PyO3
@@ -233,7 +247,8 @@ public Rust API and the CPython 3.10 stable ABI (`abi3-py310`) remain unchanged.
 - Safe handling of untrusted text input with bounded memory usage
 - UTF-8 validation at chunk boundaries
 
-[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/sog4be/sakurs/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sog4be/sakurs/releases/tag/v0.3.0
 [0.2.0]: https://github.com/sog4be/sakurs/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sog4be/sakurs/releases/tag/v0.1.0
