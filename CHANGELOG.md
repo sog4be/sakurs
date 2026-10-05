@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-05
+
+### Fixed
+
+- Updated the Python wheels to PyO3 0.29.3, including upstream fixes for
+  crashes during interpreter finalization and class attribute initialization,
+  and fixes to FFI bindings and Windows linking.
+
+### Changed
+
+- Updated smallvec to 1.16.2, encoding_rs to 0.8.42, and thiserror to 2.0.21
+  in the release dependency lockfile.
+- Updated Python development/test tooling and GitHub Actions dependencies.
+- The public API, Rust 1.88 minimum, Python 3.10 minimum, and CPython stable
+  ABI (`abi3-py310`) are unchanged.
+
 ## [0.4.0] - 2026-09-14
 
 ### Changed

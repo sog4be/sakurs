@@ -351,7 +351,7 @@ Yes, within its scope: rule-based segmentation of well-punctuated text, with det
 
 ## Implementation Status
 
-### Current Features (v0.4.0)
+### Current Features (v0.4.1)
 
 - ✅ Δ-Stack Monoid core with deferred judgment and a property-tested sequential-equivalence guarantee
 - ✅ Parallel processing with rayon (parallel scan + parallel reduce)
