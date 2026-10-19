@@ -79,7 +79,7 @@ impl Sentence {
 }
 
 /// Processing statistics and metadata
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct ProcessingMetadata {
     /// Total number of sentences found
