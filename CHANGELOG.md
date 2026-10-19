@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-19
+
+### Fixed
+
+- Updated the Python wheels to PyO3 0.30.1, including upstream fixes for
+  garbage collection of Python classes and Python function call behavior.
+  Removed the redundant `skip_from_py_object` option, which is now the default.
+- Updated TOML handling to 1.1.8, including fixes since 0.4.1 for duplicate-key
+  validation when deserializing tables and key encoding during serialization.
+
+### Changed
+
+- Updated serde_json to 1.0.154 and smallvec to 1.16.3 in the release lockfile.
+- Updated proptest to 1.12.0, Ruff to 0.17.1, and other Python development/test
+  tooling and GitHub Actions dependencies.
+- The public API, Rust 1.88 minimum, Python 3.10 minimum, and CPython stable
+  ABI (`abi3-py310`) are unchanged.
+
 ## [0.4.1] - 2026-10-05
 
 ### Fixed
@@ -263,7 +281,9 @@ public Rust API and the CPython 3.10 stable ABI (`abi3-py310`) remain unchanged.
 - Safe handling of untrusted text input with bounded memory usage
 - UTF-8 validation at chunk boundaries
 
-[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/sog4be/sakurs/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/sog4be/sakurs/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/sog4be/sakurs/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sog4be/sakurs/releases/tag/v0.3.0
 [0.2.0]: https://github.com/sog4be/sakurs/releases/tag/v0.2.0
