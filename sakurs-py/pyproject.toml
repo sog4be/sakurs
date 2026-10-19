@@ -33,7 +33,7 @@ Issues = "https://github.com/sog4be/sakurs/issues"
 
 [project.optional-dependencies]
 dev = [
-    "ruff>=0.15,<0.17",
+    "ruff>=0.15,<0.18",
     "mypy>=2.2,<3.0",
     "types-setuptools",
 ]
