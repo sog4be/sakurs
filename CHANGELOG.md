@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-11-02
+
+### Security
+
+- The Python wheels and locked CLI builds now use crossbeam-epoch 0.9.21
+  through Rayon. Version 0.4.2 locked 0.9.18, which could dereference an
+  invalid pointer when formatting it. See
+  [RUSTSEC-2026-0204](https://rustsec.org/advisories/RUSTSEC-2026-0204.html).
+
+### Fixed
+
+- The Python `benchmark` extra now requires pytest-benchmark 5.3.1 or later
+  in the 5.x series so benchmarks can run with pytest 9.2.
+
+### Changed
+
+- Updated smallvec to 1.16.4 in the release lockfile and refreshed Python
+  development tools and GitHub Actions dependencies.
+
 ## [0.4.2] - 2026-10-19
 
 ### Fixed
@@ -281,7 +300,8 @@ public Rust API and the CPython 3.10 stable ABI (`abi3-py310`) remain unchanged.
 - Safe handling of untrusted text input with bounded memory usage
 - UTF-8 validation at chunk boundaries
 
-[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/sog4be/sakurs/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/sog4be/sakurs/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/sog4be/sakurs/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/sog4be/sakurs/compare/v0.3.0...v0.4.0
