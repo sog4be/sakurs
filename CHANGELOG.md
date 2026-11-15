@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-11-15
+
+### Fixed
+
+- Updated the Python wheels to encoding_rs 0.8.44, including upstream fixes
+  for ISO-2022-JP decoding at output-buffer boundaries, small-buffer decoding
+  after possible BOM bytes, maximum buffer-length queries, and a size-computation
+  panic on 32-bit targets.
+
+### Changed
+
+- Updated toml and toml_writer to 1.2.0 and log to 0.4.35 in the release lockfile.
+- Updated Ruff, types-setuptools, and the coverage workflow's install-action.
+- The public API, Rust 1.88 minimum, Python 3.10 minimum, and CPython stable
+  ABI (`abi3-py310`) are unchanged.
+
 ## [0.4.3] - 2026-11-02
 
 ### Security
@@ -300,7 +316,8 @@ public Rust API and the CPython 3.10 stable ABI (`abi3-py310`) remain unchanged.
 - Safe handling of untrusted text input with bounded memory usage
 - UTF-8 validation at chunk boundaries
 
-[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/sog4be/sakurs/releases/tag/v0.4.4
 [0.4.3]: https://github.com/sog4be/sakurs/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/sog4be/sakurs/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/sog4be/sakurs/compare/v0.4.0...v0.4.1
