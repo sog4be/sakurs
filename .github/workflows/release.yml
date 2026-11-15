@@ -320,10 +320,10 @@ jobs:
           # x86_64 wheel is cross-compiled on an ARM runner instead
           # (maturin passes --target x86_64-apple-darwin to the toolchain).
           - name: macOS x86_64
-            runner: macos-14
+            runner: macos-15
             target: x86_64
           - name: macOS ARM64
-            runner: macos-14
+            runner: macos-15
             target: aarch64
           - name: Windows x86_64
             runner: windows-latest

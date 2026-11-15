@@ -190,7 +190,7 @@ The `Release` workflow will:
    build all four `cp310-abi3` wheels: Linux x86_64, Windows x86_64, macOS
    x86_64, and macOS ARM64. The CLI verification uses a command-local patch for
    the as-yet-unpublished core. The Intel macOS wheel is cross-compiled on an
-   ARM runner.
+   ARM runner (`macos-15`).
 4. Publish `sakurs-core` to crates.io after every preflight and wheel build passes.
 5. Publish `sakurs-cli` to crates.io after the core publish succeeds.
 6. Pause for a maintainer to approve the protected `pypi` environment.

@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated toml and toml_writer to 1.2.0 and log to 0.4.35 in the release lockfile.
 - Updated Ruff, types-setuptools, and the coverage workflow's install-action.
+- Moved macOS release wheel builds to the supported macos-15 runner after
+  GitHub retired macos-14.
 - The public API, Rust 1.88 minimum, Python 3.10 minimum, and CPython stable
   ABI (`abi3-py310`) are unchanged.
 
