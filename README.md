@@ -25,7 +25,7 @@
 </p>
 
 > [!NOTE]
-> **This project is pre-1.0 (currently v0.4.4)**.
+> **This project is pre-1.0 (currently v0.4.5)**.
 > The 0.4 series is the current pre-1.0 public API; breaking changes are still
 > possible before v1.0.0. We welcome feedback and contributions!
 
