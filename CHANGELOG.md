@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-11-24
+
+### Fixed
+
+- Python wheels and locked CLI builds now use regex 1.13.2 for language rules.
+  This includes an upstream fix for incorrect match offsets when alternatives
+  start with the same repetition ([rust-lang/regex#1400](https://github.com/rust-lang/regex/issues/1400)).
+
+### Changed
+
+- Updated the release lockfile to smallvec 1.16.6 and toml 1.2.1.
+- Updated Ruff to 0.17.6, install-action to 2.90.6, and setup-uv to 10.4.0.
+
 ## [0.4.4] - 2026-11-15
 
 ### Fixed
@@ -318,7 +331,8 @@ public Rust API and the CPython 3.10 stable ABI (`abi3-py310`) remain unchanged.
 - Safe handling of untrusted text input with bounded memory usage
 - UTF-8 validation at chunk boundaries
 
-[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/sog4be/sakurs/compare/v0.4.5...HEAD
+[0.4.5]: https://github.com/sog4be/sakurs/releases/tag/v0.4.5
 [0.4.4]: https://github.com/sog4be/sakurs/releases/tag/v0.4.4
 [0.4.3]: https://github.com/sog4be/sakurs/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/sog4be/sakurs/compare/v0.4.1...v0.4.2
